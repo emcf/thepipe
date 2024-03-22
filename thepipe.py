@@ -1,3 +1,4 @@
+import setup
 import argparse
 from extractor import get_all_contents
 from representor import create_compressed_project_context

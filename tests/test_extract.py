@@ -1,4 +1,5 @@
 
+import setup
 import unittest
 import os
 from thepipe import extract  # Assuming thepipe has an extract function
