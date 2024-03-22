@@ -1,4 +1,3 @@
-import base64
 import glob
 import os
 import tempfile
@@ -7,10 +6,7 @@ import zipfile
 from colorama import Fore, Style
 import pandas as pd
 from PIL import Image
-import docx
-import PyPDF2
 import requests
-import win32com.client as win32
 import json
 from pptx import Presentation
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -35,14 +31,6 @@ def read_data(filename, extension):
     content_string = f'Column names and column types:\n{list(zip(colnames, coltypes))}'
     return content_string
 
-def read_pdf(file_path):
-    with open(file_path, 'rb') as file:
-        reader = PyPDF2.PdfReader(file)
-        text = ""
-        for page_num in range(len(reader.pages)):
-            text += reader.pages[page_num].extract_text()
-    return text
-
 def read_text_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         text = file.read()
@@ -56,45 +44,6 @@ def read_image(image_path, use_text=False):
     else:
         with open(image_path, "rb") as image_file:
             return image_file.read()
-    
-def read_docx(file_path):
-    doc = docx.Document(file_path)
-    text = []
-    for paragraph in doc.paragraphs:
-        text.append(paragraph.text)
-    return '\n'.join(text)
-
-def read_doc(file_path):
-    word = win32.gencache.EnsureDispatch('Word.Application')
-    word.Visible = False
-    doc = word.Documents.Open(file_path)
-    text = doc.Content.Text
-    doc.Close()
-    word.Quit()
-    return text
-
-def read_pptx(file_path):
-    presentation = Presentation(file_path)
-    text = []
-    # iterate through slides and shapes to get text
-    for slide in presentation.slides:
-        for shape in slide.shapes:
-            if shape.has_text_frame:
-                for paragraph in shape.text_frame.paragraphs:
-                    for run in paragraph.runs:
-                        text.append(run.text)
-    return '\n'.join(text)
-
-def read_ipynb(file_path):
-    text_representation = ''
-    with open(file_path, 'r', encoding='utf-8') as file:
-        notebook = json.load(file)
-    cells = notebook['cells']
-    for cell in cells:
-        # ignore output cells
-        if cell['cell_type'] == 'code' or cell['cell_type'] == 'markdown':
-            text_representation += '`' + ''.join(cell['source']) + '`\n'
-    return text_representation
 
 def get_content_from_file(filename, use_mathpix = False, use_text = False, verbose = False):
     extension = os.path.splitext(filename)[1].lower()

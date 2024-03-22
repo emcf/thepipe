@@ -1,0 +1,11 @@
+zipfile
+PyPDF2
+langchain-community
+unstructured
+supabase
+magika
+pandas
+colorama
+requests
+pillow
+pytesseract
