@@ -9,7 +9,7 @@ import cssutils
 import json
 import os
 import base64
-from config import CTAGS_COMPATIBLE_EXTENSIONS, LLMLINGUA_COMPATIBLE_EXTENSIONS
+from config import CTAGS_COMPATIBLE_EXTENSIONS, LLMLINGUA_COMPATIBLE_EXTENSIONS, MAX_COMPRESSION_ATTEMPTS, MAX_FILES_TO_COMPRESS_PER_ATTEMPT
 from llmlingua import PromptCompressor
 
 language_map = {
@@ -49,19 +49,17 @@ def create_compressed_project_context(files, token_limit, verbose=False):
                 context['images'].append(img_str)
         return context
     attempts = 0
-    max_attempts = 10
-    k_files_to_compress = 3
     project_context = create_project_context(files)
     token_count = get_token_count(project_context['text'])
     # Compress the project context until it is within the token limit
     while get_token_count(project_context['text']) > token_limit:
-        if attempts >= max_attempts:
-            print(Style.RESET_ALL + Fore.RED + f"Failed to compress project within {max_attempts} attempts. Returning the uncompressed context." + Style.RESET_ALL)
+        if attempts >= MAX_COMPRESSION_ATTEMPTS:
+            print(Style.RESET_ALL + Fore.RED + f"Failed to compress project within {MAX_COMPRESSION_ATTEMPTS} attempts. Returning the uncompressed context." + Style.RESET_ALL)
             return project_context
         if verbose: print(Style.RESET_ALL + Fore.YELLOW + f"Compressing {len(files)} file project ({token_count} tokens) to under {token_limit} tokens..." + Style.RESET_ALL)
         token_count_per_file = {file.filename: get_token_count(file.content) for file in files if isinstance(file.content, str)}
-        top_largest_files = sorted(token_count_per_file, key=token_count_per_file.get, reverse=True)[:k_files_to_compress]
-        if verbose: print(Style.RESET_ALL + Fore.YELLOW + f"Compressing largest {k_files_to_compress} files: {top_largest_files}..." + Style.RESET_ALL)
+        top_largest_files = sorted(token_count_per_file, key=token_count_per_file.get, reverse=True)[:MAX_FILES_TO_COMPRESS_PER_ATTEMPT]
+        if verbose: print(Style.RESET_ALL + Fore.YELLOW + f"Compressing largest {MAX_FILES_TO_COMPRESS_PER_ATTEMPT} files: {top_largest_files}..." + Style.RESET_ALL)
         # Summarize top k largest files using multithreading
         files_to_summarize = [file for file in files if file.filename in top_largest_files]
         for file in files_to_summarize:
@@ -156,5 +154,5 @@ def summarize_content(content, extension):
             return content
         return compressed
     except Exception as e:
-        print(Style.RESET_ALL + Fore.RED + f"Error summarizing content: {e}, returning the original content." + Style.RESET_ALL)
+        print(Style.RESET_ALL + Fore.RED + f"Error compressing content: {e}, returning the original content." + Style.RESET_ALL)
         return content

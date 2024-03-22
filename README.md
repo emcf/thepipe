@@ -2,11 +2,11 @@
 
 [![codecov](https://codecov.io/gh/emcf/thepipe/graph/badge.svg?token=KHD1PDOSHF)](https://codecov.io/gh/emcf/thepipe) ![python-gh-action](https://github.com/emcf/thepipe/actions/workflows/python-ci.yml/badge.svg)
 
-The pipe is a tool for feeding complex real-world data into large language models. The pipe is built on top of dozens of carefully-crafted heuristics to create sensible representations from a wide variety of sources, including code projects, scientific papers, web pages, github repos, data files, databases, and more.
+The pipe is a tool for feeding complex real-world data into large language models. It is built on top of dozens of carefully-crafted heuristics to create sensible representations from a variety of sources, including code projects, scientific papers, web pages, github repos, data files, databases, and more.
 
 ## 🛠️ How it works 
 
-The pipe is accessible from the command line or from python. The input source is either a file path, a URL, .zip, or a directory path. The pipe will extract information from the source and process it for downstream use with LLMs. The output is an opinionated, sensible text-based (or multimodal) representation of the extracted information, carefully crafted to work well with LLMs such as GPT or Claude. It uses a variety of heuristics to optimize the output for tasks such as [AI-native extraction](https://docs.mathpix.com/#process-a-pdf), [LLMLingua](https://arxiv.org/abs/2403.12968), [Ctags](https://en.wikipedia.org/wiki/Ctags), automatic image encoding, and more.
+The pipe is accessible from the command line or from python. The input source is either a file path, a URL, or a directory (or zip file) path. The pipe will extract information from the source and process it for downstream use with LLMs. The output is an opinionated, sensible text-based (or multimodal) representation of the extracted information, carefully crafted to work well with LLMs such as GPT or Claude. It uses a variety of heuristics to optimize the output for tasks such as [AI-native extraction](https://docs.mathpix.com/#process-a-pdf), [LLMLingua](https://arxiv.org/abs/2403.12968), [Ctags](https://en.wikipedia.org/wiki/Ctags), automatic image encoding, and more.
 
 ## 📂 Supported input sources
 
@@ -57,10 +57,11 @@ print(response_content)
 
 ## Heuristics
 
-To optimize the output for downstream tasks, the pipe makes a variety of assumptions, and uses many heuristics to extract the most important information from the input data. Here are some of the most important ones:
+To optimize the output for downstream tasks, the pipe uses a variety of assumptions and heuristics to extract the most important information from the input data, and to format it. Here are some of the most important ones:
 - **Optional [Mathpix](https://docs.mathpix.com/#process-a-pdf) PDF extraction**: Optional, extracts images, tables, and math from PDFs.
 - **[Ctags](https://en.wikipedia.org/wiki/Ctags) token compression**: When the output prompt is too large, automatically extracts essential code structure (functions, classes, variables, types) and throws away the rest.
 - **[LLMLingua](https://arxiv.org/abs/2403.12968) token compression**: When the output prompt is too large, automatically extracts essential tokens, can improve downstream performance by removing noise.
+- **[LITM](https://arxiv.org/abs/2307.03172) Reranking**: Reformats the output to minimize the impact of the "lost in the middle" effect to improve downstream performance with LLMs.
 - **Image resizing, [base64](https://en.wikipedia.org/wiki/Base64) encoding**: Maximum image dimensions are clipped to 512 pixels and encoded in base64 for easy downstream use with vision language models. Can alternatively output a text description of all images with `--text`, or text scraped from all images with `--scrape`.
 - **Ignore Rules**: Sensible out-of-the-box ignore rules for common directories and files that are not useful for downstream tasks, such as `node_modules`, `__pycache__`, `.gitignore`, etc. Feel free to customize these for your own use case by modifying `FILES_TO_IGNORE` in `config.py`.
 

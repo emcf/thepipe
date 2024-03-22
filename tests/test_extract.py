@@ -40,12 +40,13 @@ class TestExtractFunction(unittest.TestCase):
         self.assertIsInstance(result, list)
         self.assertEqual(len(result), 1)
 
-    def test_png_file_text_extraction(self):
-        # Test the extraction from a .png file
-        result = extract(os.path.join(self.files_directory, 'example.png'), use_text=True)
-        self.assertIsInstance(result, list)
-        self.assertEqual(len(result), 1)
-        self.assertIn('Example Text', str(result))
+    # REQUIRES PYTESSERACT INSTALLATION
+    #def test_png_file_text_extraction(self):
+    #    # Test the extraction from a .png file
+    #    result = extract(os.path.join(self.files_directory, 'example.png'), use_text=True)
+    #    self.assertIsInstance(result, list)
+    #    self.assertEqual(len(result), 1)
+    #    self.assertIn('Example Text', str(result))
 
     def test_csv_file(self):
         # Test the extraction from a .csv file
@@ -67,11 +68,12 @@ class TestExtractFunction(unittest.TestCase):
         self.assertIsInstance(result, list)
         self.assertIn('example.txt', str(result)) # should contain extracted file
 
-    def test_ctags_cpp_file(self):
-        # Test extraction and compression from a .cpp file using ctags
-        result = extract(os.path.join(self.files_directory, 'example.cpp'), limit = 20)
-        self.assertIsInstance(result, list)
-        self.assertNotIn('Hello, World!', str(result)) # Should not contain the full code
+    # REQUIRES CTAGS INSTALLATION
+    #def test_ctags_cpp_file(self):
+    #    # Test extraction and compression from a .cpp file using ctags
+    #    result = extract(os.path.join(self.files_directory, 'example.cpp'), limit = 20)
+    #    self.assertIsInstance(result, list)
+    #    self.assertNotIn('Hello, World!', str(result)) # Should not contain the full code
 
 if __name__ == '__main__':
     unittest.main()
