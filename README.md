@@ -6,7 +6,7 @@ The pipe is a tool for feeding complex real-world data into large language model
 
 ## 🛠️ How it works 
 
-The pipe is accessible from the command line or from python. The input source is either a file path, a URL, or a directory path. The pipe will then extract information from the source and process it for downstream use with LLMs. The output is an opinionated, sensible text-based representation of the retrieved data (along with image data if any), carefully crafted to work well with LLMs such as GPT or Claude. 
+The pipe is accessible from the command line or from python. The input source is either a file path, a URL, .zip, or a directory path. The pipe will extract information from the source and process it for downstream use with LLMs. The output is an opinionated, sensible text-based (or multimodal) representation of the extracted information, carefully crafted to work well with LLMs such as GPT or Claude. It uses a variety of heuristics to optimize the output for tasks such as [AI-native extraction](https://docs.mathpix.com/#process-a-pdf), [LLMLingua](https://arxiv.org/abs/2403.12968), [Ctags](https://en.wikipedia.org/wiki/Ctags), automatic image encoding, and more.
 
 ## 📂 Supported input sources
 
@@ -38,8 +38,8 @@ Arguments are:
 - `--source` (required): The input source, can be a file path, a URL, or a directory path.
 - `--output` (required): The output file path.
 - `--limit` (optional): The token limit for the output, defaults to 64K.
-- `--mathpix` (optional): Extract images, tables, and math from PDFs using Mathpix.
-- `--text` (optional): Output text scraped from images instead of base64 encoded images.
+- `--mathpix` (optional): Extract images, tables, and math from PDFs using [Mathpix](https://docs.mathpix.com/#process-a-pdf).
+- `--text` (optional): Output text scraped from images instead of [base64](https://en.wikipedia.org/wiki/Base64) encoded images.
 
 To use The Pipe from Python:
 
@@ -58,10 +58,10 @@ print(response_content)
 ## Heuristics
 
 To optimize the output for downstream tasks, the pipe makes a variety of assumptions, and uses many heuristics to extract the most important information from the input data. Here are some of the most important ones:
-- **Optional Mathpix PDF extraction**: Optional, extracts images, tables, and math from PDFs.
-- **Ctags token compression**: When the output prompt is too large, automatically extracts essential code structure (functions, classes, variables, types) and throws away the rest.
-- **LLMLingua token compression**: When the output prompt is too large, automatically extracts essential tokens, can improve downstream performance by removing noise.
-- **Image resizing, base64 encoding**: Maximum image dimensions are clipped to 512 pixels and encoded in base64 for easy downstream use with vision language models. Can alternatively output a text description of all images with `--text`, or text scraped from all images with `--scrape`.
+- **Optional [Mathpix](https://docs.mathpix.com/#process-a-pdf) PDF extraction**: Optional, extracts images, tables, and math from PDFs.
+- **[Ctags](https://en.wikipedia.org/wiki/Ctags) token compression**: When the output prompt is too large, automatically extracts essential code structure (functions, classes, variables, types) and throws away the rest.
+- **[LLMLingua](https://arxiv.org/abs/2403.12968) token compression**: When the output prompt is too large, automatically extracts essential tokens, can improve downstream performance by removing noise.
+- **Image resizing, [base64](https://en.wikipedia.org/wiki/Base64) encoding**: Maximum image dimensions are clipped to 512 pixels and encoded in base64 for easy downstream use with vision language models. Can alternatively output a text description of all images with `--text`, or text scraped from all images with `--scrape`.
 - **Ignore Rules**: Sensible out-of-the-box ignore rules for common directories and files that are not useful for downstream tasks, such as `node_modules`, `__pycache__`, `.gitignore`, etc. Feel free to customize these for your own use case by modifying `FILES_TO_IGNORE` in `config.py`.
 
 ## License 📜

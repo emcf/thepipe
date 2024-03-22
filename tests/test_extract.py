@@ -7,7 +7,7 @@ class TestExtractFunction(unittest.TestCase):
 
     def setUp(self):
         # Setup path to the 'files' directory for testing
-        self.files_directory = r"C:\Desk\Code\thepipe_old\tests\files"
+        self.files_directory = os.path.join(os.path.dirname(__file__), 'files')
 
     def test_py_file(self):
         # Test the extraction from a .py file
