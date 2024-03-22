@@ -6,4 +6,3 @@ FILES_TO_IGNORE = {'.gitignore', '.bin', '.pyc', '.pyo', '.exe', '.dll', '.obj',
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 MAX_COMPRESSION_ATTEMPTS = 3
 MAX_FILES_TO_COMPRESS_PER_ATTEMPT = 3
-print(GITHUB_TOKEN)

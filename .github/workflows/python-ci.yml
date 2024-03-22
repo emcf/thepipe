@@ -34,7 +34,7 @@ jobs:
     - name: Test with unittest and generate coverage report
       run: |
         coverage run -m unittest discover
-        coverage xml
+        coverage xml -i
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4.0.1
       with:

@@ -6,23 +6,34 @@ The pipe is a tool for feeding complex real-world data into large language model
 
 ## 🛠️ How it works 
 
-The pipe is accessible from the command line or from python. The input source is either a file path, a URL, or a directory (or zip file) path. The pipe will extract information from the source and process it for downstream use with LLMs. The output is an opinionated, sensible text-based (or multimodal) representation of the extracted information, carefully crafted to work well with LLMs such as GPT or Claude. It uses a variety of heuristics to optimize the output for tasks such as [AI-native extraction](https://docs.mathpix.com/#process-a-pdf), [LLMLingua](https://arxiv.org/abs/2403.12968), [Ctags](https://en.wikipedia.org/wiki/Ctags), automatic image encoding, and more.
+The pipe is accessible from the command line or from python. The input source is either a file path, a URL, or a directory (or zip file) path. The pipe will extract information from the source and process it for downstream use with LLMs. The output from the pipe is an opinionated, sensible, text-based (or multimodal) representation of the extracted information, carefully crafted to work well with LLMs such as GPT or Claude. It uses a variety of heuristics to optimize the output for tasks such as [AI-native extraction](https://docs.mathpix.com/#process-a-pdf), [LLMLingua](https://arxiv.org/abs/2403.12968), [Ctags](https://en.wikipedia.org/wiki/Ctags), automatic image encoding, and more.
 
 ## 📂 Supported input sources
 
+### Directories
 - 📁 **Project directories** (any directory)
 - 🗂️ **Zip / Tarballs** (`.zip`, `.tar`, `.gz`)
+
+### Documents
 - 📜 **Code files** (`.py`, `.cpp`, `.ts`, `.css`, `.h`, etc.)
 - 📚 **PDFs** (`.pdf`) (`.pdf` or any input containing `arxiv`, extract images/tables/math with `--mathpix`)
+- 📊 **Spreadsheets** (`.csv`, `.xlsx`)
+- 📜 **Configuration files** (`.yaml`, `.json`, `.xml`, `.ini`, `.xaml`, `.cfg`, `.config`)
 - 📓 **IPython notebooks** (`.ipynb`)
-- 📝 **Word documents** (`.docx`, `.doc`)
+- 📝 **Word documents** (`.docx`)
+- 📊 **Powerpoint presentations** (`.pptx`)
+
+### Media
 - 🖼️ **Images** (`.png`, `.jpg`, `.jpeg`, `.gif`, defaults to base64, alternative `--text`)
+- 📹 **Videos** (`.mp4`, `.avi`, `.mov`, `.webm`, or `youtube.com` url)
+- 🎵 **Audio** (`.mp3`, `.wav`, `.flac`, `.ogg`, `.m4a`)
+- 📺 **Instant Screenshot** (any input containing `screenshot`)
+- 📸 **Webcam Snapshot** (any input containing `webcam`)
+
+### External Sources
 - 🔗 **URLs** (any input containing `http` or `www`, or `.url` shortcut file)
 - 🐙 **GitHub Repositories** (any input containing `github.com`)
-- 📈 **Spreadsheets / Data** (`.csv`, `.xlsx`)
 - 🗃️ **Business Database** (any input containing `supabase`)
-- 📃 **Plaintext files** (`.txt`, `.md`, `.json`, `.yaml`, `.xaml`, `.ini`)
-- 📊 **Powerpoint presentations** (`.pptx`)
 
 ## 🚀 Getting Started
 
