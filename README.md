@@ -1,6 +1,6 @@
 # <img src="https://rpnutzemutbrumczwvue.supabase.co/storage/v1/object/public/assets/pipeline_resized.png" alt="Pipeline Illustration" style="width:96px; height:96px; vertical-align:middle;"> The Pipe
 
-[![codecov](https://codecov.io/gh/emcf/cfp-backend-refactor/graph/badge.svg?token=KHD1PDOSHF)](https://codecov.io/gh/emcf/cfp-backend-refactor) ![python-gh-action](https://github.com/emcf/cfp-backend-refactor/actions/workflows/python-ci.yml/badge.svg)
+[![codecov](https://codecov.io/gh/emcf/thepipe/graph/badge.svg?token=KHD1PDOSHF)](https://codecov.io/gh/emcf/thepipe) ![python-gh-action](https://github.com/emcf/thepipe/actions/workflows/python-ci.yml/badge.svg)
 
 The pipe is a tool for feeding complex real-world data into large language models. The pipe is built on top of dozens of carefully-crafted heuristics to create sensible representations from a wide variety of sources, including code projects, scientific papers, web pages, github repos, data files, databases, and more.
 

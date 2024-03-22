@@ -8,3 +8,5 @@ requests
 pillow
 pytesseract
 cssutils
+beautifulsoup4
+llmlingua
