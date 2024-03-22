@@ -8,9 +8,7 @@ import pandas as pd
 from PIL import Image
 import requests
 import json
-from pptx import Presentation
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from config import TXT_EXTENSIONS, CTAGS_COMPATIBLE_EXTENSIONS
+from config import TXT_EXTENSIONS
 import pytesseract
 from unstructured.partition.auto import partition
 from langchain_community.document_loaders import PlaywrightURLLoader
