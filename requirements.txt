@@ -1,5 +1,7 @@
 langchain-community
-unstructured
+unstructured[all-docs]
+poppler-utils
+python-magic
 supabase
 magika
 pandas
