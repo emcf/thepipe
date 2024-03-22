@@ -7,3 +7,4 @@ colorama
 requests
 pillow
 pytesseract
+cssutils
