@@ -6,7 +6,7 @@ The pipe is a tool for feeding complex real-world data into large language model
 
 ## 🛠️ How it works 
 
-The pipe is accessible from the command line or from [Python](https://www.python.org/downloads/). The input source is either a file path, a URL, or a directory (or zip file) path. The pipe will extract information from the source and process it for downstream use with [LLMs](https://en.wikipedia.org/wiki/Large_language_model). The output from the pipe is an opinionated, sensible, text-based (or multimodal) representation of the extracted information, carefully crafted to scale well in performance for any model size from [GPT-4](https://openai.com/gpt-4) to [gemma-7b](https://huggingface.co/google/gemma-7b). It uses a variety of heuristics to optimize the output for LLMs, including [AI-native document extraction](https://docs.mathpix.com/#process-a-pdf), [efficient token compression](https://arxiv.org/abs/2403.12968), [code compression with Ctags](https://en.wikipedia.org/wiki/Ctags), automatic [image encoding](https://en.wikipedia.org/wiki/Base64), reranking for [LITM](https://arxiv.org/abs/2307.03172) effects, and more, all pre-built to work out-of-the-box.
+The pipe is accessible from the command line or from [Python](https://www.python.org/downloads/). The input source is either a file path, a URL, or a directory (or zip file) path. The pipe will extract information from the source and process it for downstream use with [LLMs](https://en.wikipedia.org/wiki/Large_language_model). The output from the pipe is a sensible text-based (or multimodal) representation of the extracted information, carefully crafted to fit within context windows for any models from [gemma-7b](https://huggingface.co/google/gemma-7b) to [GPT-4](https://openai.com/gpt-4). It uses a variety of heuristics to optimize the output for LLMs, including [AI-native PDF extraction](https://docs.mathpix.com/#process-a-pdf), [efficient token compression](https://arxiv.org/abs/2403.12968), [code compression with Ctags](https://en.wikipedia.org/wiki/Ctags), automatic [image encoding](https://en.wikipedia.org/wiki/Base64), reranking for [LITM](https://arxiv.org/abs/2307.03172) effects, and more, all pre-built to work out-of-the-box.
 
 ## 📂 Supported input sources
 
@@ -60,7 +60,7 @@ response_content = response.choices[0].message.content
 print(response_content)
 ```
 
-## Heuristics
+## ⚖️ Heuristics
 
 To optimize the output for downstream tasks, the pipe uses a variety of assumptions and heuristics to extract the most important information from the input data, and to format it. Here are some of the most important ones:
 - **Optional [Mathpix](https://docs.mathpix.com/#process-a-pdf) PDF extraction**: Optional, extracts images, tables, and math from PDFs.
@@ -68,6 +68,7 @@ To optimize the output for downstream tasks, the pipe uses a variety of assumpti
 - **[LLMLingua](https://arxiv.org/abs/2403.12968) token compression**: When the output prompt is too large, automatically extracts essential tokens, can improve downstream performance by removing noise.
 - **[LITM](https://arxiv.org/abs/2307.03172) Reranking**: Reformats the output to minimize the impact of the "lost in the middle" effect to improve downstream performance with LLMs.
 - **Image resizing, [base64](https://en.wikipedia.org/wiki/Base64) encoding**: Maximum image dimensions are clipped to 512 pixels and encoded in base64 for easy downstream use with vision language models. Can alternatively output a text description of all images with `--text`, or text scraped from all images with `--scrape`.
+- [Unstructured](https://github.com/Unstructured-IO/unstructured) extraction from unknown sources
 - **Ignore Rules**: Sensible out-of-the-box ignore rules for common directories and files that are not useful for downstream tasks, such as `node_modules`, `__pycache__`, `.gitignore`, etc. Feel free to customize these for your own use case by modifying `FILES_TO_IGNORE` in `config.py`.
 
 ## License 📜
