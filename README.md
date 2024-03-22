@@ -52,7 +52,7 @@ Arguments are:
 - `--mathpix` (optional): Extract images, tables, and math from PDFs using [Mathpix](https://docs.mathpix.com/#process-a-pdf).
 - `--text` (optional): Output text scraped from images instead of [base64](https://en.wikipedia.org/wiki/Base64) encoded images.
 
-To use The Pipe from Python:
+Alternatively, to use the pipe from Python:
 
 ```python
 import openai
@@ -60,7 +60,7 @@ import thepipe
 openai_client = openai.OpenAI()
 response = openai_client.chat.completions.create(
     model="gpt-4-vision-preview",
-    messages = thepipe.extract("https://github.com/emcf/engshell"),
+    messages = thepipe.extract("https://github.com/emcf/thepipe"),
 )
 response_content = response.choices[0].message.content
 print(response_content)
@@ -70,7 +70,7 @@ print(response_content)
 
 To optimize the output for downstream tasks, the pipe uses a variety of assumptions and heuristics to extract the most important information from the input data, and to format it. Here are some of the most important ones:
 - **Optional [Mathpix](https://docs.mathpix.com/#process-a-pdf) PDF extraction**: Optional, extracts images, tables, and math from PDFs.
-- **[Ctags](https://en.wikipedia.org/wiki/Ctags) token compression**: When the output prompt is too large, automatically extracts essential code structure (functions, classes, variables, types) and throws away the rest.
+- **[Ctags](https://en.wikipedia.org/wiki/Ctags) token compression**: When the output prompt is too large, automatically extracts essential code structure (functions, classes, variables, types) and throws away the rest. Useful for high-quality coding under strict token constraints.
 - **[LLMLingua](https://arxiv.org/abs/2403.12968) token compression**: When the output prompt is too large, automatically extracts essential tokens, can improve downstream performance by removing noise.
 - **[LITM](https://arxiv.org/abs/2307.03172) Reranking**: Reformats the output to minimize the impact of the "lost in the middle" effect to improve downstream performance with LLMs.
 - **Image resizing, [base64](https://en.wikipedia.org/wiki/Base64) encoding**: Maximum image dimensions are clipped to 512 pixels and encoded in base64 for easy downstream use with vision language models. Can alternatively output a text description of all images with `--text`, or text scraped from all images with `--scrape`.
