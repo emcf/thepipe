@@ -10,30 +10,24 @@ The pipe is accessible from the command line or from [Python](https://www.python
 
 ## 📂 Supported input sources
 
-### Directories
+### Sources
 - 📁 **Project directories** (any directory)
 - 🗂️ **Zip / Tarballs** (`.zip`, `.tar`, `.gz`)
+- 🔗 **URLs** (any input containing `http` or `www`, or `.url` shortcut file)
+- 🐙 **GitHub Repositories** (any input containing `github.com`)
+- 🗃️ **Business Database** (any input containing `supabase`)
 
 ### Documents
 - 📜 **Code files** (`.py`, `.cpp`, `.ts`, `.css`, `.h`, etc.)
 - 📚 **PDFs** (`.pdf`) (`.pdf` or any input containing `arxiv`, extract images/tables/math with `--mathpix`)
+- 🖼️ **Images** (`.png`, `.jpg`, `.jpeg`, `.gif`)
 - 📊 **Spreadsheets** (`.csv`, `.xlsx`)
 - 📜 **Configuration files** (`.yaml`, `.json`, `.xml`, `.ini`, `.xaml`, `.cfg`, `.config`)
 - 📓 **IPython notebooks** (`.ipynb`)
 - 📝 **Word documents** (`.docx`)
 - 📊 **Powerpoint presentations** (`.pptx`)
 
-### Media
-- 🖼️ **Images** (`.png`, `.jpg`, `.jpeg`, `.gif`, defaults to base64, alternative `--text`)
-- 📹 **Videos** (`.mp4`, `.avi`, `.mov`, `.webm`, or `youtube.com` url)
-- 🎵 **Audio** (`.mp3`, `.wav`, `.flac`, `.ogg`, `.m4a`)
-- 📺 **Instant Screenshot** (any input containing `screenshot`)
-- 📸 **Webcam Snapshot** (any input containing `webcam`)
 
-### External Sources
-- 🔗 **URLs** (any input containing `http` or `www`, or `.url` shortcut file)
-- 🐙 **GitHub Repositories** (any input containing `github.com`)
-- 🗃️ **Business Database** (any input containing `supabase`)
 
 ## 🚀 Getting Started
 
