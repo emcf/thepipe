@@ -1,5 +1,3 @@
-zipfile
-PyPDF2
 langchain-community
 unstructured
 supabase
