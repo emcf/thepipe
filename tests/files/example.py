@@ -1,4 +1,6 @@
-def greet():
-    print("Hello, World!")
 
-greet()
+class ExampleClass:
+    def greet():
+        print("Hello, World!")
+
+ExampleClass.greet()

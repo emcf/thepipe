@@ -1,3 +1,4 @@
+Pyarrow
 langchain-community
 unstructured[all-docs]
 poppler-utils
@@ -11,4 +12,7 @@ pillow
 pytesseract
 cssutils
 beautifulsoup4
+pytorch
 llmlingua
+PyMuPDF
+pdf2image
