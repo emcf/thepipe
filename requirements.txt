@@ -13,7 +13,7 @@ pillow
 pytesseract
 cssutils
 beautifulsoup4
-pytorch
+torch
 llmlingua
 PyMuPDF
 pdf2image
