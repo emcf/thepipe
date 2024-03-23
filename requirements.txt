@@ -1,3 +1,4 @@
+docx2txt
 Pyarrow
 langchain-community
 unstructured[all-docs]

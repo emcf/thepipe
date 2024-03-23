@@ -27,6 +27,7 @@ class test_thepipe(unittest.TestCase):
 
     def test_image_to_base64(self):
         image = thepipe.Image.open(os.path.join(self.files_directory, 'example.jpg'))
+        image.load() # needed to close the file
         base64_string = thepipe.image_to_base64(image)
         self.assertEqual(type(base64_string), str)
         # converting back should be the same

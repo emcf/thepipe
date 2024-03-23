@@ -21,6 +21,8 @@ from unstructured.partition.auto import partition
 from langchain_community.document_loaders import PlaywrightURLLoader
 import fitz
 from core import Chunk, print_status, SourceTypes
+import docx2txt
+import tempfile
 
 FILES_TO_IGNORE = {'.gitignore', '.bin', '.pyc', '.pyo', '.exe', '.dll', '.obj', '.o', '.a', '.lib', '.so', '.dylib', '.ncb', '.sdf', '.suo', '.pdb', '.idb', '.pyd', '.ipynb_checkpoints', '.npy', '.pth'} # Files to ignore, please feel free to customize!
 CODE_EXTENSIONS = {'.h', '.json', '.js', '.jsx',  '.cs', '.java', '.html', '.css', '.ini', '.xml', '.yaml', '.xaml', '.sh'} # Plaintext files that should not be compressed with LLMLingua
@@ -56,6 +58,8 @@ def extract_from_file(source_string: str, source_type: str, verbose: bool = Fals
     try:
         if source_type == SourceTypes.PDF:
             extraction = extract_pdf(source_string, mathpix, text_only)
+        elif source_type == SourceTypes.DOCX:
+            extraction = extract_docx(source_string)
         elif source_type == SourceTypes.IMAGE:
             extraction = [extract_image(source_string, text_only)]
         elif source_type == SourceTypes.SPREADSHEET:
@@ -106,17 +110,17 @@ def detect_type(source_string: str) -> Optional[SourceTypes]:
     else:
         return None # want to avoid processing unknown file types
 
-def extract_unstructured(source_name: str) -> List[str]:
+def extract_unstructured(source_name: str) -> List[Chunk]:
     elements = partition(source_name)
     text = "\n\n".join([str(el) for el in elements])
     return Chunk(path=source_name, text=text, image=None, source_type=SourceTypes.PLAINTEXT)
 
-def extract_plaintext(source_name: str) -> List[str]:
+def extract_plaintext(source_name: str) -> List[Chunk]:
     with open(source_name, 'r', encoding='utf-8') as file:
         text = file.read()
     return Chunk(path=source_name, text=text, image=None, source_type=SourceTypes.PLAINTEXT)
 
-def extract_from_directory(source_string: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[str]:
+def extract_from_directory(source_string: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[Chunk]:
     all_files = glob.glob(source_string + "/**/*", recursive=True)
     matched_files = [file for file in all_files if re.search(match, file, re.IGNORECASE)] if match else all_files
     files_to_ignore = {file for file in matched_files if re.search(ignore, file, re.IGNORECASE)} if ignore else []
@@ -130,7 +134,7 @@ def extract_from_directory(source_string: str, match: Optional[str] = None, igno
         contents += extract_from_source(source_string=file_path, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
     return contents
 
-def extract_zip(source_string: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[str]:
+def extract_zip(source_string: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[Chunk]:
     extracted_files = []
     with tempfile.TemporaryDirectory() as temp_dir:
         with zipfile.ZipFile(source_string, 'r') as zip_ref:
@@ -138,7 +142,7 @@ def extract_zip(source_string: str, match: Optional[str] = None, ignore: Optiona
         extracted_files = extract_from_directory(source_string=temp_dir, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
     return extracted_files
 
-def extract_pdf(source_name: str, mathpix: bool = False, text_only: bool = False) -> List[str]:
+def extract_pdf(source_name: str, mathpix: bool = False, text_only: bool = False) -> List[Chunk]:
     content_per_page = []
     if mathpix:
         headers = {
@@ -192,15 +196,16 @@ def extract_pdf(source_name: str, mathpix: bool = False, text_only: bool = False
             doc.close()
     return content_per_page
 
-def extract_image(source_name: str, text_only: bool = False) -> List[str]:
+def extract_image(source_name: str, text_only: bool = False) -> List[Chunk]:
     img = Image.open(source_name)
+    img.load() # needed to close the file
     if text_only:
         text = pytesseract.image_to_string(img)
         return Chunk(path=source_name, text=text, image=None, source_type=SourceTypes.IMAGE)
     else:
         return Chunk(path=source_name, text=None, image=img, source_type=SourceTypes.IMAGE)
     
-def extract_spreadsheet(source_name: str) -> List[str]:
+def extract_spreadsheet(source_name: str) -> List[Chunk]:
     if source_name.endswith(".csv"):
         df = pd.read_csv(source_name)
     elif source_name.endswith(".xls") or source_name.endswith(".xlsx"):
@@ -216,7 +221,7 @@ def extract_spreadsheet(source_name: str) -> List[str]:
     else:
         return Chunk(path=source_name, text=dict_string, image=None, source_type=SourceTypes.SPREADSHEET)
     
-def extract_url(url: str, text_only: bool = False) -> List[str]:
+def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
     loader = PlaywrightURLLoader(urls=[url])
     data = loader.load()  
     text = "\n\n".join([str(el.page_content) for el in data])
@@ -225,7 +230,7 @@ def extract_url(url: str, text_only: bool = False) -> List[str]:
         pass
     return Chunk(path=url, text=text, image=None, source_type=SourceTypes.URL)
 
-def extract_github(github_url: str, file_path: str = '', match: Optional[str] = None, ignore: Optional[str] = None, text_only: bool = False, mathpix: bool = False, branch: str = 'main', verbose: bool = False) -> List[str]:
+def extract_github(github_url: str, file_path: str = '', match: Optional[str] = None, ignore: Optional[str] = None, text_only: bool = False, mathpix: bool = False, branch: str = 'main', verbose: bool = False) -> List[Chunk]:
     files_contents = []
     if not GITHUB_TOKEN:
         raise ValueError("GITHUB_TOKEN environment variable is not set.")
@@ -274,3 +279,28 @@ def extract_github(github_url: str, file_path: str = '', match: Optional[str] = 
         elif item['type'] == 'dir':
             files_contents += extract_github(github_url=github_url, file_path=path, match=match, text_only=text_only, mathpix=mathpix, branch=branch, verbose=verbose)
     return files_contents
+
+def extract_docx(source_name: str) -> List[Chunk]:
+    # make new temp image directory
+    chunks = []
+    temp_image_dir = tempfile.mkdtemp()
+    print('processing')
+    text = docx2txt.process(source_name, temp_image_dir)
+    chunks.append(Chunk(path=source_name, text=text, image=None, source_type=SourceTypes.DOCX))
+    for image_name in os.listdir(temp_image_dir):
+        print(image_name)
+        image_path = os.path.join(temp_image_dir, image_name)
+        print('attempgin to open')
+        image = Image.open(image_path)
+        image.load() # needed to close the file
+        print("appending")
+        chunks.append(Chunk(path=source_name, text=None, image=image, source_type=SourceTypes.DOCX))
+    # if temp dir exists, remove images and it
+    print('attempting delete')
+    if os.path.exists(temp_image_dir):
+        for image_name in os.listdir(temp_image_dir):
+            image_path = os.path.join(temp_image_dir, image_name)
+            os.remove(image_path)
+        os.rmdir(temp_image_dir)
+    print('done')
+    return chunks

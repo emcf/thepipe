@@ -58,14 +58,14 @@ print(response_content)
 | Source Type                           | Input types        | Token Compression 🗜️ | Image Extraction 👁️ | Notes 📌                                                  |
 |---------------------------------------|------------------------------------------|-------------------|------------------|---------------------------------------------------------|
 | Directory                             | Any `/path/to/directory`                 | Yes               | No               | Extracts from all files in directory, supports match and ignore patterns |
-| Code                                  | `.h`, `.json`, `.js`, `.jsx`, `.ts`, `.tsx`, `.cs`, `.java`, `.html`, `.css`, `.ini`, `.xml`, `.yaml`, `.xaml`, `.sh`, `.c`, `.cpp`, `.py` | Varies (ctags)   | No               | Combines all code files. `.c`, `.cpp`, `.py` are compressible with ctags, others are not |
-| Plaintext                             | `.txt`, `.md`, `.rtf`                    | Yes               | No               | Regular text files                                                      |
+| Code                                  | `.py`, `.tsx`, `.js`, `.html`, `.css`, `.cpp`, etc | Varies (ctags)   | No               | Combines all code files. `.c`, `.cpp`, `.py` are compressible with ctags, others are not |
+| Plaintext                             | `.txt`, `.md`, `.rtf`, etc               | Yes               | No               | Regular text files                                                      |
 | PDF                                   | `.pdf`                                  | Yes               | Yes (Optional)   | Extracts text and optionally images; can use Mathpix for enhanced extraction |
 | Image                                 | `.jpg`, `.jpeg`, `.png`, `.gif`, `.bmp`, `.tiff`, `.webp`, `.svg` | No                | Yes              | Extracts images and can convert to text using OCR                        |
-| Spreadsheet                           | `.csv`, `.xls`, `.xlsx`                  | No                | No               | Extracts data from spreadsheets; converts to text representation         |
-| Jupyter Notebook                      | `.ipynb`                                | Yes               | No               | Extracts content from Jupyter notebooks                                  |
+| Spreadsheet                           | `.csv`, `.xls`, `.xlsx`                  | Yes                | No               | Extracts data from spreadsheets; converts to text representation         |
+| Jupyter Notebook                      | `.ipynb`                                | No               | No               | Extracts content from Jupyter notebooks                                  |
 | Microsoft Word Document               | `.docx`                                 | Yes               | No               | Extracts text from Word documents                                        |
-| Microsoft PowerPoint Presentation     | `.pptx`                                 | Yes               | No               | Extracts text from PowerPoint presentations                              |
-| Website                               | URLs (http, https, www, ftp)             | No                | Yes (Optional)   | Extracts content from web pages; text-only extraction available          |
-| GitHub Repository                     | GitHub repo URLs                         | Yes               | No               | Extracts from GitHub repositories; supports branch specification         |
-| ZIP File                              | `.zip`                                  | Yes               | No               | Extracts contents of ZIP files; supports nested directory extraction     |
+| Microsoft PowerPoint Presentation     | `.pptx`                                 | Yes               | Yes               | Extracts text from PowerPoint presentations                              |
+| Website                               | URLs (http, https, www, ftp)             | Yes                | Yes (Optional)   | Extracts content from web pages; text-only extraction available          |
+| GitHub Repository                     | GitHub repo URLs                         | Yes               | Yes (Optional)               | Extracts from GitHub repositories; supports branch specification         |
+| ZIP File                              | `.zip`                                  | Yes               | Yes (Optional)               | Extracts contents of ZIP files; supports nested directory extraction     |
