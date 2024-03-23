@@ -64,7 +64,7 @@ print(response_content)
 | Image                                 | `.jpg`, `.jpeg`, `.png`, `.gif`, `.bmp`, `.tiff`, `.webp`, `.svg` | No                | Yes              | Extracts images and can convert to text using OCR                        |
 | Spreadsheet                           | `.csv`, `.xls`, `.xlsx`                  | Yes                | No               | Extracts data from spreadsheets; converts to text representation         |
 | Jupyter Notebook                      | `.ipynb`                                | No               | No               | Extracts content from Jupyter notebooks                                  |
-| Microsoft Word Document               | `.docx`                                 | Yes               | No               | Extracts text from Word documents                                        |
+| Microsoft Word Document               | `.docx`                                 | Yes               | Yes (Optional)               | Extracts text from Word documents                                        |
 | Microsoft PowerPoint Presentation     | `.pptx`                                 | Yes               | Yes               | Extracts text from PowerPoint presentations                              |
 | Website                               | URLs (http, https, www, ftp)             | Yes                | Yes (Optional)   | Extracts content from web pages; text-only extraction available          |
 | GitHub Repository                     | GitHub repo URLs                         | Yes               | Yes (Optional)               | Extracts from GitHub repositories; supports branch specification         |
