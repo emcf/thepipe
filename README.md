@@ -1,9 +1,9 @@
 # <a href="https://thepi.pe/"><img src="https://rpnutzemutbrumczwvue.supabase.co/storage/v1/object/public/assets/pipeline_small%20(1).png" alt="Pipeline Illustration" style="width:96px; height:72px; vertical-align:middle;"> The Pipe</a>
 [![codecov](https://codecov.io/gh/emcf/thepipe/graph/badge.svg?token=OE7CUEFUL9)](https://codecov.io/gh/emcf/thepipe) ![python-gh-action](https://github.com/emcf/thepipe/actions/workflows/python-ci.yml/badge.svg)
 
-**The pipe is a multimodal-first tool for feeding real-world information into large language models**. It is built on top of dozens of carefully-crafted heuristics to create sensible representations from complex sources, including files, directories, scientific papers, web pages, github repos, etc. 
+The pipe is a multimodal-first tool for feeding real-world information into large language models. It is built on top of dozens of carefully-crafted heuristics to create sensible text + image representations of files, directories, web pages, papers, github repos, etc. 
 
-![The Pipe](https://ngrdaaykhfrmtpodlakn.supabase.co/storage/v1/object/public/assets/demo_files.gif)
+![Demo](https://ngrdaaykhfrmtpodlakn.supabase.co/storage/v1/object/public/assets/demo.gif?t=2024-03-24T19%3A13%3A46.695Z)
 
 ## Features 🌟
 
@@ -60,7 +60,7 @@ import thepipe
 openai_client = openai.OpenAI()
 response = openai_client.chat.completions.create(
     model="gpt-4-vision-preview",
-    messages = thepipe.extract("https://github.com/emcf/thepipe"),
+    messages = thepipe.make_prompt_from_source("https://github.com/emcf/thepipe"),
 )
 ```
 

@@ -107,8 +107,8 @@ class test_thepipe(unittest.TestCase):
             text = file.read()
         self.assertIn('Hello, World!', text)
 
-    def test_create_prompt_from_source(self):
-        final_prompt = thepipe.create_prompt_from_source(source=self.files_directory+"/example.md")
+    def test_make_prompt_from_source(self):
+        final_prompt = thepipe.make_prompt_from_source(source=self.files_directory+"/example.md")
         self.assertEqual(type(final_prompt), list)
         self.assertNotEqual(len(final_prompt), 0)
         self.assertEqual(type(final_prompt[0]), dict)

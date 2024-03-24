@@ -48,7 +48,7 @@ def save_outputs(chunks: List[Chunk], verbose: bool = False, text_only: bool = F
         file.write(text)
     if verbose: print_status(f"Output {len(text)/4} tokens and {n_images} images to 'outputs'", status='success')
 
-def create_prompt_from_source(source: str, match: Optional[str] = None, ignore: Optional[str] = None, limit: int = 1e5, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[Dict]:
+def make_prompt_from_source(source: str, match: Optional[str] = None, ignore: Optional[str] = None, limit: int = 1e5, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[Dict]:
     chunks = extract.extract_from_source(source=source, match=match, ignore=ignore, limit=limit, mathpix=mathpix, text_only=text_only, verbose=verbose)
     chunks = compress.compress_chunks(chunks=chunks, verbose=verbose, limit=limit)
     final_prompt = create_messages_from_chunks(chunks)

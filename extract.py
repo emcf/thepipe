@@ -182,7 +182,7 @@ def extract_pdf(file_path: str, mathpix: bool = False, text_only: bool = False, 
                  # clean result to unicode error (normalize text and remove all special characters)
                 text = response.content.decode("utf-8").encode("ASCII", "ignore").decode("utf-8", "ignore")
                 chunks.append(Chunk(path=file_path, text=text, image=None, source_type=SourceTypes.PDF))
-                # extract markdown images from the string
+                # extract markdown images from the 
                 image_urls = re.findall(r"!\[.*?\]\((.*?)\)", text)
                 for url in image_urls:
                     img = Image.open(requests.get(url, stream=True).raw)
