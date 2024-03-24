@@ -45,42 +45,42 @@ def extract_from_source(source_string: str, match: Optional[str] = None, ignore:
     if source_type == SourceTypes.DIR or source_string == '.' or source_string == './':
         if source_string == '.' or source_string == './':
             source_string = os.getcwd()
-        return extract_from_directory(source_string=source_string, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
+        return extract_from_directory(dir_path=source_string, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
     elif source_type == SourceTypes.GITHUB:
         return extract_github(github_url=source_string, file_path='', match=match, ignore=ignore, text_only=text_only, verbose=verbose, mathpix=mathpix, branch='master')
     elif source_type == SourceTypes.ZIP:
-        return extract_zip(source_string=source_string, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
+        return extract_zip(file_path=source_string, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
     elif source_type == SourceTypes.URL:
         return [extract_url(url=source_string, text_only=text_only)]
-    return extract_from_file(source_string=source_string, source_type=source_type, verbose=verbose, mathpix=mathpix, text_only=text_only)
+    return extract_from_file(file_path=source_string, source_type=source_type, verbose=verbose, mathpix=mathpix, text_only=text_only)
 
-def extract_from_file(source_string: str, source_type: str, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[str]:
+def extract_from_file(file_path: str, source_type: str, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[str]:
     try:
         if source_type == SourceTypes.PDF:
-            extraction = extract_pdf(source_string, mathpix, text_only)
+            extraction = extract_pdf(file_path=file_path, mathpix=mathpix, text_only=text_only, verbose=verbose)
         elif source_type == SourceTypes.DOCX:
-            extraction = extract_docx(source_string)
+            extraction = extract_docx(file_path=file_path)
         elif source_type == SourceTypes.PPTX:
-            extraction = extract_pptx(source_string)
+            extraction = extract_pptx(file_path=file_path)
         elif source_type == SourceTypes.IMAGE:
-            extraction = [extract_image(source_string, text_only)]
+            extraction = [extract_image(file_path=file_path, text_only=text_only)]
         elif source_type == SourceTypes.SPREADSHEET:
-            extraction = [extract_spreadsheet(source_string)]
+            extraction = [extract_spreadsheet(file_path=file_path)]
         elif source_type == SourceTypes.PLAINTEXT:
-            extraction = [extract_plaintext(source_string)]
+            extraction = [extract_plaintext(file_path=file_path)]
         elif source_type == SourceTypes.UNCOMPRESSIBLE_CODE:
-            extraction = [extract_plaintext(source_string)]
+            extraction = [extract_plaintext(file_path=file_path)]
             extraction = [Chunk(path=e.path, text=e.text, image=None, source_type=SourceTypes.UNCOMPRESSIBLE_CODE) for e in extraction] # change types to code
         elif source_type == SourceTypes.COMPRESSIBLE_CODE:
-            extraction = [extract_plaintext(source_string)]
+            extraction = [extract_plaintext(file_path=file_path)]
             extraction = [Chunk(path=e.path, text=e.text, image=None, source_type=SourceTypes.COMPRESSIBLE_CODE) for e in extraction]
         else:
-            extraction = [extract_unstructured(source_string)]
-        if verbose: print_status(f"Extracted from {source_string}", status='success')
+            extraction = [extract_unstructured(file_path=file_path)]
+        if verbose: print_status(f"Extracted from {file_path}", status='success')
         return extraction
     except Exception as e:
-        if verbose: print_status(f"Failed to extract from {source_string}: {e}", status='error')
-        return [Chunk(path=source_string)]
+        if verbose: print_status(f"Failed to extract from {file_path}: {e}", status='error')
+        return [Chunk(path=file_path)]
 
 def detect_type(source_string: str) -> Optional[SourceTypes]:
     if source_string.startswith("https://github.com"):
@@ -112,18 +112,18 @@ def detect_type(source_string: str) -> Optional[SourceTypes]:
     else:
         return None # want to avoid processing unknown file types
 
-def extract_unstructured(source_name: str) -> List[Chunk]:
-    elements = partition(source_name)
+def extract_unstructured(file_path: str) -> List[Chunk]:
+    elements = partition(file_path)
     text = "\n\n".join([str(el) for el in elements])
-    return Chunk(path=source_name, text=text, image=None, source_type=SourceTypes.PLAINTEXT)
+    return Chunk(path=file_path, text=text, image=None, source_type=SourceTypes.PLAINTEXT)
 
-def extract_plaintext(source_name: str) -> List[Chunk]:
-    with open(source_name, 'r', encoding='utf-8') as file:
+def extract_plaintext(file_path: str) -> List[Chunk]:
+    with open(file_path, 'r', encoding='utf-8') as file:
         text = file.read()
-    return Chunk(path=source_name, text=text, image=None, source_type=SourceTypes.PLAINTEXT)
+    return Chunk(path=file_path, text=text, image=None, source_type=SourceTypes.PLAINTEXT)
 
-def extract_from_directory(source_string: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[Chunk]:
-    all_files = glob.glob(source_string + "/**/*", recursive=True)
+def extract_from_directory(dir_path: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[Chunk]:
+    all_files = glob.glob(dir_path + "/**/*", recursive=True)
     matched_files = [file for file in all_files if re.search(match, file, re.IGNORECASE)] if match else all_files
     files_to_ignore = {file for file in matched_files if re.search(ignore, file, re.IGNORECASE)} if ignore else []
     file_paths = [file for file in matched_files if os.path.isfile(file) and file not in files_to_ignore]
@@ -136,85 +136,85 @@ def extract_from_directory(source_string: str, match: Optional[str] = None, igno
         contents += extract_from_source(source_string=file_path, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
     return contents
 
-def extract_zip(source_string: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[Chunk]:
+def extract_zip(file_path: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[Chunk]:
     extracted_files = []
     with tempfile.TemporaryDirectory() as temp_dir:
-        with zipfile.ZipFile(source_string, 'r') as zip_ref:
+        with zipfile.ZipFile(file_path, 'r') as zip_ref:
             zip_ref.extractall(temp_dir)
-        extracted_files = extract_from_directory(source_string=temp_dir, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
+        extracted_files = extract_from_directory(dir_path=temp_dir, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
     return extracted_files
 
-def extract_pdf(source_name: str, mathpix: bool = False, text_only: bool = False) -> List[Chunk]:
-    content_per_page = []
+def extract_pdf(file_path: str, mathpix: bool = False, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
+    chunks = []
     if mathpix:
+        base_url = "https://api.mathpix.com/v3/pdf/"
+        # extract text images, equations, and tables from the PDF using Mathpix
         headers = {
             "app_id": MATHPIX_APP_ID,
             "app_key": MATHPIX_APP_KEY,
-            "Content-type": "application/json",
         }
-        r = requests.post(
-            "https://api.mathpix.com/v3/pdf",
-            json={
-                "url": source_name,
-                "math_inline_delimiters": ["$", "$"],
-                "math_display_delimiters": ["$$", "$$"]
-            },
-            headers=headers,
-        )
-        mathpix_id = r.json()["pdf_id"]
-        processed_url = f"https://api.mathpix.com/v3/pdf/{mathpix_id}.mmd"
-        response = requests.get(processed_url, headers=headers)
-        for tries in range(10):
-            time.sleep(60/MATHPIX_CALLS_PER_MIN)
-            response = requests.get(processed_url, headers=headers)
-            if response.status_code == 200:
-                break
-        if response.status_code != 200:
-            raise Exception(f"Mathpix failed to process the PDF: {response.text}")
-        # clean result to unicode error (normalize text and remove all special characters)
-        text = response.text
-        text = (
-            unicodedata.normalize("NFKD", text)
-            .encode("ASCII", "ignore")
-            .decode("utf-8", "ignore")
-        )
-        content_per_page.append((text, None))
-        # extract markdown images from the string
-        image_urls = re.findall(r"!\[.*?\]\((.*?)\)", text)
-        for url in image_urls:
-            img = Image.open(requests.get(url, stream=True).raw)
-            content_per_page.append(Chunk(path=url, text=None, image=img, source_type=SourceTypes.IMAGE))
+        data = {"options_json": json.dumps({
+            "conversion_formats": {"md": True},
+        })}
+        with open(file_path, "rb") as f:
+            files = {"file": f}
+            response = requests.post(base_url, headers=headers, files=files, data=data)
+        response_data = response.json()
+        pdf_id = response_data["pdf_id"]
+        # check if the processing is completed every 5 seconds
+        for _ in range(10):
+            response = requests.get(base_url + pdf_id, headers=headers)
+            response_data = response.json()
+            status = response_data.get("status", None)
+            if status == "completed":
+                response = requests.get(f"{base_url}{pdf_id}.md", headers=headers)
+                 # clean result to unicode error (normalize text and remove all special characters)
+                text = response.content.decode("utf-8").encode("ASCII", "ignore").decode("utf-8", "ignore")
+                chunks.append(Chunk(path=file_path, text=text, image=None, source_type=SourceTypes.PDF))
+                # extract markdown images from the string
+                image_urls = re.findall(r"!\[.*?\]\((.*?)\)", text)
+                for url in image_urls:
+                    img = Image.open(requests.get(url, stream=True).raw)
+                    chunks.append(Chunk(path=url, text=None, image=img, source_type=SourceTypes.IMAGE))
+                return chunks
+            elif status == "error":
+                raise ValueError("Unable to retrieve PDF from Mathpix")
+            else:
+                if verbose: print_status(f"Waiting for processing to complete...")
+                time.sleep(5)
+        raise TimeoutError("Mathpix processing took too long.")
     else:
-        with open(source_name, 'rb') as file:
-            doc = fitz.open(source_name)
+        # extract text and images of each page from the PDF
+        with open(file_path, 'rb') as file:
+            doc = fitz.open(file_path)
             for page in doc:
                 text = page.get_text()
-                if not text_only:
+                if text_only:
+                    chunks.append(Chunk(path=file_path, text=text, image=None, source_type=SourceTypes.PDF))
+                else:
                     pix = page.get_pixmap()
                     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    content_per_page.append(Chunk(path=source_name, text=text, image=img,source_type=SourceTypes.PDF))
-                else:
-                    content_per_page.append(Chunk(path=source_name, text=text, image=None, source_type=SourceTypes.PDF))
+                    chunks.append(Chunk(path=file_path, text=text, image=img,source_type=SourceTypes.PDF))
             doc.close()
-    return content_per_page
+    return chunks
 
-def extract_image(source_name: str, text_only: bool = False) -> List[Chunk]:
-    img = Image.open(source_name)
+def extract_image(file_path: str, text_only: bool = False) -> List[Chunk]:
+    img = Image.open(file_path)
     img.load() # needed to close the file
     if text_only:
         text = pytesseract.image_to_string(img)
-        return Chunk(path=source_name, text=text, image=None, source_type=SourceTypes.IMAGE)
+        return Chunk(path=file_path, text=text, image=None, source_type=SourceTypes.IMAGE)
     else:
-        return Chunk(path=source_name, text=None, image=img, source_type=SourceTypes.IMAGE)
+        return Chunk(path=file_path, text=None, image=img, source_type=SourceTypes.IMAGE)
     
-def extract_spreadsheet(source_name: str) -> List[Chunk]:
-    if source_name.endswith(".csv"):
-        df = pd.read_csv(source_name)
-    elif source_name.endswith(".xls") or source_name.endswith(".xlsx"):
-        df = pd.read_excel(source_name)
+def extract_spreadsheet(file_path: str) -> List[Chunk]:
+    if file_path.endswith(".csv"):
+        df = pd.read_csv(file_path)
+    elif file_path.endswith(".xls") or file_path.endswith(".xlsx"):
+        df = pd.read_excel(file_path)
     dict = df.to_dict(orient='records')
     json_dict = json.dumps(dict, indent=4)
-    return Chunk(path=source_name, text=json_dict, image=None, source_type=SourceTypes.SPREADSHEET)
+    return Chunk(path=file_path, text=json_dict, image=None, source_type=SourceTypes.SPREADSHEET)
     
 def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
     #os.system("python3 -m playwright install")
@@ -274,7 +274,7 @@ def extract_github(github_url: str, file_path: str = '', match: Optional[str] = 
                 temp_file.write(file_content_request.content)
                 source_type = detect_type(temp_file_path)
                 if source_type is not None:
-                    extractions = extract_from_file(source_string=temp_file_path, source_type=source_type, text_only=text_only, verbose=verbose, mathpix=mathpix)
+                    extractions = extract_from_file(file_path=temp_file_path, source_type=source_type, text_only=text_only, verbose=verbose, mathpix=mathpix)
                     for extraction in extractions:
                         extraction.path = path # use github path, not temp path
                     files_contents += extractions
@@ -283,17 +283,17 @@ def extract_github(github_url: str, file_path: str = '', match: Optional[str] = 
             files_contents += extract_github(github_url=github_url, file_path=path, match=match, text_only=text_only, mathpix=mathpix, branch=branch, verbose=verbose)
     return files_contents
 
-def extract_docx(source_name: str) -> List[Chunk]:
+def extract_docx(file_path: str) -> List[Chunk]:
     # make new temp image directory
     chunks = []
     temp_image_dir = tempfile.mkdtemp()
-    text = docx2txt.process(source_name, temp_image_dir)
-    chunks.append(Chunk(path=source_name, text=text, image=None, source_type=SourceTypes.DOCX))
+    text = docx2txt.process(file_path, temp_image_dir)
+    chunks.append(Chunk(path=file_path, text=text, image=None, source_type=SourceTypes.DOCX))
     for image_name in os.listdir(temp_image_dir):
         image_path = os.path.join(temp_image_dir, image_name)
         image = Image.open(image_path)
         image.load() # needed to close the file
-        chunks.append(Chunk(path=source_name, text=None, image=image, source_type=SourceTypes.DOCX))
+        chunks.append(Chunk(path=file_path, text=None, image=image, source_type=SourceTypes.DOCX))
     # if temp dir exists, remove images and it
     if os.path.exists(temp_image_dir):
         for image_name in os.listdir(temp_image_dir):
@@ -302,8 +302,8 @@ def extract_docx(source_name: str) -> List[Chunk]:
         os.rmdir(temp_image_dir)
     return chunks
 
-def extract_pptx(source_name: str) -> List[Chunk]:
-    prs = Presentation(source_name)
+def extract_pptx(file_path: str) -> List[Chunk]:
+    prs = Presentation(file_path)
     chunks = []
     # parse shapes inside slides
     for slide in prs.slides:
@@ -317,7 +317,7 @@ def extract_pptx(source_name: str) -> List[Chunk]:
                 image_data = shape.image.blob
                 image = Image.open(BytesIO(image_data))
                 slide_images.append(image)
-        chunks.append(Chunk(path=source_name, text=slide_text, image=None, source_type=SourceTypes.PPTX))
+        chunks.append(Chunk(path=file_path, text=slide_text, image=None, source_type=SourceTypes.PPTX))
         for image in slide_images:
-            chunks.append(Chunk(path=source_name, text=None, image=image, source_type=SourceTypes.PPTX))
+            chunks.append(Chunk(path=file_path, text=None, image=image, source_type=SourceTypes.PPTX))
     return chunks

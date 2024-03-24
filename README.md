@@ -27,22 +27,26 @@ npm install
 npx playwright install --with-deps
 ```
 
-Windows users are given a ctags executable, but Linux users must install it with
+Linux users can install ctags with
 ```bash
 sudo apt-get install -y universal-ctags
 ```
 
+Windows users must place [ctags.exe](https://github.com/universal-ctags/ctags-win32/releases) in the root directory of the repository.
+
+
 To use The Pipe from the command line, simply run
 
 ```bash
-python thepipe.py path/to/directory --limit 100000
+python thepipe.py path/to/directory
 ```
 
 This command will process all supported files within the specified directory, compressing any information over the token limit if necessary, and outputting the resulting prompt and images to a folder.
 
 Arguments are:
 - The input source (required): can be a file path, a URL, or a directory path.
-- `--match` (optional): Glob pattern to match files in the directory.
+- `--match` (optional): Regex pattern to match files in the directory.
+- `--ignore` (optional): Regex pattern to ignore files in the directory.
 - `--limit` (optional): The token limit for the output prompt, defaults to 100K. Prompts exceeding the limit will be compressed.
 - `--mathpix` (optional): Extract images, tables, and math from PDFs using [Mathpix](https://docs.mathpix.com/#process-a-pdf).
 - `--text_only` (optional): Do not extract images from documents or websites. Additionally, image files will be represented with OCR instead of as images.
