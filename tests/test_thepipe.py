@@ -85,3 +85,11 @@ class test_thepipe(unittest.TestCase):
         with open('outputs/prompt.txt', 'r', encoding='utf-8') as file:
             text = file.read()
         self.assertIn('Hello, World!', text)
+
+    def create_prompt_from_source(self):
+        final_prompt = thepipe.create_prompt_from_source(source_string=self.files_directory+"/example.md")
+        self.assertEqual(type(final_prompt), list)
+        self.assertNotEqual(len(final_prompt), 0)
+        self.assertEqual(type(final_prompt[0]), dict)
+        # verify it still contains vital information from the markdown file
+        self.assertIn('markdown', str(final_prompt).lower())

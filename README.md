@@ -12,21 +12,24 @@ The pipe is a multimodal-first tool for feeding real-world information into larg
 - Multi-threaded ⚡️
 - Works with missing file extensions, in-memory data streams 💾
 - Works with directories, URL, git repos, and more 🌐
+
 ##  How it works 🛠️
 
 The pipe is accessible from the command line or from [Python](https://www.python.org/downloads/). The input source is either a file path, a URL, or a directory (or zip file) path. The pipe will extract information from the source and process it for downstream use with [language models](https://en.wikipedia.org/wiki/Large_language_model), [vision transformers](https://en.wikipedia.org/wiki/Vision_transformer), or [vision-language models](https://arxiv.org/abs/2304.00685). The output from the pipe is a sensible text-based (or multimodal) representation of the extracted information, carefully crafted to fit within context windows for any models from [gemma-7b](https://huggingface.co/google/gemma-7b) to [GPT-4](https://openai.com/gpt-4). It uses a variety of heuristics for optimal performance with vision-language models, including AI [filetype detection](https://opensource.googleblog.com/2024/02/magika-ai-powered-fast-and-efficient-file-type-identification.html), AI [PDF extraction](https://mathpix.com), efficient [token compression](https://arxiv.org/abs/2403.12968), automatic [image encoding](https://en.wikipedia.org/wiki/Base64), [reranking](https://arxiv.org/abs/2310.06839) for [lost-in-the-middle](https://arxiv.org/abs/2307.03172) effects, and more, all pre-built to work out-of-the-box.
 
 ## Getting Started 🚀
 
-To use The Pipe, simply clone this repository and install the requirements:
+To use The Pipe, clone the repository and install the requirements:
 ```bash
 git clone https://github.com/emcf/thepipe
 pip install -r requirements.txt
+npm install
+npx playwright install --with-deps
 ```
 
-To install playwright for web scraping, run:
+Windows users are given a ctags executable, but Linux users must install it with
 ```bash
-python3 -m playwright install --with-deps
+sudo apt-get install -y universal-ctags
 ```
 
 To use The Pipe from the command line, simply run
@@ -35,7 +38,7 @@ To use The Pipe from the command line, simply run
 python thepipe.py path/to/directory --limit 100000
 ```
 
-This command will process all supported files within the specified directory, compressing any information over the token limit if necessary, and outputting the result to a folder.
+This command will process all supported files within the specified directory, compressing any information over the token limit if necessary, and outputting the resulting prompt and images to a folder.
 
 Arguments are:
 - The input source (required): can be a file path, a URL, or a directory path.
@@ -54,8 +57,6 @@ response = openai_client.chat.completions.create(
     model="gpt-4-vision-preview",
     messages = thepipe.extract("https://github.com/emcf/thepipe"),
 )
-response_content = response.choices[0].message.content
-print(response_content)
 ```
 
 ## Supported File Types 📚
