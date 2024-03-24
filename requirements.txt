@@ -1,3 +1,4 @@
+playwright
 docx2txt
 python-pptx
 Pyarrow

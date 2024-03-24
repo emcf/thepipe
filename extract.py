@@ -41,16 +41,14 @@ def extract_from_source(source_string: str, match: Optional[str] = None, ignore:
     source_type = detect_type(source_string)
     if source_type is None:
         return [Chunk(path=source_string)]
+    if verbose: print_status(f"Extracting from {source_type.value}", status='info')
     if source_type == SourceTypes.DIR or source_string == '.' or source_string == './':
-        print_status(f"Extracting from {source_type.value}", status='info')
         if source_string == '.' or source_string == './':
             source_string = os.getcwd()
         return extract_from_directory(source_string=source_string, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
     elif source_type == SourceTypes.GITHUB:
-        print_status(f"Extracting from {source_type.value}", status='info')
         return extract_github(github_url=source_string, file_path='', match=match, ignore=ignore, text_only=text_only, verbose=verbose, mathpix=mathpix, branch='master')
     elif source_type == SourceTypes.ZIP:
-        print_status(f"Extracting from {source_type.value}", status='info')
         return extract_zip(source_string=source_string, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
     elif source_type == SourceTypes.URL:
         return [extract_url(source_string=source_string, text_only=text_only)]
