@@ -2,7 +2,6 @@ playwright
 docx2txt
 python-pptx
 Pyarrow
-langchain-community
 unstructured[all-docs]
 poppler-utils
 python-magic

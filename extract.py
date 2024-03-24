@@ -18,7 +18,7 @@ import requests
 import json
 import pytesseract
 from unstructured.partition.auto import partition
-from langchain_community.document_loaders import PlaywrightURLLoader
+from playwright.sync_api import sync_playwright
 import fitz
 from core import Chunk, print_status, SourceTypes
 import docx2txt
@@ -51,7 +51,7 @@ def extract_from_source(source_string: str, match: Optional[str] = None, ignore:
     elif source_type == SourceTypes.ZIP:
         return extract_zip(source_string=source_string, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
     elif source_type == SourceTypes.URL:
-        return [extract_url(source_string=source_string, text_only=text_only)]
+        return [extract_url(url=source_string, text_only=text_only)]
     return extract_from_file(source_string=source_string, source_type=source_type, verbose=verbose, mathpix=mathpix, text_only=text_only)
 
 def extract_from_file(source_string: str, source_type: str, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[str]:
@@ -217,13 +217,20 @@ def extract_spreadsheet(source_name: str) -> List[Chunk]:
     return Chunk(path=source_name, text=json_dict, image=None, source_type=SourceTypes.SPREADSHEET)
     
 def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
-    loader = PlaywrightURLLoader(urls=[url])
-    data = loader.load()  
-    text = "\n\n".join([str(el.page_content) for el in data])
-    if not text_only:
-        # TODO: Use playwright/cypress to extract image of page
-        pass
-    return Chunk(path=url, text=text, image=None, source_type=SourceTypes.URL)
+    img = None
+    text = None
+    with sync_playwright() as p:
+        for browser_type in [p.chromium, p.firefox, p.webkit]:
+            browser = browser_type.launch()
+            page = browser.new_page()
+            page.goto('https://scrapingant.com/')
+            screenshot = page.screenshot()
+            img = Image.open(BytesIO(screenshot))
+            text = page.inner_text('body')
+            browser.close()
+    if img is None and text is None:
+        raise Exception("Failed to extract from URL.")
+    return Chunk(path=url, text=text, image=img, source_type=SourceTypes.URL)
 
 def extract_github(github_url: str, file_path: str = '', match: Optional[str] = None, ignore: Optional[str] = None, text_only: bool = False, mathpix: bool = False, branch: str = 'main', verbose: bool = False) -> List[Chunk]:
     files_contents = []
