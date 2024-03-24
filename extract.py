@@ -287,31 +287,25 @@ def extract_docx(source_name: str) -> List[Chunk]:
     # make new temp image directory
     chunks = []
     temp_image_dir = tempfile.mkdtemp()
-    print('processing')
     text = docx2txt.process(source_name, temp_image_dir)
     chunks.append(Chunk(path=source_name, text=text, image=None, source_type=SourceTypes.DOCX))
     for image_name in os.listdir(temp_image_dir):
-        print(image_name)
         image_path = os.path.join(temp_image_dir, image_name)
-        print('attempgin to open')
         image = Image.open(image_path)
         image.load() # needed to close the file
-        print("appending")
         chunks.append(Chunk(path=source_name, text=None, image=image, source_type=SourceTypes.DOCX))
     # if temp dir exists, remove images and it
-    print('attempting delete')
     if os.path.exists(temp_image_dir):
         for image_name in os.listdir(temp_image_dir):
             image_path = os.path.join(temp_image_dir, image_name)
             os.remove(image_path)
         os.rmdir(temp_image_dir)
-    print('done')
     return chunks
 
 def extract_pptx(source_name: str) -> List[Chunk]:
     prs = Presentation(source_name)
     chunks = []
-    # parse slides, shapes, and images
+    # parse shapes inside slides
     for slide in prs.slides:
         slide_text = ""
         slide_images = []
