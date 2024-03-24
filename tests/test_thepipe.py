@@ -62,15 +62,15 @@ class test_thepipe(unittest.TestCase):
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0) # should have some repo contents
     
-    #@unittest.skipUnless(os.environ.get('MATHPIX_APP_ID') and os.environ.get('MATHPIX_APP_KEY'), "requires MATHPIX_APP_ID and MATHPIX_APP_KEY")
-    #def test_extract_pdf_with_mathpix(self):
-    #    chunks = extract.extract_pdf("tests/files/example.pdf", mathpix=True)
-    #    self.assertNotEqual(len(chunks), 0)
-    #    self.assertEqual(chunks[0].source_type, core.SourceTypes.PDF)
-    #    self.assertIsNotNone(chunks[1].source_type, core.SourceTypes.IMAGE)
-    #    # verify extraction contains image and text
-    #    self.assertIsNotNone(chunks[0].text)
-    #    self.assertIsNotNone(chunks[1].image)
+    @unittest.skipUnless(os.environ.get('MATHPIX_APP_ID') and os.environ.get('MATHPIX_APP_KEY'), "requires MATHPIX_APP_ID and MATHPIX_APP_KEY")
+    def test_extract_pdf_with_mathpix(self):
+        chunks = extract.extract_pdf("tests/files/example.pdf", mathpix=True)
+        self.assertNotEqual(len(chunks), 0)
+        self.assertEqual(chunks[0].source_type, core.SourceTypes.PDF)
+        self.assertIsNotNone(chunks[1].source_type, core.SourceTypes.IMAGE)
+        # verify extraction contains image and text
+        self.assertIsNotNone(chunks[0].text)
+        self.assertIsNotNone(chunks[1].image)
 
     def test_compress_spreadsheet(self):
         chunks = extract.extract_from_source(source=self.files_directory+"/example.xlsx")

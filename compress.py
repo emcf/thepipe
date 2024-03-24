@@ -7,7 +7,6 @@ import os
 from core import Chunk, SourceTypes, print_status, count_tokens
 from llmlingua import PromptCompressor
 import torch
-
 from thepipe import count_tokens
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
