@@ -23,6 +23,8 @@ import fitz
 from core import Chunk, print_status, SourceTypes
 import docx2txt
 import tempfile
+from pptx import Presentation
+from pptx.enum.shapes import MSO_SHAPE_TYPE
 
 FILES_TO_IGNORE = {'.gitignore', '.bin', '.pyc', '.pyo', '.exe', '.dll', '.obj', '.o', '.a', '.lib', '.so', '.dylib', '.ncb', '.sdf', '.suo', '.pdb', '.idb', '.pyd', '.ipynb_checkpoints', '.npy', '.pth'} # Files to ignore, please feel free to customize!
 CODE_EXTENSIONS = {'.h', '.json', '.js', '.jsx',  '.cs', '.java', '.html', '.css', '.ini', '.xml', '.yaml', '.xaml', '.sh'} # Plaintext files that should not be compressed with LLMLingua
@@ -60,6 +62,8 @@ def extract_from_file(source_string: str, source_type: str, verbose: bool = Fals
             extraction = extract_pdf(source_string, mathpix, text_only)
         elif source_type == SourceTypes.DOCX:
             extraction = extract_docx(source_string)
+        elif source_type == SourceTypes.PPTX:
+            extraction = extract_pptx(source_string)
         elif source_type == SourceTypes.IMAGE:
             extraction = [extract_image(source_string, text_only)]
         elif source_type == SourceTypes.SPREADSHEET:
@@ -210,16 +214,9 @@ def extract_spreadsheet(source_name: str) -> List[Chunk]:
         df = pd.read_csv(source_name)
     elif source_name.endswith(".xls") or source_name.endswith(".xlsx"):
         df = pd.read_excel(source_name)
-    dict_string = str(df.to_dict(orient='records'))
-    if len(dict_string) > 1000: 
-        # Heuristic to avoid large dataframes in the output
-        # Only give column names, types
-        colnames = list(df.columns)
-        coltypes = list(df.dtypes)
-        content_string = f'Column names and column types:\n{list(zip(colnames, coltypes))}'
-        return Chunk(path=source_name, text=content_string, image=None, source_type=SourceTypes.SPREADSHEET)
-    else:
-        return Chunk(path=source_name, text=dict_string, image=None, source_type=SourceTypes.SPREADSHEET)
+    dict = df.to_dict(orient='records')
+    json_dict = json.dumps(dict, indent=4)
+    return Chunk(path=source_name, text=json_dict, image=None, source_type=SourceTypes.SPREADSHEET)
     
 def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
     loader = PlaywrightURLLoader(urls=[url])
@@ -303,4 +300,24 @@ def extract_docx(source_name: str) -> List[Chunk]:
             os.remove(image_path)
         os.rmdir(temp_image_dir)
     print('done')
+    return chunks
+
+def extract_pptx(source_name: str) -> List[Chunk]:
+    prs = Presentation(source_name)
+    chunks = []
+    # parse slides, shapes, and images
+    for slide in prs.slides:
+        slide_text = ""
+        slide_images = []
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                for paragraph in shape.text_frame.paragraphs:
+                    slide_text += f"{paragraph.text}\n\n"
+            if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
+                image_data = shape.image.blob
+                image = Image.open(BytesIO(image_data))
+                slide_images.append(image)
+        chunks.append(Chunk(path=source_name, text=slide_text, image=None, source_type=SourceTypes.PPTX))
+        for image in slide_images:
+            chunks.append(Chunk(path=source_name, text=None, image=image, source_type=SourceTypes.PPTX))
     return chunks

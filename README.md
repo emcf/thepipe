@@ -2,7 +2,7 @@
 
 [![codecov](https://codecov.io/gh/emcf/thepipe/graph/badge.svg?token=OE7CUEFUL9)](https://codecov.io/gh/emcf/thepipe) ![python-gh-action](https://github.com/emcf/thepipe/actions/workflows/python-ci.yml/badge.svg)
 
-The pipe is a multimodal-first tool for feeding real-world data into large language models. It is built on top of dozens of carefully-crafted heuristics to create sensible representations from complex sources, including files, directories, scientific papers, web pages, github repos, etc. 
+The pipe is a multimodal-first tool for feeding real-world information into large language models. It is built on top of dozens of carefully-crafted heuristics to create sensible representations from complex sources, including files, directories, scientific papers, web pages, github repos, etc. 
 
 ## Features 🌟
 
@@ -62,7 +62,7 @@ print(response_content)
 | Plaintext                             | `.txt`, `.md`, `.rtf`, etc               | Yes               | No               | Regular text files                                                      |
 | PDF                                   | `.pdf`                                  | Yes               | Yes (Optional)   | Extracts text and optionally images; can use Mathpix for enhanced extraction |
 | Image                                 | `.jpg`, `.jpeg`, `.png`, `.gif`, `.bmp`, `.tiff`, `.webp`, `.svg` | No                | Yes              | Extracts images and can convert to text using OCR                        |
-| Spreadsheet                           | `.csv`, `.xls`, `.xlsx`                  | Yes                | No               | Extracts data from spreadsheets; converts to text representation         |
+| Data Table                           | `.csv`, `.xls`, `.xlsx`, `supabase`             | Yes                | No               | Extracts data from spreadsheets or SQL tables; converts to text representation. For very large datasets, will only extract column names and types         |
 | Jupyter Notebook                      | `.ipynb`                                | No               | No               | Extracts content from Jupyter notebooks                                  |
 | Microsoft Word Document               | `.docx`                                 | Yes               | Yes (Optional)               | Extracts text from Word documents                                        |
 | Microsoft PowerPoint Presentation     | `.pptx`                                 | Yes               | Yes               | Extracts text from PowerPoint presentations                              |
