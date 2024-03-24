@@ -58,7 +58,6 @@ class test_thepipe(unittest.TestCase):
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0) # should have some repo contents
     
-    """
     def test_compress_with_llmlingua(self):
         chunks = thepipe.extract.extract_from_source(source_string=self.files_directory+"/example.md")
         new_chunks = thepipe.compress.compress_chunks(chunks)
@@ -86,4 +85,3 @@ class test_thepipe(unittest.TestCase):
         with open('outputs/prompt.txt', 'r', encoding='utf-8') as file:
             text = file.read()
         self.assertIn('Hello, World!', text)
-    """        
