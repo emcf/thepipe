@@ -1,4 +1,5 @@
 docx2txt
+python-pptx
 Pyarrow
 langchain-community
 unstructured[all-docs]
