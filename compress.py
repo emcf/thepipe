@@ -1,13 +1,11 @@
-import json
-import shutil
-import subprocess
-import tempfile
 from typing import *
 import os
 from core import Chunk, SourceTypes
 from llmlingua import PromptCompressor
+import torch
 
-llm_lingua = PromptCompressor(model_name="microsoft/llmlingua-2-xlm-roberta-large-meetingbank", use_llmlingua2=True)
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+llm_lingua = PromptCompressor(model_name="microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank", use_llmlingua2=True, device_map=device)
 CTAGS_LANGUAGES = {'py': "Python", 'ts': "Typescript", "tsx": "Typescript", "cpp": "C++", "c": "C"}
 
 def compress_with_ctags(chunk: Chunk, extension: str) -> Chunk:
