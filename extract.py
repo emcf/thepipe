@@ -237,50 +237,10 @@ def extract_github(github_url: str, file_path: str = '', match: Optional[str] = 
     files_contents = []
     if not GITHUB_TOKEN:
         raise ValueError("GITHUB_TOKEN environment variable is not set.")
-    # Function to extract repo details
-    def extract_repo_details(url):
-        path = urlparse(url).path
-        path_parts = path.strip('/').split('/')
-        if len(path_parts) >= 2:
-            return path_parts[0], path_parts[1]
-        else:
-            raise ValueError("Invalid GitHub URL provided.")
-    # Download response from GitHub API
-    owner, repo = extract_repo_details(github_url)
-    api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{unquote(file_path)}?ref={branch}"
-    headers = {
-        'Accept': 'application/vnd.github.v3.raw',
-        'Authorization': f'token {GITHUB_TOKEN}',
-        'X-GitHub-Api-Version': '2022-11-28'
-    }
-    response = requests.get(api_url, headers=headers)
-    response_json = json.loads(response.text)
-    # Navigate the response JSON
-    for item in response_json:
-        if 'path' not in item:
-            continue
-        path = item['path']
-        if path.startswith('.') or any(path.endswith(extension) for extension in FILES_TO_IGNORE):
-            continue
-        if ignore and re.search(ignore, path, re.IGNORECASE):
-            continue
-        if item['type'] == 'file':
-            # get the file content
-            file_content_request = requests.get(item['download_url'], headers=headers)
-            extension = os.path.splitext(path)[1].lower()
-            temp_file_path = f"temp{extension}"
-            # write the file content to a temporary file
-            with open(temp_file_path, 'wb') as temp_file:
-                temp_file.write(file_content_request.content)
-                source_type = detect_type(temp_file_path)
-                if source_type is not None:
-                    extractions = extract_from_file(file_path=temp_file_path, source_type=source_type, text_only=text_only, verbose=verbose, mathpix=mathpix)
-                    for extraction in extractions:
-                        extraction.path = path # use github path, not temp path
-                    files_contents += extractions
-            os.remove(temp_file_path)
-        elif item['type'] == 'dir':
-            files_contents += extract_github(github_url=github_url, file_path=path, match=match, text_only=text_only, mathpix=mathpix, branch=branch, verbose=verbose)
+    # make new tempdir for cloned repo
+    with tempfile.TemporaryDirectory() as temp_dir:
+        os.system(f"git clone {github_url} {temp_dir}")
+        files_contents = extract_from_directory(dir_path=temp_dir, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
     return files_contents
 
 def extract_docx(file_path: str) -> List[Chunk]:
