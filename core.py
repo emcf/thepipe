@@ -28,3 +28,6 @@ class Chunk:
 def print_status(text: str, status: str) -> None:
     message = (Fore.GREEN + f"{text}") if status == 'success' else ((Fore.YELLOW + f"{text}...") if status == 'info' else (Fore.RED + f"{text}"))
     print(Style.RESET_ALL + message + Style.RESET_ALL)
+
+def count_tokens(chunks: List[Chunk]) -> int:
+    return sum([(len(chunk.path)+len(chunk.text))/4 for chunk in chunks if chunk.text is not None])

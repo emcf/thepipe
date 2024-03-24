@@ -239,7 +239,7 @@ def extract_github(github_url: str, file_path: str = '', match: Optional[str] = 
         raise ValueError("GITHUB_TOKEN environment variable is not set.")
     # make new tempdir for cloned repo
     with tempfile.TemporaryDirectory() as temp_dir:
-        os.system(f"git clone {github_url} {temp_dir}")
+        os.system(f"git clone {github_url} {temp_dir} --quiet")
         files_contents = extract_from_directory(dir_path=temp_dir, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
     return files_contents
 

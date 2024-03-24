@@ -4,9 +4,11 @@ import subprocess
 import tempfile
 from typing import *
 import os
-from core import Chunk, SourceTypes
+from core import Chunk, SourceTypes, print_status, count_tokens
 from llmlingua import PromptCompressor
 import torch
+
+from thepipe import count_tokens
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 llm_lingua = PromptCompressor(model_name="microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank", use_llmlingua2=True, device_map=device)
@@ -51,39 +53,46 @@ def compress_with_ctags(chunk: Chunk, extension: str) -> Chunk:
     ctags_skeleton = '\n'.join(ctag_matches)
     return Chunk(path=chunk.path, text=ctags_skeleton, image=chunk.image, source_type=SourceTypes.UNCOMPRESSIBLE_CODE)
 
-def compress_chunks(chunks: List[Chunk]) -> List[Chunk]:
-    new_chunks = []
-    for chunk in chunks:
-        new_chunk = None
-        if chunk is None or  chunk.text is None:
-            new_chunk = chunk
-        elif chunk.source_type == SourceTypes.COMPRESSIBLE_CODE:
-            # compress certain compatible codes files with ctags
-            extension = chunk.path.split('.')[-1]
-            new_chunk = compress_with_ctags(chunk, extension=extension)
-        elif chunk.source_type in {SourceTypes.PLAINTEXT, SourceTypes.PDF, SourceTypes.DOCX, SourceTypes.PPTX}:
-            # Compress the text with llmlingua
-            new_chunk_text = ""
-            WINDOW_SIZE = 500
-            for i in range(0, len(chunk.text), WINDOW_SIZE):
-                window_text = chunk.text[i:i+WINDOW_SIZE]
-                result = llm_lingua.compress_prompt(window_text, rate=0.5)
-                new_window_text = result['compressed_prompt']
-                new_chunk_text += new_window_text
-            new_chunk = Chunk(path=chunk.path, text=new_chunk_text, image=chunk.image, source_type=chunk.source_type)
-        elif chunk.source_type == SourceTypes.SPREADSHEET:
-            # compress spreadsheets by returning a list of tuples: colname and coltype
-            loaded_json = json.loads(chunk.text)
-            row_one = loaded_json[0]
-            colnames = []
-            coltypes = []
-            for key, value in row_one.items():
-                colnames.append(key)
-                coltypes.append(type(value))
-            new_chunk_text = "Column names and types: " + str(list(zip(colnames, coltypes)))
-            new_chunk = Chunk(path=chunk.path, text=new_chunk_text, image=chunk.image, source_type=chunk.source_type)
-        else:
-            # if the chunk is not compressible, keep the original text
-            new_chunk = chunk
-        new_chunks.append(new_chunk)
+def compress_chunks(chunks: List[Chunk], verbose: bool = False, limit: int = 1e5) -> List[Chunk]:
+    new_chunks = chunks
+    for cycles in range(3):
+        if count_tokens(new_chunks) <= limit:
+            break
+        if verbose: print_status(f"Compressing prompt ({count_tokens(chunks)} tokens / {limit} limit)", status='info')
+        new_chunks = []
+        for chunk in chunks:
+            new_chunk = None
+            if chunk is None or  chunk.text is None:
+                new_chunk = chunk
+            elif chunk.source_type == SourceTypes.COMPRESSIBLE_CODE:
+                # compress certain compatible codes files with ctags
+                extension = chunk.path.split('.')[-1]
+                new_chunk = compress_with_ctags(chunk, extension=extension)
+            elif chunk.source_type in {SourceTypes.PLAINTEXT, SourceTypes.PDF, SourceTypes.DOCX, SourceTypes.PPTX}:
+                # Compress the text with llmlingua
+                new_chunk_text = ""
+                WINDOW_SIZE = 500
+                for i in range(0, len(chunk.text), WINDOW_SIZE):
+                    window_text = chunk.text[i:i+WINDOW_SIZE]
+                    result = llm_lingua.compress_prompt(window_text, rate=0.5)
+                    new_window_text = result['compressed_prompt']
+                    new_chunk_text += new_window_text
+                new_chunk = Chunk(path=chunk.path, text=new_chunk_text, image=chunk.image, source_type=chunk.source_type)
+            elif chunk.source_type == SourceTypes.SPREADSHEET:
+                # compress spreadsheets by returning a list of tuples: colname and coltype
+                loaded_json = json.loads(chunk.text)
+                row_one = loaded_json[0]
+                colnames = []
+                coltypes = []
+                for key, value in row_one.items():
+                    colnames.append(key)
+                    coltypes.append(type(value))
+                new_chunk_text = "Column names and types: " + str(list(zip(colnames, coltypes)))
+                new_chunk = Chunk(path=chunk.path, text=new_chunk_text, image=chunk.image, source_type=chunk.source_type)
+            else:
+                # if the chunk is not compressible, keep the original text
+                new_chunk = chunk
+            new_chunks.append(new_chunk)
+    if count_tokens(new_chunks) > limit:
+        if verbose: print_status(f"Failed to compress within limit, continuing", status='error')
     return new_chunks
