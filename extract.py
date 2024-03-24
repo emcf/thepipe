@@ -210,7 +210,7 @@ def extract_pdf(file_path: str, mathpix: bool = False, text_only: bool = False, 
             doc.close()
     return chunks
 
-def extract_image(file_path: str, text_only: bool = False) -> List[Chunk]:
+def extract_image(file_path: str, text_only: bool = False) -> Chunk:
     img = Image.open(file_path)
     img.load() # needed to close the file
     if text_only:
