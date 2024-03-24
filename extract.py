@@ -27,9 +27,9 @@ import tempfile
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 
-FILES_TO_IGNORE = {'.gitignore', '.bin', '.pyc', '.pyo', '.exe', '.dll', '.obj', '.o', '.a', '.lib', '.so', '.dylib', '.ncb', '.sdf', '.suo', '.pdb', '.idb', '.pyd', '.ipynb_checkpoints', '.npy', '.pth'} # Files to ignore, please feel free to customize!
-CODE_EXTENSIONS = {'.h', '.json', '.js', '.jsx',  '.cs', '.java', '.html', '.css', '.ini', '.xml', '.yaml', '.xaml', '.sh'} # Plaintext files that should not be compressed with LLMLingua
-CTAGS_CODE_EXTENSIONS = {'.c', '.cpp', '.py', '.ts', '.tsx'} # code files that work with ctags
+FILES_TO_IGNORE = {'package-lock.json', '.gitignore', '.bin', '.pyc', '.pyo', '.exe', '.dll', '.obj', '.o', '.a', '.lib', '.so', '.dylib', '.ncb', '.sdf', '.suo', '.pdb', '.idb', '.pyd', '.ipynb_checkpoints', '.npy', '.pth'} # Files to ignore, please feel free to customize!
+CODE_EXTENSIONS = {'.h', '.json', '.js', '.jsx', '.ts', '.tsx',  '.cs', '.java', '.html', '.css', '.ini', '.xml', '.yaml', '.xaml', '.sh'} # Plaintext files that should not be compressed with LLMLingua
+CTAGS_CODE_EXTENSIONS = {'.c', '.cpp', '.py'} # code files that work with ctags
 PLAINTEXT_EXTENSIONS = {'.txt', '.md', '.rtf'}
 GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN")
 SUPABASE_URL: str = os.getenv("SUPABASE_URL")
@@ -96,7 +96,7 @@ def detect_type(source: str) -> Optional[SourceTypes]:
         return SourceTypes.COMPRESSIBLE_CODE
     elif source.endswith(".pdf"):
         return SourceTypes.PDF
-    elif any(source.endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp', '.svg']):
+    elif any(source.endswith(ext) for ext in ['.jpg', '.jpeg', '.png',]): # TODO: '.svg', '.webp', '.gif', '.bmp', '.tiff'
         return SourceTypes.IMAGE
     elif any(source.endswith(ext) for ext in ['.csv', '.xls', '.xlsx']):
         return SourceTypes.SPREADSHEET

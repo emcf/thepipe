@@ -3,6 +3,8 @@
 
 The pipe is a multimodal-first tool for feeding real-world information into large language models. It is built on top of dozens of carefully-crafted heuristics to create sensible representations from complex sources, including files, directories, scientific papers, web pages, github repos, etc. 
 
+![The Pipe](https://ngrdaaykhfrmtpodlakn.supabase.co/storage/v1/object/public/assets/thepipe_demo.gif)
+
 ## Features 🌟
 
 - Prepare prompts from dozens of complex file types 📄 
@@ -14,7 +16,7 @@ The pipe is a multimodal-first tool for feeding real-world information into larg
 
 ##  How it works 🛠️
 
-The pipe is accessible from the command line or from [Python](https://www.python.org/downloads/). The input source is either a file path, a URL, or a directory (or zip file) path. The pipe will extract information from the source and process it for downstream use with [language models](https://en.wikipedia.org/wiki/Large_language_model), [vision transformers](https://en.wikipedia.org/wiki/Vision_transformer), or [vision-language models](https://arxiv.org/abs/2304.00685). The output from the pipe is a sensible text-based (or multimodal) representation of the extracted information, carefully crafted to fit within context windows for any models from [gemma-7b](https://huggingface.co/google/gemma-7b) to [GPT-4](https://openai.com/gpt-4). It uses a variety of heuristics for optimal performance with vision-language models, including AI [filetype detection](https://opensource.googleblog.com/2024/02/magika-ai-powered-fast-and-efficient-file-type-identification.html), AI [PDF extraction](https://mathpix.com), efficient [token compression](https://arxiv.org/abs/2403.12968), automatic [image encoding](https://en.wikipedia.org/wiki/Base64), [reranking](https://arxiv.org/abs/2310.06839) for [lost-in-the-middle](https://arxiv.org/abs/2307.03172) effects, and more, all pre-built to work out-of-the-box.
+The pipe is accessible from the command line or from [Python](https://www.python.org/downloads/). The input source is either a file path, a URL, or a directory (or zip file) path. The pipe will extract information from the source and process it for downstream use with [language models](https://en.wikipedia.org/wiki/Large_language_model), [vision transformers](https://en.wikipedia.org/wiki/Vision_transformer), or [vision-language models](https://arxiv.org/abs/2304.00685). The output from the pipe is a sensible text-based (or multimodal) representation of the extracted information, carefully crafted to fit within context windows for any models from [gemma-7b](https://huggingface.co/google/gemma-7b) to [GPT-4](https://openai.com/gpt-4). It uses a variety of heuristics for optimal performance with vision-language models, including AI filetype detection with [filetype detection](https://opensource.googleblog.com/2024/02/magika-ai-powered-fast-and-efficient-file-type-identification.html), AI [PDF extraction](https://mathpix.com), efficient [token compression](https://arxiv.org/abs/2403.12968), automatic [image encoding](https://en.wikipedia.org/wiki/Base64), [reranking](https://arxiv.org/abs/2310.06839) for [lost-in-the-middle](https://arxiv.org/abs/2307.03172) effects, and more, all pre-built to work out-of-the-box.
 
 ## Getting Started 🚀
 
@@ -31,7 +33,7 @@ Linux users can install ctags with
 sudo apt-get install -y universal-ctags
 ```
 
-Windows users must place [ctags.exe](https://github.com/universal-ctags/ctags-win32/releases) in the root directory of the repository.
+Windows users must ensure [ctags.exe](https://github.com/universal-ctags/) is in their PATH environment variable.
 
 
 To use The Pipe from the command line, simply run
@@ -50,7 +52,7 @@ Arguments are:
 - `--mathpix` (optional): Extract images, tables, and math from PDFs using [Mathpix](https://docs.mathpix.com/#process-a-pdf).
 - `--text_only` (optional): Do not extract images from documents or websites. Additionally, image files will be represented with OCR instead of as images.
 
-To use the pipe from Python:
+To use the pipe from Python with a language model, simply run
 
 ```python
 import openai
@@ -61,6 +63,8 @@ response = openai_client.chat.completions.create(
     messages = thepipe.extract("https://github.com/emcf/thepipe"),
 )
 ```
+
+You can use the pipe's output with other LLM providers via [LiteLLM](https://github.com/BerriAI/litellm).
 
 ## Supported File Types 📚
 

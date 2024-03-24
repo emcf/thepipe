@@ -5,8 +5,8 @@ from enum import Enum
 
 class SourceTypes(Enum):
     DIR = "directory"
-    UNCOMPRESSIBLE_CODE = "code (cannot compress with ctags)"
-    COMPRESSIBLE_CODE = "code (can compress with ctags)"
+    UNCOMPRESSIBLE_CODE = "code"
+    COMPRESSIBLE_CODE = "code "
     PLAINTEXT = "plaintext"
     PDF = "pdf"
     IMAGE = "image"
@@ -26,7 +26,9 @@ class Chunk:
         self.source_type = source_type
 
 def print_status(text: str, status: str) -> None:
-    message = (Fore.GREEN + f"{text}") if status == 'success' else ((Fore.YELLOW + f"{text}...") if status == 'info' else (Fore.RED + f"{text}"))
+    if len(text) > 80:
+        text = text[:50] + '...'
+    message = (Fore.GREEN + f"{text} ✔️") if status == 'success' else ((Fore.YELLOW + f"{text}...") if status == 'info' else (Fore.RED + f"{text} ❌"))
     print(Style.RESET_ALL + message + Style.RESET_ALL)
 
 def count_tokens(chunks: List[Chunk]) -> int:

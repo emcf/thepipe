@@ -32,6 +32,7 @@ def save_outputs(chunks: List[Chunk], verbose: bool = False, text_only: bool = F
         os.makedirs('outputs')
     # Save the chunks to files
     text = ""
+    n_images = 0
     for i, chunk in enumerate(chunks):
         if chunk is None:
             continue
@@ -40,11 +41,12 @@ def save_outputs(chunks: List[Chunk], verbose: bool = False, text_only: bool = F
         if chunk.image is not None:
             clean_path = chunk.path.replace('/', '_').replace('\\', '_')
             clean_path = re.sub(r"[^a-zA-Z0-9 _]", "", clean_path)
-            chunk.image.save(f'outputs/{clean_path}_{i}.jpg')
+            chunk.image.convert('RGB').save(f'outputs/{clean_path}_{i}.jpg')
+            n_images += 1
     # Save the text
     with open(f'outputs/prompt.txt', 'w', encoding='utf-8') as file:
         file.write(text)
-    if verbose: print_status(f"Output {len(text)/4} tokens to 'outputs/prompt.txt'", status='success')
+    if verbose: print_status(f"Output {len(text)/4} tokens and {n_images} images to 'outputs'", status='success')
 
 def create_prompt_from_source(source: str, match: Optional[str] = None, ignore: Optional[str] = None, limit: int = 1e5, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[Dict]:
     chunks = extract.extract_from_source(source=source, match=match, ignore=ignore, limit=limit, mathpix=mathpix, text_only=text_only, verbose=verbose)
