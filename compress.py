@@ -24,7 +24,7 @@ def compress_with_ctags(chunk: Chunk, extension: str) -> Chunk:
         # need custom options for ctags to work with typescript
         if language == "Typescript":
             cmd = [
-                "./ctags " if os.name == 'nt' else "ctags ",
+                "./ctags " if os.name == 'nt' else "/usr/bin/ctags-universal",
                 f"--languages={language}",
                 "--output-format=json",
                 f"--options=./ts.ctags",
