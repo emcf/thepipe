@@ -183,10 +183,11 @@ def extract_pdf(file_path: str, mathpix: bool = False, text_only: bool = False, 
                 text = response.content.decode("utf-8").encode("ASCII", "ignore").decode("utf-8", "ignore")
                 chunks.append(Chunk(path=file_path, text=text, image=None, source_type=SourceTypes.PDF))
                 # extract markdown images from the 
-                image_urls = re.findall(r"!\[.*?\]\((.*?)\)", text)
-                for url in image_urls:
-                    img = Image.open(requests.get(url, stream=True).raw)
-                    chunks.append(Chunk(path=url, text=None, image=img, source_type=SourceTypes.IMAGE))
+                if not text_only:
+                    image_urls = re.findall(r"!\[.*?\]\((.*?)\)", text)
+                    for url in image_urls:
+                        img = Image.open(requests.get(url, stream=True).raw)
+                        chunks.append(Chunk(path=url, text=None, image=img, source_type=SourceTypes.IMAGE))
                 return chunks
             elif status == "error":
                 raise ValueError("Unable to retrieve PDF from Mathpix")
@@ -218,7 +219,7 @@ def extract_image(file_path: str, text_only: bool = False) -> List[Chunk]:
     else:
         return Chunk(path=file_path, text=None, image=img, source_type=SourceTypes.IMAGE)
     
-def extract_spreadsheet(file_path: str) -> List[Chunk]:
+def extract_spreadsheet(file_path: str) -> Chunk:
     if file_path.endswith(".csv"):
         df = pd.read_csv(file_path)
     elif file_path.endswith(".xls") or file_path.endswith(".xlsx"):
@@ -227,7 +228,7 @@ def extract_spreadsheet(file_path: str) -> List[Chunk]:
     json_dict = json.dumps(dict, indent=4)
     return Chunk(path=file_path, text=json_dict, image=None, source_type=SourceTypes.SPREADSHEET)
     
-def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
+def extract_url(url: str, text_only: bool = False) -> Chunk:
     #os.system("python3 -m playwright install")
     img = None
     text = None
@@ -236,8 +237,10 @@ def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
             browser = browser_type.launch()
             page = browser.new_page()
             page.goto(url)
-            screenshot = page.screenshot()
-            img = Image.open(BytesIO(screenshot))
+            img = None
+            if text_only:
+                screenshot = page.screenshot()
+                img = Image.open(BytesIO(screenshot))
             text = page.inner_text('body')
             browser.close()
     if img is None and text is None:
