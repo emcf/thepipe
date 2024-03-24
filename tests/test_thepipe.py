@@ -52,11 +52,12 @@ class test_thepipe(unittest.TestCase):
         self.assertIsNotNone(chunk.text)
         self.assertIn('Piping', chunk.text)
 
+    @unittest.skipUnless(os.environ.get('GITHUB_TOKEN'), "requires GITHUB_TOKEN")
     def test_extract_github(self):
         chunks = thepipe.extract.extract_github(github_url='https://github.com/emcf/engshell', branch='main')
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0) # should have some repo contents
-
+    
     """
     def test_compress_with_llmlingua(self):
         chunks = thepipe.extract.extract_from_source(source_string=self.files_directory+"/example.md")
