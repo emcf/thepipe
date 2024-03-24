@@ -32,7 +32,7 @@ class test_thepipe(unittest.TestCase):
         self.assertEqual(image.size, decoded_image.size)
 
     def test_create_messages_from_chunks(self):
-        chunks = extract.extract_from_source(source_string=self.files_directory)
+        chunks = extract.extract_from_source(source=self.files_directory)
         messages = thepipe.create_messages_from_chunks(chunks)
         self.assertEqual(type(messages), list)
         for message in messages:
@@ -42,7 +42,7 @@ class test_thepipe(unittest.TestCase):
     
     def test_extract_from_source(self):
         # test extracting examples for all supported file type
-        chunks = extract.extract_from_source(source_string=self.files_directory)
+        chunks = extract.extract_from_source(source=self.files_directory)
         self.assertEqual(type(chunks), list)
         for chunk in chunks:
             self.assertEqual(type(chunk), core.Chunk)
@@ -73,14 +73,14 @@ class test_thepipe(unittest.TestCase):
         self.assertIsNotNone(chunks[1].image)
 
     def test_compress_spreadsheet(self):
-        chunks = extract.extract_from_source(source_string=self.files_directory+"/example.xlsx")
+        chunks = extract.extract_from_source(source=self.files_directory+"/example.xlsx")
         new_chunks = compress.compress_chunks(chunks=chunks, limit=30)
         self.assertEqual(len(new_chunks), 1)
         # verify that the compressed text is shorter than the original
         self.assertLess(len(new_chunks[0].text.replace("Column names and types: ","")), len(chunks[0].text))
     
     def test_compress_with_llmlingua(self):
-        chunks = extract.extract_from_source(source_string=self.files_directory+"/example.md")
+        chunks = extract.extract_from_source(source=self.files_directory+"/example.md")
         new_chunks = compress.compress_chunks(chunks=chunks, limit=30)
         # verify that the compressed text is shorter than the original
         old_chunktext = sum([len(chunk.text) for chunk in chunks if chunk.text is not None])
@@ -91,7 +91,7 @@ class test_thepipe(unittest.TestCase):
         self.assertIn('easy', new_chunks[0].text.lower())
 
     def test_compress_with_ctags(self):
-        chunks = extract.extract_from_source(source_string=self.files_directory+"/example.py")
+        chunks = extract.extract_from_source(source=self.files_directory+"/example.py")
         new_chunks = compress.compress_chunks(chunks=chunks, limit=30)
         # verify that the compressed text is shorter than the original
         self.assertLess(len(new_chunks[0].text), len(chunks[0].text))
@@ -100,7 +100,7 @@ class test_thepipe(unittest.TestCase):
         self.assertIn('greet', new_chunks[0].text)
 
     def test_save_outputs(self):
-        chunks = extract.extract_from_source(source_string=self.files_directory+"/example.txt")
+        chunks = extract.extract_from_source(source=self.files_directory+"/example.txt")
         thepipe.save_outputs(chunks)
         self.assertTrue(os.path.exists('outputs/prompt.txt'))
         with open('outputs/prompt.txt', 'r', encoding='utf-8') as file:
@@ -108,7 +108,7 @@ class test_thepipe(unittest.TestCase):
         self.assertIn('Hello, World!', text)
 
     def test_create_prompt_from_source(self):
-        final_prompt = thepipe.create_prompt_from_source(source_string=self.files_directory+"/example.md")
+        final_prompt = thepipe.create_prompt_from_source(source=self.files_directory+"/example.md")
         self.assertEqual(type(final_prompt), list)
         self.assertNotEqual(len(final_prompt), 0)
         self.assertEqual(type(final_prompt[0]), dict)

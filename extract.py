@@ -1,5 +1,6 @@
 import argparse
 import base64
+from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from io import BytesIO
 import re
@@ -37,22 +38,22 @@ MATHPIX_APP_ID: str = os.getenv("MATHPIX_APP_ID")
 MATHPIX_APP_KEY: str = os.getenv("MATHPIX_APP_KEY")
 MATHPIX_CALLS_PER_MIN: int = 6
 
-def extract_from_source(source_string: str, match: Optional[str] = None, ignore: Optional[str] = None, limit: int = 64000, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[str]:
-    source_type = detect_type(source_string)
+def extract_from_source(source: str, match: Optional[str] = None, ignore: Optional[str] = None, limit: int = 64000, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[str]:
+    source_type = detect_type(source)
     if source_type is None:
-        return [Chunk(path=source_string)]
+        return [Chunk(path=source)]
     if verbose: print_status(f"Extracting from {source_type.value}", status='info')
-    if source_type == SourceTypes.DIR or source_string == '.' or source_string == './':
-        if source_string == '.' or source_string == './':
-            source_string = os.getcwd()
-        return extract_from_directory(dir_path=source_string, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
+    if source_type == SourceTypes.DIR or source == '.' or source == './':
+        if source == '.' or source == './':
+            source = os.getcwd()
+        return extract_from_directory(dir_path=source, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
     elif source_type == SourceTypes.GITHUB:
-        return extract_github(github_url=source_string, file_path='', match=match, ignore=ignore, text_only=text_only, verbose=verbose, mathpix=mathpix, branch='master')
+        return extract_github(github_url=source, file_path='', match=match, ignore=ignore, text_only=text_only, verbose=verbose, mathpix=mathpix, branch='master')
     elif source_type == SourceTypes.ZIP:
-        return extract_zip(file_path=source_string, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
+        return extract_zip(file_path=source, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
     elif source_type == SourceTypes.URL:
-        return [extract_url(url=source_string, text_only=text_only)]
-    return extract_from_file(file_path=source_string, source_type=source_type, verbose=verbose, mathpix=mathpix, text_only=text_only)
+        return [extract_url(url=source, text_only=text_only)]
+    return extract_from_file(file_path=source, source_type=source_type, verbose=verbose, mathpix=mathpix, text_only=text_only)
 
 def extract_from_file(file_path: str, source_type: str, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[str]:
     try:
@@ -82,32 +83,32 @@ def extract_from_file(file_path: str, source_type: str, verbose: bool = False, m
         if verbose: print_status(f"Failed to extract from {file_path}: {e}", status='error')
         return [Chunk(path=file_path)]
 
-def detect_type(source_string: str) -> Optional[SourceTypes]:
-    if source_string.startswith("https://github.com"):
+def detect_type(source: str) -> Optional[SourceTypes]:
+    if source.startswith("https://github.com"):
         return SourceTypes.GITHUB
-    elif source_string.startswith("http") or source_string.startswith("www.") or source_string.startswith("ftp."):
+    elif source.startswith("http") or source.startswith("www.") or source.startswith("ftp."):
         return SourceTypes.URL
-    elif source_string.endswith(".zip"):
+    elif source.endswith(".zip"):
         return SourceTypes.ZIP
-    elif any(source_string.endswith(ext) for ext in CODE_EXTENSIONS):
+    elif any(source.endswith(ext) for ext in CODE_EXTENSIONS):
         return SourceTypes.UNCOMPRESSIBLE_CODE
-    elif any(source_string.endswith(ext) for ext in CTAGS_CODE_EXTENSIONS):
+    elif any(source.endswith(ext) for ext in CTAGS_CODE_EXTENSIONS):
         return SourceTypes.COMPRESSIBLE_CODE
-    elif source_string.endswith(".pdf"):
+    elif source.endswith(".pdf"):
         return SourceTypes.PDF
-    elif any(source_string.endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp', '.svg']):
+    elif any(source.endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp', '.svg']):
         return SourceTypes.IMAGE
-    elif any(source_string.endswith(ext) for ext in ['.csv', '.xls', '.xlsx']):
+    elif any(source.endswith(ext) for ext in ['.csv', '.xls', '.xlsx']):
         return SourceTypes.SPREADSHEET
-    elif source_string.endswith(".ipynb"):
+    elif source.endswith(".ipynb"):
         return SourceTypes.IPYNB
-    elif source_string.endswith(".docx"):
+    elif source.endswith(".docx"):
         return SourceTypes.DOCX
-    elif source_string.endswith(".pptx"):
+    elif source.endswith(".pptx"):
         return SourceTypes.PPTX
-    elif os.path.isdir(source_string) or source_string == '.' or source_string == './':
+    elif os.path.isdir(source) or source == '.' or source == './':
         return SourceTypes.DIR
-    elif any(source_string.endswith(ext) for ext in PLAINTEXT_EXTENSIONS):
+    elif any(source.endswith(ext) for ext in PLAINTEXT_EXTENSIONS):
         return SourceTypes.PLAINTEXT
     else:
         return None # want to avoid processing unknown file types
@@ -122,18 +123,28 @@ def extract_plaintext(file_path: str) -> List[Chunk]:
         text = file.read()
     return Chunk(path=file_path, text=text, image=None, source_type=SourceTypes.PLAINTEXT)
 
+def should_ignore(file_path: str, ignore: Optional[str] = None) -> bool:
+    if ignore is not None and re.search(ignore, file_path, re.IGNORECASE):
+        return True
+    if any(file_path.endswith(extension) for extension in FILES_TO_IGNORE):
+        return True
+    if file_path.startswith('.'):
+        return True
+    if any(x in file_path for x in ['node_modules', 'venv', '.git', '.vscode', '__pycache__']):
+        return True
+    if not os.path.isfile(file_path):
+        return True
+    return False
+
 def extract_from_directory(dir_path: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[Chunk]:
     all_files = glob.glob(dir_path + "/**/*", recursive=True)
     matched_files = [file for file in all_files if re.search(match, file, re.IGNORECASE)] if match else all_files
-    files_to_ignore = {file for file in matched_files if re.search(ignore, file, re.IGNORECASE)} if ignore else []
-    file_paths = [file for file in matched_files if os.path.isfile(file) and file not in files_to_ignore]
+    file_paths = [file for file in matched_files if not should_ignore(file)]
     contents = []
-    for file_path in file_paths:
-        # ignore hidden files, modules, etc.
-        if file_path.startswith('.') or any(file_path.endswith(extension) for extension in FILES_TO_IGNORE):
-            continue
-        # extract contents from the file
-        contents += extract_from_source(source_string=file_path, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
+    with ThreadPoolExecutor() as executor:
+        results = executor.map(lambda file_path: extract_from_source(source=file_path, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only), file_paths)
+        for result in results:
+            contents += result
     return contents
 
 def extract_zip(file_path: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[Chunk]:
