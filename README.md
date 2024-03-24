@@ -24,6 +24,11 @@ git clone https://github.com/emcf/thepipe
 pip install -r requirements.txt
 ```
 
+To install playwright for web scraping, run:
+```bash
+python3 -m playwright install --with-deps
+```
+
 To use The Pipe from the command line, simply run
 
 ```bash

@@ -16,14 +16,6 @@ class test_thepipe(unittest.TestCase):
         if os.path.exists('outputs/prompt.txt'):
             os.remove('outputs/prompt.txt')
             os.rmdir('outputs')
-    
-    def test_extract_from_source(self):
-        chunks = thepipe.extract.extract_from_source(source_string=self.files_directory)
-        self.assertEqual(type(chunks), list)
-        for chunk in chunks:
-            self.assertEqual(type(chunk), thepipe.core.Chunk)
-            self.assertIsNotNone(chunk.path)
-            self.assertIsNotNone(chunk.text or chunk.image)
 
     def test_image_to_base64(self):
         image = thepipe.Image.open(os.path.join(self.files_directory, 'example.jpg'))
@@ -43,6 +35,15 @@ class test_thepipe(unittest.TestCase):
             self.assertEqual(type(message), dict)
             self.assertIn('role', message)
             self.assertIn('content', message)
+    
+    def test_extract_from_source(self):
+        # test extracting examples for all supported file type
+        chunks = thepipe.extract.extract_from_source(source_string=self.files_directory)
+        self.assertEqual(type(chunks), list)
+        for chunk in chunks:
+            self.assertEqual(type(chunk), thepipe.core.Chunk)
+            self.assertIsNotNone(chunk.path)
+            self.assertIsNotNone(chunk.text or chunk.image)
 
     def test_extract_url(self):
         chunk = thepipe.extract.extract_url('https://en.wikipedia.org/wiki/Piping')

@@ -217,13 +217,14 @@ def extract_spreadsheet(source_name: str) -> List[Chunk]:
     return Chunk(path=source_name, text=json_dict, image=None, source_type=SourceTypes.SPREADSHEET)
     
 def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
+    #os.system("python3 -m playwright install")
     img = None
     text = None
     with sync_playwright() as p:
         for browser_type in [p.chromium, p.firefox, p.webkit]:
             browser = browser_type.launch()
             page = browser.new_page()
-            page.goto('https://scrapingant.com/')
+            page.goto(url)
             screenshot = page.screenshot()
             img = Image.open(BytesIO(screenshot))
             text = page.inner_text('body')
