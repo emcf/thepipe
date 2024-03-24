@@ -5,7 +5,9 @@ import tempfile
 from typing import *
 import os
 from core import Chunk, SourceTypes
+from llmlingua import PromptCompressor
 
+llm_lingua = PromptCompressor(model_name="microsoft/llmlingua-2-xlm-roberta-large-meetingbank", use_llmlingua2=True)
 CTAGS_LANGUAGES = {'py': "Python", 'ts': "Typescript", "tsx": "Typescript", "cpp": "C++", "c": "C"}
 
 def compress_with_ctags(chunk: Chunk, extension: str) -> Chunk:
@@ -57,8 +59,6 @@ def compress_with_ctags(chunk: Chunk, extension: str) -> Chunk:
     return Chunk(path=chunk.path, text=ctags_skeleton, image=chunk.image, source_type=SourceTypes.UNCOMPRESSIBLE_CODE)
 
 def compress_chunks(chunks: List[Chunk]) -> List[Chunk]:
-    from llmlingua import PromptCompressor
-    llm_lingua = PromptCompressor(model_name="microsoft/llmlingua-2-xlm-roberta-large-meetingbank", use_llmlingua2=True)
     new_chunks = []
     for chunk in chunks:
         new_chunk = None
