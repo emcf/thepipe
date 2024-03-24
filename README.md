@@ -1,9 +1,9 @@
 # <a href="https://thepi.pe/"><img src="https://rpnutzemutbrumczwvue.supabase.co/storage/v1/object/public/assets/pipeline_small%20(1).png" alt="Pipeline Illustration" style="width:96px; height:72px; vertical-align:middle;"> The Pipe</a>
 [![codecov](https://codecov.io/gh/emcf/thepipe/graph/badge.svg?token=OE7CUEFUL9)](https://codecov.io/gh/emcf/thepipe) ![python-gh-action](https://github.com/emcf/thepipe/actions/workflows/python-ci.yml/badge.svg)
 
-The pipe is a multimodal-first tool for feeding real-world information into large language models. It is built on top of dozens of carefully-crafted heuristics to create sensible representations from complex sources, including files, directories, scientific papers, web pages, github repos, etc. 
+**The pipe is a multimodal-first tool for feeding real-world information into large language models**. It is built on top of dozens of carefully-crafted heuristics to create sensible representations from complex sources, including files, directories, scientific papers, web pages, github repos, etc. 
 
-![The Pipe](https://ngrdaaykhfrmtpodlakn.supabase.co/storage/v1/object/public/assets/thepipe_demo.gif)
+![The Pipe](https://ngrdaaykhfrmtpodlakn.supabase.co/storage/v1/object/public/assets/demo_files.gif)
 
 ## Features 🌟
 
