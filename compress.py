@@ -22,23 +22,14 @@ def compress_with_ctags(chunk: Chunk, extension: str) -> Chunk:
         with open(file_path, 'w', encoding='utf-8') as tmp_file:
             tmp_file.write(chunk.text)
         # need custom options for ctags to work with typescript
-        if language == "Typescript":
-            cmd = [
-                "./ctags.exe" if os.name == 'nt' else "ctags-universal",
-                f"--languages={language}",
-                "--output-format=json",
-                f"--options=./ts.ctags",
-                "-f", "-",
-                file_path
-            ]
-        else:
-            cmd = [
+        cmd = [
                 "./ctags.exe" if os.name == 'nt' else "ctags-universal",
                 f"--languages={language}",
                 "--output-format=json",
                 "-f", "-",
                 file_path
-            ]     
+            ] + ([f"--options=./ts.ctags"] if language == "Typescript" else [])
+        
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             raise Exception(f"Error running ctags: {result.stderr}")
