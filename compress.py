@@ -33,7 +33,7 @@ def compress_with_ctags(chunk: Chunk, extension: str) -> Chunk:
             ]
         else:
             cmd = [
-                "./ctags" if os.name == 'nt' else "ctags-universal"
+                "./ctags" if os.name == 'nt' else "ctags-universal",
                 f"--languages={language}",
                 "--output-format=json",
                 "-f", "-",
