@@ -20,3 +20,5 @@ torch
 llmlingua
 PyMuPDF
 pdf2image
+python-magic
+python-magic-bin
