@@ -3,7 +3,7 @@
 
 ### Prepare any PDF, CSV, image, web page, GitHub repo, and more for GPT-4V with one line of code. ⚡
 
-The pipe is a multimodal-first tool for feeding real-world information into large language models. It is built on top of dozens of carefully-crafted heuristics to create sensible text and image prompts from files, directories, web pages, papers, github repos, etc. 
+The pipe is a multimodal-first tool for flattening entire directories and websites into a prompt-ready format for use with large language models. It is built on top of dozens of carefully-crafted heuristics to create sensible text and image prompts from files, directories, web pages, papers, github repos, etc. 
 
 ![Demo](https://ngrdaaykhfrmtpodlakn.supabase.co/storage/v1/object/public/assets/demo.gif?t=2024-03-24T19%3A13%3A46.695Z)
 
