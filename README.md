@@ -1,7 +1,7 @@
 # <a href="https://thepi.pe/"><img src="https://rpnutzemutbrumczwvue.supabase.co/storage/v1/object/public/assets/pipeline_small%20(1).png" alt="Pipeline Illustration" style="width:96px; height:72px; vertical-align:middle;"> The Pipe</a>
 [![codecov](https://codecov.io/gh/emcf/thepipe/graph/badge.svg?token=OE7CUEFUL9)](https://codecov.io/gh/emcf/thepipe) ![python-gh-action](https://github.com/emcf/thepipe/actions/workflows/python-ci.yml/badge.svg)
 
-### Prepare any PDF, CSV, image, web page, GitHub repo, and more for GPT-4V with one line of code. ⚡
+### Prepare any PDF, CSV, image, web page, GitHub repo, and more for GPT-4V with one line of code ⚡
 
 The pipe is a multimodal-first tool for flattening entire directories and websites into a prompt-ready format for use with large language models. It is built on top of dozens of carefully-crafted heuristics to create sensible text and image prompts from files, directories, web pages, papers, github repos, etc. 
 
