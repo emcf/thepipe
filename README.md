@@ -22,7 +22,7 @@ import thepipe
 openai_client = openai.OpenAI()
 response = openai_client.chat.completions.create(
     model="gpt-4-vision-preview",
-    messages = thepipe.make_prompt_from_source("https://github.com/emcf/thepipe"),
+    messages = thepipe.make_prompt_from_source("example.pdf"),
 )
 ```
 
@@ -32,24 +32,13 @@ The pipe is accessible from the command line or from [Python](https://www.python
 
 ## Getting Started 🚀
 
-To use The Pipe, clone the repository and install the requirements:
+To use The Pipe, you will need [playwright](https://github.com/microsoft/playwright), [ctags](https://github.com/universal-ctags/), [pytesseract](https://github.com/h/pytesseract), and the python requirements:
 ```bash
 git clone https://github.com/emcf/thepipe
 pip install -r requirements.txt
-npm install
-npx playwright install --with-deps
 ```
 
-Linux users can install ctags with
-```bash
-sudo apt-get install -y universal-ctags
-```
-
-Windows users must ensure [ctags.exe](https://github.com/universal-ctags/) is in their PATH environment variable.
-
-
-To use The Pipe from the command line, simply run
-
+Now you can use The Pipe:
 ```bash
 python thepipe.py path/to/directory
 ```
