@@ -247,34 +247,25 @@ def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
         browser = p.chromium.launch()
         page = browser.new_page()
         page.goto(url)
-
         if not text_only:
             # Get the viewport size and document size to scroll
             viewport_height = page.viewport_size['height']
             total_height = page.evaluate("document.body.scrollHeight")
-            
+            # Scroll to the bottom of the page and take screenshots
             current_scroll_position = 0
+            page.wait_for_timeout(1000) # wait for dynamic content to load
             while current_scroll_position < total_height:
-                # Screenshot current view
                 screenshot = page.screenshot()
                 img = Image.open(BytesIO(screenshot))
                 chunks.append(Chunk(path=url, text=None, image=img, source_type=SourceTypes.URL))
-                
-                # Scroll one viewport height
                 current_scroll_position += viewport_height
                 page.evaluate(f"window.scrollTo(0, {current_scroll_position})")
-                # Wait for a short time
-                page.wait_for_timeout(100)  # 1000 milliseconds = 1 second
-
-            # After scrolling through the entire page, extract the text.
             text = page.inner_text('body')
-            chunks.append(Chunk(path=url, text=text, image=None, source_type=SourceTypes.URL))
-
-        browser.close()
-    
+            if text:
+                chunks.append(Chunk(path=url, text=text, image=None, source_type=SourceTypes.URL))
+            browser.close()
     if not chunks:
-        raise Exception("Failed to extract from URL.")
-    
+        raise Exception("Failed to extract any text/images from URL.")
     return chunks
 
 def extract_github(github_url: str, file_path: str = '', match: Optional[str] = None, ignore: Optional[str] = None, text_only: bool = False, mathpix: bool = False, branch: str = 'main', verbose: bool = False) -> List[Chunk]:
