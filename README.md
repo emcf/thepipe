@@ -38,6 +38,8 @@ git clone https://github.com/emcf/thepipe
 pip install -r requirements.txt
 ```
 
+Tip for windows users: you may need to install the python-libmagic binaries with `pip install python-magic-bin`.
+
 Now you can use The Pipe:
 ```bash
 python thepipe.py path/to/directory
