@@ -52,7 +52,7 @@ def extract_from_source(source: str, match: Optional[str] = None, ignore: Option
     elif source_type == SourceTypes.ZIP:
         return extract_zip(file_path=source, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
     elif source_type == SourceTypes.URL:
-        return [extract_url(url=source, text_only=text_only)]
+        return extract_url(url=source, text_only=text_only)
     elif source_type == SourceTypes.IPYNB:
         return extract_from_ipynb(file_path=source, verbose=verbose, mathpix=mathpix, text_only=text_only)
     return extract_from_file(file_path=source, source_type=source_type, verbose=verbose, mathpix=mathpix, text_only=text_only)
@@ -240,24 +240,42 @@ def extract_spreadsheet(file_path: str) -> Chunk:
     json_dict = json.dumps(dict, indent=4)
     return Chunk(path=file_path, text=json_dict, image=None, source_type=SourceTypes.SPREADSHEET)
     
-def extract_url(url: str, text_only: bool = False) -> Chunk:
-    #os.system("python3 -m playwright install")
-    img = None
+def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
+    chunks = []
     text = None
     with sync_playwright() as p:
-        for browser_type in [p.chromium, p.firefox, p.webkit]:
-            browser = browser_type.launch()
-            page = browser.new_page()
-            page.goto(url)
-            img = None
-            if not text_only:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.goto(url)
+
+        if not text_only:
+            # Get the viewport size and document size to scroll
+            viewport_height = page.viewport_size['height']
+            total_height = page.evaluate("document.body.scrollHeight")
+            
+            current_scroll_position = 0
+            while current_scroll_position < total_height:
+                # Screenshot current view
                 screenshot = page.screenshot()
                 img = Image.open(BytesIO(screenshot))
+                chunks.append(Chunk(path=url, text=None, image=img, source_type=SourceTypes.URL))
+                
+                # Scroll one viewport height
+                current_scroll_position += viewport_height
+                page.evaluate(f"window.scrollTo(0, {current_scroll_position})")
+                # Wait for a short time
+                page.wait_for_timeout(100)  # 1000 milliseconds = 1 second
+
+            # After scrolling through the entire page, extract the text.
             text = page.inner_text('body')
-            browser.close()
-    if img is None and text is None:
+            chunks.append(Chunk(path=url, text=text, image=None, source_type=SourceTypes.URL))
+
+        browser.close()
+    
+    if not chunks:
         raise Exception("Failed to extract from URL.")
-    return Chunk(path=url, text=text, image=img, source_type=SourceTypes.URL)
+    
+    return chunks
 
 def extract_github(github_url: str, file_path: str = '', match: Optional[str] = None, ignore: Optional[str] = None, text_only: bool = False, mathpix: bool = False, branch: str = 'main', verbose: bool = False) -> List[Chunk]:
     files_contents = []
