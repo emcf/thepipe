@@ -6,11 +6,13 @@ import re
 import os
 from PIL import Image
 from core import Chunk, SourceTypes, print_status, count_tokens
-import extract
-import compress
+import extractor
+import compressor
 
 def image_to_base64(image: Image.Image) -> str:
     buffered = BytesIO()
+    if image.mode == 'RGBA':
+        image = image.convert('RGB')
     image.save(buffered, format="JPEG")
     return base64.b64encode(buffered.getvalue()).decode()
 
@@ -48,9 +50,9 @@ def save_outputs(chunks: List[Chunk], verbose: bool = False, text_only: bool = F
         file.write(text)
     if verbose: print_status(f"Output {len(text)/4} tokens and {n_images} images to 'outputs'", status='success')
 
-def make_prompt_from_source(source: str, match: Optional[str] = None, ignore: Optional[str] = None, limit: int = 1e5, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[Dict]:
-    chunks = extract.extract_from_source(source=source, match=match, ignore=ignore, limit=limit, mathpix=mathpix, text_only=text_only, verbose=verbose)
-    chunks = compress.compress_chunks(chunks=chunks, verbose=verbose, limit=limit)
+def extract(source: str, match: Optional[str] = None, ignore: Optional[str] = None, limit: int = 1e5, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[Dict]:
+    chunks = extractor.extract_from_source(source=source, match=match, ignore=ignore, limit=limit, mathpix=mathpix, text_only=text_only, verbose=verbose)
+    chunks = compressor.compress_chunks(chunks=chunks, verbose=verbose, limit=limit)
     final_prompt = create_messages_from_chunks(chunks)
     if verbose: print_status(f"Successfully created prompt ({count_tokens(chunks)} tokens)", status='success')
     return final_prompt
@@ -71,6 +73,6 @@ def parse_arguments() -> argparse.Namespace:
 
 if __name__ == '__main__':
     args = parse_arguments()
-    chunks = extract.extract_from_source(source=args.source, match=args.match, ignore=args.ignore, limit=args.limit, mathpix=args.mathpix, text_only=args.text_only, verbose=args.verbose)
-    chunks = compress.compress_chunks(chunks=chunks, verbose=args.verbose, limit=args.limit)
+    chunks = extractor.extract_from_source(source=args.source, match=args.match, ignore=args.ignore, limit=args.limit, mathpix=args.mathpix, text_only=args.text_only, verbose=args.verbose)
+    chunks = compressor.compress_chunks(chunks=chunks, verbose=args.verbose, limit=args.limit)
     save_outputs(chunks=chunks, verbose=args.verbose, text_only=args.text_only)

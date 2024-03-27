@@ -25,7 +25,7 @@ import thepipe
 openai_client = openai.OpenAI()
 response = openai_client.chat.completions.create(
     model="gpt-4-vision-preview",
-    messages = thepipe.make_prompt_from_source("example.pdf"),
+    messages = thepipe.extract("example.pdf"),
 )
 ```
 
@@ -72,7 +72,7 @@ The pipe is accessible from the command line or from [Python](https://www.python
 | PDF                                   | `.pdf`                                  | ✔️               | ✔️    | Extracts text and optionally images; can use Mathpix for enhanced extraction |
 | Image                                 | `.jpg`, `.jpeg`, `.png`, `.gif`, `.bmp`, `.tiff`, `.webp`, `.svg` | ❌                | ✔️              | Extracts images and can convert to text using OCR                        |
 | Data Table                           | `.csv`, `.xls`, `.xlsx`, `supabase`             | ✔️                | ❌               | Extracts data from spreadsheets or SQL tables; converts to text representation. For very large datasets, will only extract column names and types         |
-| Jupyter Notebook                      | `.ipynb`                                | ❌               | ❌               | Extracts content from Jupyter notebooks                                  |
+| Jupyter Notebook                      | `.ipynb`                                | ❌               | ✔️               | Extracts content from Jupyter notebooks                                  |
 | Microsoft Word Document               | `.docx`                                 | ✔️               | ✔️               | Extracts text from Word documents                                        |
 | Microsoft PowerPoint Presentation     | `.pptx`                                 | ✔️               | ✔️               | Extracts text from PowerPoint presentations                              |
 | Website                               | URLs (http, https, www, ftp)             | ✔️                | ✔️    | Extracts content from web pages; text-only extraction available          |
