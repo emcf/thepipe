@@ -12,9 +12,10 @@ The pipe is a multimodal-first tool for feeding real-world information into larg
 - Prepare prompts from dozens of complex file types 📄 
 - Visual document extraction for complex PDFs, markdown, etc 🧠
 - Outputs optimized for multimodal LLMs 🖼️ + 💬
-- Multi-threaded ⚡️
+- Auto compresses prompts over your set token limit 📦
 - Works with missing file extensions, in-memory data streams 💾
 - Works with directories, URL, git repos, and more 🌐
+- Multi-threaded ⚡️
 
 To use the pipe with Python, simply append the output to the start of your prompt:
 
