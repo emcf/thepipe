@@ -250,7 +250,7 @@ def extract_url(url: str, text_only: bool = False) -> Chunk:
             page = browser.new_page()
             page.goto(url)
             img = None
-            if text_only:
+            if not text_only:
                 screenshot = page.screenshot()
                 img = Image.open(BytesIO(screenshot))
             text = page.inner_text('body')
