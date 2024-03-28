@@ -1,4 +1,5 @@
 __pycache__/
+tests/__pycache__/
 outputs/
 logs/
 node_modules/
