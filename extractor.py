@@ -31,9 +31,10 @@ FILES_TO_IGNORE = {'package-lock.json', '.gitignore', '.bin', '.pyc', '.pyo', '.
 CODE_EXTENSIONS = {'.h', '.json', '.js', '.jsx', '.ts', '.tsx',  '.cs', '.java', '.html', '.css', '.ini', '.xml', '.yaml', '.xaml', '.sh'} # Plaintext files that should not be compressed with LLMLingua
 CTAGS_CODE_EXTENSIONS = {'.c', '.cpp', '.py'} # code files that work with ctags
 PLAINTEXT_EXTENSIONS = {'.txt', '.md', '.rtf'}
+IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
+SPREADSHEET_EXTENSIONS = {'.csv', '.xls', '.xlsx'}
+DOCUMENT_EXTENSIONS = {'.pdf', '.docx', '.pptx'}
 GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN")
-SUPABASE_URL: str = os.getenv("SUPABASE_URL")
-SUPABASE_KEY: str = os.getenv("SUPABASE_KEY")
 MATHPIX_APP_ID: str = os.getenv("MATHPIX_APP_ID")
 MATHPIX_APP_KEY: str = os.getenv("MATHPIX_APP_KEY")
 MATHPIX_CALLS_PER_MIN: int = 6
@@ -98,9 +99,9 @@ def detect_type(source: str) -> Optional[SourceTypes]:
         return SourceTypes.COMPRESSIBLE_CODE
     elif source.endswith(".pdf"):
         return SourceTypes.PDF
-    elif any(source.endswith(ext) for ext in ['.jpg', '.jpeg', '.png',]): # TODO: '.svg', '.webp', '.gif', '.bmp', '.tiff'
+    elif any(source.endswith(ext) for ext in IMAGE_EXTENSIONS): # TODO: '.svg', '.webp', '.gif', '.bmp', '.tiff'
         return SourceTypes.IMAGE
-    elif any(source.endswith(ext) for ext in ['.csv', '.xls', '.xlsx']):
+    elif any(source.endswith(ext) for ext in SPREADSHEET_EXTENSIONS):
         return SourceTypes.SPREADSHEET
     elif source.endswith(".ipynb"):
         return SourceTypes.IPYNB
@@ -242,28 +243,39 @@ def extract_spreadsheet(file_path: str) -> Chunk:
     
 def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
     chunks = []
-    text = None
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page()
-        page.goto(url)
-        if not text_only:
-            # Get the viewport size and document size to scroll
-            viewport_height = page.viewport_size['height']
-            total_height = page.evaluate("document.body.scrollHeight")
-            # Scroll to the bottom of the page and take screenshots
-            current_scroll_position = 0
-            page.wait_for_timeout(1000) # wait for dynamic content to load
-            while current_scroll_position < total_height:
-                screenshot = page.screenshot()
-                img = Image.open(BytesIO(screenshot))
-                chunks.append(Chunk(path=url, text=None, image=img, source_type=SourceTypes.URL))
-                current_scroll_position += viewport_height
-                page.evaluate(f"window.scrollTo(0, {current_scroll_position})")
-            text = page.inner_text('body')
-            if text:
-                chunks.append(Chunk(path=url, text=text, image=None, source_type=SourceTypes.URL))
-            browser.close()
+    _, extension = os.path.splitext(urlparse(url).path)
+    known_extensions = [IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS, DOCUMENT_EXTENSIONS, SPREADSHEET_EXTENSIONS, CODE_EXTENSIONS, CTAGS_CODE_EXTENSIONS]
+    if extension is not None and any(extension in s for s in known_extensions):
+        # if url has a file extension, download and extract into tempfile
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file_path = os.path.join(temp_dir, os.path.basename(url))
+            response = requests.get(url)
+            with open(file_path, 'wb') as file:
+                file.write(response.content)
+            chunks = extract_from_source(source=file_path, text_only=text_only)
+    else:
+        # use playwright to extract text and images from the URL
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page()
+            page.goto(url)
+            if not text_only:
+                # Get the viewport size and document size to scroll
+                viewport_height = page.viewport_size['height']
+                total_height = page.evaluate("document.body.scrollHeight")
+                # Scroll to the bottom of the page and take screenshots
+                current_scroll_position = 0
+                page.wait_for_timeout(1000) # wait for dynamic content to load
+                while current_scroll_position < total_height:
+                    screenshot = page.screenshot()
+                    img = Image.open(BytesIO(screenshot))
+                    chunks.append(Chunk(path=url, text=None, image=img, source_type=SourceTypes.URL))
+                    current_scroll_position += viewport_height
+                    page.evaluate(f"window.scrollTo(0, {current_scroll_position})")
+                text = page.inner_text('body')
+                if text:
+                    chunks.append(Chunk(path=url, text=text, image=None, source_type=SourceTypes.URL))
+                browser.close()
     if not chunks:
         raise Exception("Failed to extract any text/images from URL.")
     return chunks

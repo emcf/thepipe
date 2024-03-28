@@ -82,6 +82,7 @@ class test_thepipe(unittest.TestCase):
         self.assertFalse(extractor.should_ignore(self.files_directory+"/example.md", ignore=None))
 
     def test_extract_url(self):
+        # test web page extraction
         chunks = extractor.extract_url('https://en.wikipedia.org/wiki/Piping')
         for chunk in chunks:
             self.assertEqual(type(chunk), core.Chunk)
@@ -90,6 +91,10 @@ class test_thepipe(unittest.TestCase):
             self.assertIn('Pipe', chunk.text)
         # test if at least one image was extracted
         self.assertTrue(any(chunk.image for chunk in chunks))
+        # test document url extraction
+        chunks = extractor.extract_url('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf')
+        self.assertEqual(len(chunks), 1)
+        self.assertEqual(chunks[0].source_type, core.SourceTypes.PDF)
 
     @unittest.skipUnless(os.environ.get('GITHUB_TOKEN'), "requires GITHUB_TOKEN")
     def test_extract_github(self):
