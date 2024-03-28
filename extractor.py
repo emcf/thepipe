@@ -266,12 +266,14 @@ def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
                 # Scroll to the bottom of the page and take screenshots
                 current_scroll_position = 0
                 page.wait_for_timeout(1000) # wait for dynamic content to load
-                while current_scroll_position < total_height:
+                scrolldowns, max_scrolldowns = 0, 10 # in case of infinite scroll
+                while current_scroll_position < total_height and scrolldowns < max_scrolldowns:
                     screenshot = page.screenshot()
                     img = Image.open(BytesIO(screenshot))
                     chunks.append(Chunk(path=url, text=None, image=img, source_type=SourceTypes.URL))
                     current_scroll_position += viewport_height
                     page.evaluate(f"window.scrollTo(0, {current_scroll_position})")
+                    scrolldowns += 1
                 text = page.inner_text('body')
                 if text:
                     chunks.append(Chunk(path=url, text=text, image=None, source_type=SourceTypes.URL))
