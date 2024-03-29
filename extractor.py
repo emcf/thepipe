@@ -26,6 +26,8 @@ import docx2txt
 import tempfile
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
+import mimetypes
+from magika import Magika
 
 FILES_TO_IGNORE = {'package-lock.json', '.gitignore', '.bin', '.pyc', '.pyo', '.exe', '.dll', '.obj', '.o', '.a', '.lib', '.so', '.dylib', '.ncb', '.sdf', '.suo', '.pdb', '.idb', '.pyd', '.ipynb_checkpoints', '.npy', '.pth'} # Files to ignore, please feel free to customize!
 CODE_EXTENSIONS = {'.h', '.json', '.js', '.jsx', '.ts', '.tsx',  '.cs', '.java', '.html', '.css', '.ini', '.xml', '.yaml', '.xaml', '.sh'} # Plaintext files that should not be compressed with LLMLingua
@@ -34,6 +36,7 @@ PLAINTEXT_EXTENSIONS = {'.txt', '.md', '.rtf'}
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
 SPREADSHEET_EXTENSIONS = {'.csv', '.xls', '.xlsx'}
 DOCUMENT_EXTENSIONS = {'.pdf', '.docx', '.pptx'}
+KNOWN_EXTENSIONS = IMAGE_EXTENSIONS.union(CODE_EXTENSIONS).union(CTAGS_CODE_EXTENSIONS).union(PLAINTEXT_EXTENSIONS).union(IMAGE_EXTENSIONS).union(SPREADSHEET_EXTENSIONS).union(DOCUMENT_EXTENSIONS)
 GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN")
 MATHPIX_APP_ID: str = os.getenv("MATHPIX_APP_ID")
 MATHPIX_APP_KEY: str = os.getenv("MATHPIX_APP_KEY")
@@ -93,28 +96,42 @@ def detect_type(source: str) -> Optional[SourceTypes]:
         return SourceTypes.URL
     elif source.endswith(".zip"):
         return SourceTypes.ZIP
-    elif any(source.endswith(ext) for ext in CODE_EXTENSIONS):
-        return SourceTypes.UNCOMPRESSIBLE_CODE
-    elif any(source.endswith(ext) for ext in CTAGS_CODE_EXTENSIONS):
-        return SourceTypes.COMPRESSIBLE_CODE
-    elif source.endswith(".pdf"):
-        return SourceTypes.PDF
-    elif any(source.endswith(ext) for ext in IMAGE_EXTENSIONS): # TODO: '.svg', '.webp', '.gif', '.bmp', '.tiff'
-        return SourceTypes.IMAGE
-    elif any(source.endswith(ext) for ext in SPREADSHEET_EXTENSIONS):
-        return SourceTypes.SPREADSHEET
-    elif source.endswith(".ipynb"):
-        return SourceTypes.IPYNB
-    elif source.endswith(".docx"):
-        return SourceTypes.DOCX
-    elif source.endswith(".pptx"):
-        return SourceTypes.PPTX
     elif os.path.isdir(source) or source == '.' or source == './':
         return SourceTypes.DIR
-    elif any(source.endswith(ext) for ext in PLAINTEXT_EXTENSIONS):
+    # try splitting the source into a filename and extension
+    _, extension = os.path.splitext(source)
+    # if that fails, try to detect the file type using Magika
+    if (not extension) or (extension not in KNOWN_EXTENSIONS):
+        magika = Magika()
+        try:
+            with open(source, 'rb') as file:
+                result = magika.identify_bytes(file.read())
+        except Exception as e:
+            return None
+        mimetype = result.output.mime_type
+        extension = mimetypes.guess_extension(mimetype, strict=False)
+    if not extension:
+        return None
+    # Map the detected extension to the corresponding SourceType
+    if extension in CODE_EXTENSIONS:
+        return SourceTypes.UNCOMPRESSIBLE_CODE
+    elif extension in CTAGS_CODE_EXTENSIONS:
+        return SourceTypes.COMPRESSIBLE_CODE
+    elif extension in IMAGE_EXTENSIONS:
+        return SourceTypes.IMAGE
+    elif extension in SPREADSHEET_EXTENSIONS:
+        return SourceTypes.SPREADSHEET
+    elif extension == '.pdf':
+        return SourceTypes.PDF
+    elif extension == '.ipynb':
+        return SourceTypes.IPYNB
+    elif extension == '.docx':
+        return SourceTypes.DOCX
+    elif extension == '.pptx':
+        return SourceTypes.PPTX
+    elif extension in PLAINTEXT_EXTENSIONS:
         return SourceTypes.PLAINTEXT
-    else:
-        return None # want to avoid processing unknown file types
+    return None
 
 def extract_unstructured(file_path: str) -> List[Chunk]:
     elements = partition(file_path)
@@ -244,8 +261,7 @@ def extract_spreadsheet(file_path: str) -> Chunk:
 def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
     chunks = []
     _, extension = os.path.splitext(urlparse(url).path)
-    known_extensions = [IMAGE_EXTENSIONS, PLAINTEXT_EXTENSIONS, DOCUMENT_EXTENSIONS, SPREADSHEET_EXTENSIONS, CODE_EXTENSIONS, CTAGS_CODE_EXTENSIONS]
-    if extension is not None and any(extension in s for s in known_extensions):
+    if extension is not None and extension in KNOWN_EXTENSIONS:
         # if url has a file extension, download and extract into tempfile
         with tempfile.TemporaryDirectory() as temp_dir:
             file_path = os.path.join(temp_dir, os.path.basename(url))
