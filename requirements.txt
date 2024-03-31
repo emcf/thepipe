@@ -4,6 +4,7 @@ playwright
 docx2txt
 python-pptx
 Pyarrow
+unstructured[all-docs]
 poppler-utils
 python-magic
 supabase
