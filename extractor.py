@@ -18,7 +18,6 @@ from PIL import Image
 import requests
 import json
 import pytesseract
-from unstructured.partition.auto import partition
 from playwright.sync_api import sync_playwright
 import fitz
 from core import Chunk, print_status, SourceTypes
@@ -83,7 +82,7 @@ def extract_from_file(file_path: str, source_type: str, verbose: bool = False, m
             extraction = [extract_plaintext(file_path=file_path)]
             extraction = [Chunk(path=e.path, text=e.text, image=None, source_type=SourceTypes.COMPRESSIBLE_CODE) for e in extraction]
         else:
-            extraction = [extract_unstructured(file_path=file_path)]
+            extraction = [extract_plaintext(file_path=file_path)]
         if verbose: print_status(f"Extracted from {file_path}", status='success')
         return extraction
     except Exception as e:
@@ -133,11 +132,6 @@ def detect_type(source: str) -> Optional[SourceTypes]:
     elif extension in PLAINTEXT_EXTENSIONS:
         return SourceTypes.PLAINTEXT
     return None
-
-def extract_unstructured(file_path: str) -> List[Chunk]:
-    elements = partition(file_path)
-    text = "\n\n".join([str(el) for el in elements])
-    return Chunk(path=file_path, text=text, image=None, source_type=SourceTypes.PLAINTEXT)
 
 def extract_plaintext(file_path: str) -> List[Chunk]:
     with open(file_path, 'r', encoding='utf-8') as file:
