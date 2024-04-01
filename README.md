@@ -1,11 +1,12 @@
 # <a href="https://thepi.pe/"><img src="https://rpnutzemutbrumczwvue.supabase.co/storage/v1/object/public/assets/pipeline_small%20(1).png" alt="Pipeline Illustration" style="width:96px; height:72px; vertical-align:middle;"> The Pipe</a>
-[![codecov](https://codecov.io/gh/emcf/thepipe/graph/badge.svg?token=OE7CUEFUL9)](https://codecov.io/gh/emcf/thepipe) ![python-gh-action](https://github.com/emcf/thepipe/actions/workflows/python-ci.yml/badge.svg) <a href="https://thepi.pe/">![get API](https://img.shields.io/badge/API-Apply%20here-blue)</a>
+[![codecov](https://codecov.io/gh/emcf/thepipe/graph/badge.svg?token=OE7CUEFUL9)](https://codecov.io/gh/emcf/thepipe) ![python-gh-action](https://github.com/emcf/thepipe/actions/workflows/python-ci.yml/badge.svg) <a href="https://thepi.pe/">![Website](https://img.shields.io/website?url=https%3A%2F%2Fthepipe.up.railway.app%2F&label=API%20status) ![get API](https://img.shields.io/badge/API-Apply%20here-blue)</a>
 
-### Prepare any PDF, CSV, image, web page, GitHub repo, and more for GPT-4V with one line of code ⚡
+### Prepare any PDF, Word doc, CSV, image, web page, GitHub repo, and more for GPT-4V with one line of code ⚡
 
 The pipe is a multimodal-first tool for flattening unstructured files, directories, and websites into a prompt-ready format for use with large language models. It is built on top of dozens of carefully-crafted heuristics to create sensible text and image prompts from files, directories, web pages, papers, github repos, etc. 
 
 ![Demo](https://ngrdaaykhfrmtpodlakn.supabase.co/storage/v1/object/public/assets/demo.gif?t=2024-03-24T19%3A13%3A46.695Z)
+
 
 ## Features 🌟
 
@@ -17,7 +18,7 @@ The pipe is a multimodal-first tool for flattening unstructured files, directori
 - Works with directories, URL, git repos, and more 🌐
 - Multi-threaded ⚡️
 
-To use the pipe with Python, simply append the output to the start of your prompt:
+If you are hosting the pipe for yourself, you can extract and use the output like this:
 
 ```python
 import openai
@@ -29,10 +30,12 @@ response = openai_client.chat.completions.create(
 )
 ```
 
-
 ## Getting Started 🚀
 
-To use The Pipe, you will need [playwright](https://github.com/microsoft/playwright), [ctags](https://github.com/universal-ctags/), [pytesseract](https://github.com/h/pytesseract), and the python requirements:
+You can either use the hosted API at [thepi.pe](https://thepi.pe) or run The Pipe locally. The simplest way to use the pipe is to use the hosted API by following the instructions at the [API documentation page](https://thepi.pe/docs).
+
+To use The Pipe locally, you will need [playwright](https://github.com/microsoft/playwright), [ctags](https://github.com/universal-ctags/), [pytesseract](https://github.com/h/pytesseract), and the python requirements:
+
 ```bash
 git clone https://github.com/emcf/thepipe
 pip install -r requirements.txt
@@ -70,7 +73,7 @@ The pipe is accessible from the command line or from [Python](https://www.python
 | Code                                  | `.py`, `.tsx`, `.js`, `.html`, `.css`, `.cpp`, etc | ✔️ (varies)   | ❌               | Combines all code files. `.c`, `.cpp`, `.py` are compressible with ctags, others are not |
 | Plaintext                             | `.txt`, `.md`, `.rtf`, etc               | ✔️               | ❌               | Regular text files                                                      |
 | PDF                                   | `.pdf`                                  | ✔️               | ✔️    | Extracts text and images of each page; can use Mathpix for extraction of images within pages |
-| Image                                 | `.jpg`, `.jpeg`, `.png`, `.gif`, `.bmp`, `.tiff`, `.webp`, `.svg` | ❌                | ✔️              | Extracts images and can convert to text using OCR                        |
+| Image                                 | `.jpg`, `.jpeg`, `.png`, `.gif`, `.bmp`, `.tiff`, `.webp`, `.svg` | ❌                | ✔️              | Extracts images, uses OCR if text_only                        |
 | Data Table                           | `.csv`, `.xls`, `.xlsx`             | ✔️                | ❌               | Extracts data from spreadsheets; converts to text representation. For very large datasets, will only extract column names and types         |
 | Jupyter Notebook                      | `.ipynb`                                | ❌               | ✔️               | Extracts code, markdown, and images from Jupyter notebooks                                  |
 | Microsoft Word Document               | `.docx`                                 | ✔️               | ✔️               | Extracts text and images from Word documents                                        |
