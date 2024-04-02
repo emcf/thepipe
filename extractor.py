@@ -285,9 +285,9 @@ def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
                     current_scroll_position += viewport_height
                     page.evaluate(f"window.scrollTo(0, {current_scroll_position})")
                     scrolldowns += 1
-                text = page.inner_text('body')
-                if text:
-                    chunks.append(Chunk(path=url, text=text, image=None, source_type=SourceTypes.URL))
+            text = page.inner_text('body')
+            if text:
+                chunks.append(Chunk(path=url, text=text, image=None, source_type=SourceTypes.URL))
                 browser.close()
     if not chunks:
         raise Exception("Failed to extract any text/images from URL.")
