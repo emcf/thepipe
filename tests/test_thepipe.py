@@ -106,11 +106,15 @@ class test_thepipe(unittest.TestCase):
     def test_extract_pdf_with_mathpix(self):
         chunks = extractor.extract_pdf("tests/files/example.pdf", mathpix=True)
         self.assertNotEqual(len(chunks), 0)
-        self.assertEqual(chunks[0].source_type, core.SourceTypes.PDF)
-        self.assertIsNotNone(chunks[1].source_type, core.SourceTypes.IMAGE)
-        # verify extraction contains image and text
-        self.assertIsNotNone(chunks[0].text)
-        self.assertIsNotNone(chunks[1].image)
+        for i in range(len(chunks)):
+            if chunks[i].source_type == core.SourceTypes.PDF:
+                # verify extraction contains text
+                self.assertIsNotNone(chunks[i].text)
+                # verify extraction text does not contain image data
+                self.assertNotIn('![](', chunks[i].text)
+            elif chunks[i].source_type == core.SourceTypes.IMAGE:
+                # verify extraction contains image
+                self.assertIsNotNone(chunks[i].image)
 
     def test_compress_spreadsheet(self):
         chunks = extractor.extract_from_source(source=self.files_directory+"/example.xlsx")

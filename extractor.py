@@ -28,7 +28,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 import mimetypes
 from magika import Magika
 
-FILES_TO_IGNORE = {'package-lock.json', '.gitignore', '.bin', '.pyc', '.pyo', '.exe', '.dll', '.obj', '.o', '.a', '.lib', '.so', '.dylib', '.ncb', '.sdf', '.suo', '.pdb', '.idb', '.pyd', '.ipynb_checkpoints', '.npy', '.pth'} # Files to ignore, please feel free to customize!
+FILES_TO_IGNORE = {'package-lock.json', '.gitignore', '.bin', '.pyc', '.pyo', '.exe', '.bat', '.dll', '.obj', '.o', '.a', '.lib', '.so', '.dylib', '.ncb', '.sdf', '.suo', '.pdb', '.idb', '.pyd', '.ipynb_checkpoints', '.npy', '.pth'} # Files to ignore, please feel free to customize!
 CODE_EXTENSIONS = {'.h', '.json', '.js', '.jsx', '.ts', '.tsx',  '.cs', '.java', '.html', '.css', '.ini', '.xml', '.yaml', '.xaml', '.sh'} # Plaintext files that should not be compressed with LLMLingua
 CTAGS_CODE_EXTENSIONS = {'.c', '.cpp', '.py'} # code files that work with ctags
 PLAINTEXT_EXTENSIONS = {'.txt', '.md', '.rtf'}
@@ -59,6 +59,8 @@ def extract_from_source(source: str, match: Optional[str] = None, ignore: Option
         return extract_url(url=source, text_only=text_only)
     elif source_type == SourceTypes.IPYNB:
         return extract_from_ipynb(file_path=source, verbose=verbose, mathpix=mathpix, text_only=text_only)
+    elif source_type == SourceTypes.SPREADSHEET:
+        return [extract_spreadsheet(file_path=source)]
     return extract_from_file(file_path=source, source_type=source_type, verbose=verbose, mathpix=mathpix, text_only=text_only)
 
 def extract_from_file(file_path: str, source_type: str, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[str]:
@@ -196,10 +198,11 @@ def extract_pdf(file_path: str, mathpix: bool = False, text_only: bool = False, 
                 response = requests.get(f"{base_url}{pdf_id}.md", headers=headers)
                  # clean result to unicode error (normalize text and remove all special characters)
                 text = response.content.decode("utf-8").encode("ASCII", "ignore").decode("utf-8", "ignore")
-                chunks.append(Chunk(path=file_path, text=text, image=None, source_type=SourceTypes.PDF))
                 # extract markdown images from the 
                 if not text_only:
-                    chunks += extract_images_from_markdown(text)
+                    text, image_chunks = extract_images_from_markdown(text)
+                    chunks += image_chunks
+                chunks.append(Chunk(path=file_path, text=text, image=None, source_type=SourceTypes.PDF))
                 return chunks
             elif status == "error":
                 raise ValueError("Unable to retrieve PDF from Mathpix")
@@ -232,8 +235,10 @@ def extract_images_from_markdown(text: str) -> List[Chunk]:
         else:
             # ignore incompatible image extractions
             continue
+        # strip url from text
+        text = text.replace(f"![]({url})", "")
         images.append(Chunk(path=url, text=None, image=img, source_type=SourceTypes.IMAGE))
-    return images
+    return text, images
 
 def extract_image(file_path: str, text_only: bool = False) -> Chunk:
     img = Image.open(file_path)
@@ -351,7 +356,8 @@ def extract_from_ipynb(file_path: str, verbose: bool = False, mathpix: bool = Fa
         if cell['cell_type'] == 'markdown':
             text = ''.join(cell['source'])
             if not text_only:
-                chunks += extract_images_from_markdown(text)
+                text, image_chunks = extract_images_from_markdown(text)
+                chunks += image_chunks
             chunks.append(Chunk(path=file_path, text=text, image=None, source_type=SourceTypes.IPYNB))
         elif cell['cell_type'] == 'code':
             source = ''.join(cell['source'])
