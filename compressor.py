@@ -2,7 +2,7 @@ import json
 import shutil
 import subprocess
 import tempfile
-from typing import *
+from typing import List
 import os
 from core import Chunk, SourceTypes, print_status, count_tokens
 from llmlingua import PromptCompressor
@@ -12,6 +12,7 @@ from thepipe import count_tokens
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 llm_lingua = PromptCompressor(model_name="microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank", use_llmlingua2=True, device_map=device)
 CTAGS_LANGUAGES = {'py': "Python", "cpp": "C++", "c": "C"}
+CTAGS_OUTPUT_FILE = 'ctags_output.json'
 
 def compress_with_ctags(chunk: Chunk, extension: str) -> Chunk:
     if chunk.text is None:
@@ -35,7 +36,7 @@ def compress_with_ctags(chunk: Chunk, extension: str) -> Chunk:
         if result.returncode != 0:
             raise Exception(f"Error running ctags: {result.stderr}")
         # write output to file
-        with open('ctags_output.json', 'w', encoding='utf-8') as f:
+        with open(CTAGS_OUTPUT_FILE, 'w', encoding='utf-8') as f:
             f.write(result.stdout)
         # Process the JSON output
         ctag_matches = []
@@ -47,14 +48,14 @@ def compress_with_ctags(chunk: Chunk, extension: str) -> Chunk:
     finally:
         shutil.rmtree(tmp_dir)
     # remove the json file
-    if os.path.exists('ctags_output.json'):
-        os.remove('ctags_output.json')
+    if os.path.exists(CTAGS_OUTPUT_FILE):
+        os.remove(CTAGS_OUTPUT_FILE)
     ctags_skeleton = '\n'.join(ctag_matches)
     return Chunk(path=chunk.path, text=ctags_skeleton, image=chunk.image, source_type=SourceTypes.UNCOMPRESSIBLE_CODE)
 
 def compress_chunks(chunks: List[Chunk], verbose: bool = False, limit: int = 1e5) -> List[Chunk]:
     new_chunks = chunks
-    for cycles in range(3):
+    for _ in range(3):
         if count_tokens(new_chunks) <= limit:
             break
         if verbose: print_status(f"Compressing prompt ({count_tokens(chunks)} tokens / {limit} limit)", status='info')
@@ -92,6 +93,6 @@ def compress_chunks(chunks: List[Chunk], verbose: bool = False, limit: int = 1e5
                 # if the chunk is not compressible, keep the original text
                 new_chunk = chunk
             new_chunks.append(new_chunk)
-    if count_tokens(new_chunks) > limit:
-        if verbose: print_status(f"Failed to compress within limit, continuing", status='error')
+    if count_tokens(new_chunks) > limit and verbose: 
+        print_status("Failed to compress within limit, continuing", status='error')
     return new_chunks

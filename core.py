@@ -1,4 +1,4 @@
-from typing import *
+from typing import List, Optional
 from PIL import Image
 from colorama import Style, Fore
 from enum import Enum
@@ -28,7 +28,12 @@ class Chunk:
 def print_status(text: str, status: str) -> None:
     if len(text) > 80:
         text = text[:50] + '...'
-    message = (Fore.GREEN + f"{text} ✔️") if status == 'success' else ((Fore.YELLOW + f"{text}...") if status == 'info' else (Fore.RED + f"{text} ❌"))
+    if status == 'success':
+        message = Fore.GREEN + f"{text} ✔️"
+    elif status == 'info':
+        message = Fore.YELLOW + f"{text}..."
+    elif status == 'error':
+        message = Fore.RED + f"{text} ❌"
     print(Style.RESET_ALL + message + Style.RESET_ALL)
 
 def count_tokens(chunks: List[Chunk]) -> int:

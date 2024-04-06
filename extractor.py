@@ -1,18 +1,14 @@
-import argparse
 import base64
 from concurrent.futures import ThreadPoolExecutor
-from enum import Enum
 from io import BytesIO
 import re
 import time
-from typing import *
+from typing import List, Optional
 import glob
 import os
 import tempfile
-import unicodedata
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
 import zipfile
-from colorama import Style, Fore
 import pandas as pd
 from PIL import Image
 import requests
@@ -207,7 +203,7 @@ def extract_pdf(file_path: str, mathpix: bool = False, text_only: bool = False, 
             elif status == "error":
                 raise ValueError("Unable to retrieve PDF from Mathpix")
             else:
-                if verbose: print_status(f"Waiting for processing to complete...")
+                if verbose: print_status(f"Waiting for processing to complete...", status='info')
                 time.sleep(5)
         raise TimeoutError("Mathpix processing took too long.")
     else:
@@ -295,7 +291,7 @@ def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
                     chunks.append(Chunk(path=url, text=text, image=None, source_type=SourceTypes.URL))
                 browser.close()
     if not chunks:
-        raise Exception("Failed to extract any text/images from URL.")
+        raise ValueError("No content extracted from URL.")
     return chunks
 
 def extract_github(github_url: str, file_path: str = '', match: Optional[str] = None, ignore: Optional[str] = None, text_only: bool = False, mathpix: bool = False, branch: str = 'main', verbose: bool = False) -> List[Chunk]:

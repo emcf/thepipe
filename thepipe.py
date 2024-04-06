@@ -1,11 +1,11 @@
-from typing import *
+from typing import List, Dict, Optional
 import argparse
 import base64
 from io import BytesIO
 import re
 import os
 from PIL import Image
-from core import Chunk, SourceTypes, print_status, count_tokens
+from core import Chunk, print_status, count_tokens
 import extractor
 import compressor
 
