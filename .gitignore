@@ -5,3 +5,4 @@ logs/
 node_modules/
 ctags.exe
 thepipe.bat
+*.egg-info/
