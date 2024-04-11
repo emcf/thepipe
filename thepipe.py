@@ -50,8 +50,11 @@ def parse_arguments() -> argparse.Namespace:
     args.verbose = verbose
     return args
 
-if __name__ == '__main__':
+def main() -> None:
     args = parse_arguments()
     chunks = extractor.extract_from_source(source=args.source, match=args.match, ignore=args.ignore, limit=args.limit, ai_extraction=args.ai_extraction, text_only=args.text_only, verbose=args.verbose)
     chunks = compressor.compress_chunks(chunks=chunks, verbose=args.verbose, limit=args.limit)
     save_outputs(chunks=chunks, verbose=args.verbose, text_only=args.text_only)
+
+if __name__ == '__main__':
+    main()
