@@ -6,8 +6,6 @@ from typing import List
 import os
 from core import Chunk, SourceTypes, print_status, count_tokens
 from thepipe import count_tokens
-from llmlingua import PromptCompressor
-import torch
 
 CTAGS_LANGUAGES = {'py': "Python", "cpp": "C++", "c": "C"}
 CTAGS_OUTPUT_FILE = 'ctags_output.json'
@@ -53,6 +51,9 @@ def compress_with_ctags(chunk: Chunk, extension: str) -> Chunk:
     return Chunk(path=chunk.path, text=ctags_skeleton, image=chunk.image, source_type=SourceTypes.UNCOMPRESSIBLE_CODE)
 
 def compress_with_llmlingua(chunk: Chunk) -> Chunk:
+    # import only if needed
+    from llmlingua import PromptCompressor
+    import torch
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     llm_lingua = PromptCompressor(model_name="microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank", use_llmlingua2=True, device_map=device)
     # Compress the text with llmlingua
