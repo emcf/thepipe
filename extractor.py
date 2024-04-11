@@ -172,7 +172,7 @@ def extract_zip(file_path: str, match: Optional[str] = None, ignore: Optional[st
 def extract_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
     chunks = []
     if ai_extraction:
-        base_url = "http://localhost:5000/extract" # "https://thepipe.up.railway.app/extract"
+        base_url = "https://thepipe.up.railway.app/extract"
         with open(file_path, "rb") as f:
             response = requests.post(
                 url=base_url,
