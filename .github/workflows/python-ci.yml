@@ -43,8 +43,7 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with unittest and generate coverage report
       env:
-        MATHPIX_APP_ID: ${{ secrets.MATHPIX_APP_ID }}
-        MATHPIX_APP_KEY: ${{ secrets.MATHPIX_APP_KEY }}
+        THEPIPE_API_KEY: ${{ secrets.THEPIPE_API_KEY }}
       run: |
         coverage run -m unittest discover
         coverage xml -i

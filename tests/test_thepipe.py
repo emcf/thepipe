@@ -27,7 +27,7 @@ class test_thepipe(unittest.TestCase):
     def test_image_to_base64(self):
         image = Image.open(os.path.join(self.files_directory, 'example.jpg'))
         image.load() # needed to close the file
-        base64_string = thepipe.image_to_base64(image)
+        base64_string = core.image_to_base64(image)
         self.assertEqual(type(base64_string), str)
         # converting back should be the same
         image_data = base64.b64decode(base64_string)
@@ -36,7 +36,7 @@ class test_thepipe(unittest.TestCase):
 
     def test_create_messages_from_chunks(self):
         chunks = extractor.extract_from_source(source=self.files_directory)
-        messages = thepipe.create_messages_from_chunks(chunks)
+        messages = core.create_messages_from_chunks(chunks)
         self.assertEqual(type(messages), list)
         for message in messages:
             self.assertEqual(type(message), dict)
@@ -102,9 +102,9 @@ class test_thepipe(unittest.TestCase):
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0) # should have some repo contents
     
-    @unittest.skipUnless(os.environ.get('MATHPIX_APP_ID') and os.environ.get('MATHPIX_APP_KEY'), "requires MATHPIX_APP_ID and MATHPIX_APP_KEY")
-    def test_extract_pdf_with_mathpix(self):
-        chunks = extractor.extract_pdf("tests/files/example.pdf", mathpix=True)
+    #@unittest.skipUnless(os.environ.get('THEPIPE_API_KEY'), "requires THEPIPE_API_KEY")
+    def test_extract_pdf_with_ai_extraction(self):
+        chunks = extractor.extract_pdf("tests/files/example.pdf", ai_extraction=True)
         self.assertNotEqual(len(chunks), 0)
         for i in range(len(chunks)):
             if chunks[i].source_type == core.SourceTypes.PDF:

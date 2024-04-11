@@ -2,8 +2,7 @@ import base64
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 import re
-import time
-from typing import List, Optional
+from typing import Dict, List, Optional
 import glob
 import os
 import tempfile
@@ -16,7 +15,7 @@ import json
 import pytesseract
 from playwright.sync_api import sync_playwright
 import fitz
-from core import Chunk, print_status, SourceTypes
+from core import Chunk, print_status, SourceTypes, create_chunks_from_messages
 import docx2txt
 import tempfile
 from pptx import Presentation
@@ -34,35 +33,37 @@ DOCUMENT_EXTENSIONS = {'.pdf', '.docx', '.pptx'}
 OTHER_EXTENSIONS = {'.zip', '.ipynb'}
 KNOWN_EXTENSIONS = IMAGE_EXTENSIONS.union(CODE_EXTENSIONS).union(CTAGS_CODE_EXTENSIONS).union(PLAINTEXT_EXTENSIONS).union(IMAGE_EXTENSIONS).union(SPREADSHEET_EXTENSIONS).union(DOCUMENT_EXTENSIONS).union(OTHER_EXTENSIONS)
 GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN")
-MATHPIX_APP_ID: str = os.getenv("MATHPIX_APP_ID")
-MATHPIX_APP_KEY: str = os.getenv("MATHPIX_APP_KEY")
-MATHPIX_CALLS_PER_MIN: int = 6
+THEPIPE_API_KEY: str = "5efa1f414d4c303416fe79bb873e2d00"
 
-def extract_from_source(source: str, match: Optional[str] = None, ignore: Optional[str] = None, limit: int = 64000, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[str]:
-    source_type = detect_type(source)
-    if source_type is None:
+def extract_from_source(source: str, match: Optional[str] = None, ignore: Optional[str] = None, limit: int = 64000, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False) -> List[str]:
+    try:
+        source_type = detect_type(source)
+        if source_type is None:
+            return [Chunk(path=source)]
+        if verbose: print_status(f"Extracting from {source_type.value}", status='info')
+        if source_type == SourceTypes.DIR or source == '.' or source == './':
+            if source == '.' or source == './':
+                source = os.getcwd()
+            return extract_from_directory(dir_path=source, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+        elif source_type == SourceTypes.GITHUB:
+            return extract_github(github_url=source, file_path='', match=match, ignore=ignore, text_only=text_only, verbose=verbose, ai_extraction=ai_extraction, branch='master')
+        elif source_type == SourceTypes.ZIP:
+            return extract_zip(file_path=source, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+        elif source_type == SourceTypes.URL:
+            return extract_url(url=source, text_only=text_only)
+        elif source_type == SourceTypes.IPYNB:
+            return extract_from_ipynb(file_path=source, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+        elif source_type == SourceTypes.SPREADSHEET:
+            return [extract_spreadsheet(file_path=source)]
+        return extract_from_file(file_path=source, source_type=source_type, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+    except:
+        if verbose: print_status(f"Failed to extract from {source}", status='error')
         return [Chunk(path=source)]
-    if verbose: print_status(f"Extracting from {source_type.value}", status='info')
-    if source_type == SourceTypes.DIR or source == '.' or source == './':
-        if source == '.' or source == './':
-            source = os.getcwd()
-        return extract_from_directory(dir_path=source, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
-    elif source_type == SourceTypes.GITHUB:
-        return extract_github(github_url=source, file_path='', match=match, ignore=ignore, text_only=text_only, verbose=verbose, mathpix=mathpix, branch='master')
-    elif source_type == SourceTypes.ZIP:
-        return extract_zip(file_path=source, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
-    elif source_type == SourceTypes.URL:
-        return extract_url(url=source, text_only=text_only)
-    elif source_type == SourceTypes.IPYNB:
-        return extract_from_ipynb(file_path=source, verbose=verbose, mathpix=mathpix, text_only=text_only)
-    elif source_type == SourceTypes.SPREADSHEET:
-        return [extract_spreadsheet(file_path=source)]
-    return extract_from_file(file_path=source, source_type=source_type, verbose=verbose, mathpix=mathpix, text_only=text_only)
 
-def extract_from_file(file_path: str, source_type: str, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[str]:
+def extract_from_file(file_path: str, source_type: str, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False) -> List[str]:
     try:
         if source_type == SourceTypes.PDF:
-            extraction = extract_pdf(file_path=file_path, mathpix=mathpix, text_only=text_only, verbose=verbose)
+            extraction = extract_pdf(file_path=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
         elif source_type == SourceTypes.DOCX:
             extraction = extract_docx(file_path=file_path, verbose=verbose, text_only=text_only)
         elif source_type == SourceTypes.PPTX:
@@ -149,63 +150,41 @@ def should_ignore(file_path: str, ignore: Optional[str] = None) -> bool:
         return True
     return False
 
-def extract_from_directory(dir_path: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[Chunk]:
+def extract_from_directory(dir_path: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False) -> List[Chunk]:
     all_files = glob.glob(dir_path + "/**/*", recursive=True)
     matched_files = [file for file in all_files if re.search(match, file, re.IGNORECASE)] if match else all_files
     file_paths = [file for file in matched_files if not should_ignore(file, ignore)]
     contents = []
     with ThreadPoolExecutor() as executor:
-        results = executor.map(lambda file_path: extract_from_source(source=file_path, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only), file_paths)
+        results = executor.map(lambda file_path: extract_from_source(source=file_path, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only), file_paths)
         for result in results:
             contents += result
     return contents
 
-def extract_zip(file_path: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[Chunk]:
+def extract_zip(file_path: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False) -> List[Chunk]:
     extracted_files = []
     with tempfile.TemporaryDirectory() as temp_dir:
         with zipfile.ZipFile(file_path, 'r') as zip_ref:
             zip_ref.extractall(temp_dir)
-        extracted_files = extract_from_directory(dir_path=temp_dir, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
+        extracted_files = extract_from_directory(dir_path=temp_dir, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
     return extracted_files
 
-def extract_pdf(file_path: str, mathpix: bool = False, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
+def extract_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
     chunks = []
-    if mathpix:
-        base_url = "https://api.mathpix.com/v3/pdf/"
-        # extract text images, equations, and tables from the PDF using Mathpix
-        headers = {
-            "app_id": MATHPIX_APP_ID,
-            "app_key": MATHPIX_APP_KEY,
-        }
-        data = {"options_json": json.dumps({
-            "conversion_formats": {"md": True},
-        })}
+    if ai_extraction:
+        base_url = "http://localhost:5000/extract" # "https://thepipe.up.railway.app/extract"
         with open(file_path, "rb") as f:
-            files = {"file": f}
-            response = requests.post(base_url, headers=headers, files=files, data=data)
-        response_data = response.json()
-        pdf_id = response_data["pdf_id"]
-        # check if the processing is completed every 5 seconds
-        for _ in range(10):
-            response = requests.get(base_url + pdf_id, headers=headers)
-            response_data = response.json()
-            status = response_data.get("status", None)
-            if status == "completed":
-                response = requests.get(f"{base_url}{pdf_id}.md", headers=headers)
-                 # clean result to unicode error (normalize text and remove all special characters)
-                text = response.content.decode("utf-8").encode("ASCII", "ignore").decode("utf-8", "ignore")
-                # extract markdown images from the 
-                if not text_only:
-                    text, image_chunks = extract_images_from_markdown(text)
-                    chunks += image_chunks
-                chunks.append(Chunk(path=file_path, text=text, image=None, source_type=SourceTypes.PDF))
-                return chunks
-            elif status == "error":
-                raise ValueError("Unable to retrieve PDF from Mathpix")
-            else:
-                if verbose: print_status(f"Waiting for processing to complete...", status='info')
-                time.sleep(5)
-        raise TimeoutError("Mathpix processing took too long.")
+            response = requests.post(
+                url=base_url,
+                files={'file': (file_path, f)},
+                data={'api_key': THEPIPE_API_KEY, 'ai_extraction': ai_extraction, 'text_only': text_only}
+            )
+            response.raise_for_status()
+            response_json = response.json()
+            if 'error' in response_json:
+                raise ValueError(f"{response_json['error']}")
+            messages = response_json['messages']
+            chunks = create_chunks_from_messages(messages)
     else:
         # extract text and images of each page from the PDF
         with open(file_path, 'rb') as file:
@@ -294,14 +273,14 @@ def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
         raise ValueError("No content extracted from URL.")
     return chunks
 
-def extract_github(github_url: str, file_path: str = '', match: Optional[str] = None, ignore: Optional[str] = None, text_only: bool = False, mathpix: bool = False, branch: str = 'main', verbose: bool = False) -> List[Chunk]:
+def extract_github(github_url: str, file_path: str = '', match: Optional[str] = None, ignore: Optional[str] = None, text_only: bool = False, ai_extraction: bool = False, branch: str = 'main', verbose: bool = False) -> List[Chunk]:
     files_contents = []
     if not GITHUB_TOKEN:
         raise ValueError("GITHUB_TOKEN environment variable is not set.")
     # make new tempdir for cloned repo
     with tempfile.TemporaryDirectory() as temp_dir:
         os.system(f"git clone {github_url} {temp_dir} --quiet")
-        files_contents = extract_from_directory(dir_path=temp_dir, match=match, ignore=ignore, verbose=verbose, mathpix=mathpix, text_only=text_only)
+        files_contents = extract_from_directory(dir_path=temp_dir, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
     return files_contents
 
 def extract_docx(file_path: str, verbose: bool = False, text_only: bool = False) -> List[Chunk]:
@@ -344,7 +323,7 @@ def extract_pptx(file_path: str, verbose: bool = False, text_only: bool = False)
             chunks.append(Chunk(path=file_path, text=None, image=image, source_type=SourceTypes.PPTX))
     return chunks
 
-def extract_from_ipynb(file_path: str, verbose: bool = False, mathpix: bool = False, text_only: bool = False) -> List[Chunk]:
+def extract_from_ipynb(file_path: str, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False) -> List[Chunk]:
     with open(file_path, 'r', encoding='utf-8') as file:
         notebook = json.load(file)
     chunks = []
