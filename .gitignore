@@ -9,3 +9,5 @@ node/node_modules/
 thepipeapi/ctags.exe
 thepipe.bat
 *.egg-info/
+build/
+dist/
