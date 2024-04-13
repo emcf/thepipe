@@ -155,7 +155,7 @@ class test_thepipe(unittest.TestCase):
         self.assertTrue(any('.jpg' in f for f in os.listdir(self.outputs_directory)))
 
     def test_extract(self):
-        chunks = thepipe.extract(source=self.files_directory+"/example.md")
+        chunks = thepipe.extract(source=self.files_directory+"/example.md", local=True)
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0)
         self.assertEqual(type(chunks[0]), dict)

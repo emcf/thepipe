@@ -46,7 +46,7 @@ def extract_from_source(source: str, match: Optional[str] = None, ignore: Option
     elif source_type == SourceTypes.GITHUB:
         return extract_github(github_url=source, file_path='', match=match, ignore=ignore, text_only=text_only, verbose=verbose, ai_extraction=ai_extraction, branch='master')
     elif source_type == SourceTypes.URL:
-        return extract_url(url=source, text_only=text_only)
+        return extract_url(url=source, text_only=text_only, local=local)
     elif source_type == SourceTypes.ZIP:
         return extract_zip(file_path=source, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
     return extract_from_file(file_path=source, source_type=source_type, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local)
