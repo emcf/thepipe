@@ -7,17 +7,13 @@ The Pipe is a multimodal-first tool for feeding files and web pages into vision 
 
 ## Getting Started 🚀
 
-First, install the codebase and requirements:
+First, install thepipe:
 ```bash
-git clone https://github.com/emcf/thepipe
-pip install -r requirements.txt
+pip install thepipe_api
 ```
-
-Tip for windows users: you may need to install the python-libmagic binaries with `pip install python-magic-bin`.
-
-After moving the folder into your project, you can extract comprehensive text and visuals from any file:
+Now you can extract comprehensive text and visuals from any file:
 ```python
-from thepipe import thepipe
+from thepipe_api import thepipe
 chunks = thepipe.extract("example.pdf")
 ```
 Or any website:
