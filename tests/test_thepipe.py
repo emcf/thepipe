@@ -17,7 +17,6 @@ class test_thepipe(unittest.TestCase):
         self.outputs_directory = 'outputs'
 
     def tearDown(self):
-        return
         # clean up outputs
         if os.path.exists(self.outputs_directory):
             for file in os.listdir(self.outputs_directory):
@@ -88,7 +87,7 @@ class test_thepipe(unittest.TestCase):
             self.assertEqual(type(chunk), core.Chunk)
             self.assertEqual(chunk.path, 'https://en.wikipedia.org/wiki/Piping')
         if chunk.text:
-            self.assertIn('Pipe', chunk.text)
+            self.assertIn('pipe', chunk.text)
         # test if at least one image was extracted
         self.assertTrue(any(chunk.image for chunk in chunks))
         # test document url extraction
@@ -102,7 +101,7 @@ class test_thepipe(unittest.TestCase):
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0) # should have some repo contents
     
-    #@unittest.skipUnless(os.environ.get('THEPIPE_API_KEY'), "requires THEPIPE_API_KEY")
+    @unittest.skipUnless(os.environ.get('THEPIPE_API_KEY'), "requires THEPIPE_API_KEY")
     def test_extract_pdf_with_ai_extraction(self):
         chunks = extractor.extract_pdf("tests/files/example.pdf", ai_extraction=True)
         self.assertNotEqual(len(chunks), 0)
@@ -115,7 +114,7 @@ class test_thepipe(unittest.TestCase):
             elif chunks[i].source_type == core.SourceTypes.IMAGE:
                 # verify extraction contains image
                 self.assertIsNotNone(chunks[i].image)
-
+                
     def test_compress_spreadsheet(self):
         chunks = extractor.extract_from_source(source=self.files_directory+"/example.xlsx")
         new_chunks = compressor.compress_chunks(chunks=chunks, limit=30)
@@ -156,12 +155,30 @@ class test_thepipe(unittest.TestCase):
         self.assertTrue(any('.jpg' in f for f in os.listdir(self.outputs_directory)))
 
     def test_extract(self):
-        final_prompt = thepipe.extract(source=self.files_directory+"/example.md")
-        self.assertEqual(type(final_prompt), list)
-        self.assertNotEqual(len(final_prompt), 0)
-        self.assertEqual(type(final_prompt[0]), dict)
+        chunks = thepipe.extract(source=self.files_directory+"/example.md")
+        self.assertEqual(type(chunks), list)
+        self.assertNotEqual(len(chunks), 0)
+        self.assertEqual(type(chunks[0]), dict)
         # verify it still contains vital information from the markdown file
-        self.assertIn('markdown', str(final_prompt).lower())
+        self.assertIn('markdown', str(chunks).lower())
+
+    def test_extract_api(self):
+        # test with markdown file
+        chunks = extractor.extract_from_source(source=self.files_directory+"/example.md", local=False)
+        # verify it extracted the markdown file
+        self.assertEqual(type(chunks), list)
+        self.assertNotEqual(len(chunks), 0)
+        self.assertEqual(type(chunks[0]), core.Chunk)
+        self.assertIn('markdown', str(chunks[0].text).lower())
+        # test with web page
+        chunks = extractor.extract_url('https://en.wikipedia.org/wiki/Piping', local=False)
+        # verify it extracted the web page
+        self.assertEqual(type(chunks), list)
+        self.assertNotEqual(len(chunks), 0)
+        self.assertEqual(type(chunks[0]), core.Chunk)
+        # page should contain the word "Pipe"
+        chunk_text = ''.join([chunk.text for chunk in chunks if chunk.text])
+        self.assertIn('pipe', chunk_text.lower())
 
     def test_parse_arguments(self):
         args = thepipe.parse_arguments()

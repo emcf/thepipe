@@ -45,6 +45,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument('--ai_extraction', action='store_true', help='Use ai_extraction to extract text from images.')
     parser.add_argument('--text_only', action='store_true', help='Extract only text from the source.')
     parser.add_argument('--quiet', action='store_true', help='Do not print status messages.')
+    parser.add_argument('--local', action='store_true', help='Use local machine to extract data. Not recommended for systems with limited resources.')
     args = parser.parse_args()
     verbose = not args.quiet
     args.verbose = verbose
@@ -52,8 +53,9 @@ def parse_arguments() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_arguments()
-    chunks = extractor.extract_from_source(source=args.source, match=args.match, ignore=args.ignore, limit=args.limit, ai_extraction=args.ai_extraction, text_only=args.text_only, verbose=args.verbose)
-    chunks = compressor.compress_chunks(chunks=chunks, verbose=args.verbose, limit=args.limit)
+    chunks = extractor.extract_from_source(source=args.source, match=args.match, ignore=args.ignore, limit=args.limit, ai_extraction=args.ai_extraction, text_only=args.text_only, verbose=args.verbose, local=args.local)
+    if args.local:
+        chunks = compressor.compress_chunks(chunks=chunks, verbose=args.verbose, limit=args.limit)
     save_outputs(chunks=chunks, verbose=args.verbose, text_only=args.text_only)
 
 if __name__ == '__main__':

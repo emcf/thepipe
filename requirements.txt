@@ -7,7 +7,6 @@ Pyarrow
 unstructured[all-docs]
 poppler-utils
 python-magic
-supabase
 magika
 pandas
 colorama

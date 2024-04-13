@@ -1,9 +1,9 @@
 [project]
-name = "thepipe"
+name = "thepipe_api"
 version = "0.1.0"
 license = { text = "MIT License" }
 readme = { file = "README.md", content-type = "text/markdown" }
-authors = [{ name = "Emmett McFarlane", email = "staminacode@gmail.com" }]
+authors = [{ name = "Emmett McFarlane", email = "emmett@thepi.pe" }]
 dynamic = ["dependencies"]
 
 [project.urls]
