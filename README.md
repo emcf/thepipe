@@ -7,7 +7,7 @@ The Pipe is a multimodal-first tool for feeding files and web pages into vision 
 
 ## Getting Started 🚀
 
-First, install the API:
+First, install the codebase and requirements:
 ```bash
 git clone https://github.com/emcf/thepipe
 pip install -r requirements.txt
@@ -15,9 +15,9 @@ pip install -r requirements.txt
 
 Tip for windows users: you may need to install the python-libmagic binaries with `pip install python-magic-bin`.
 
-Now you can extract comprehensive text and visuals from any file:
+After moving the folder into your project, you can extract comprehensive text and visuals from any file:
 ```python
-from thepipe_api import thepipe
+from thepipe import thepipe
 chunks = thepipe.extract("example.pdf")
 ```
 Or any website:
@@ -26,8 +26,6 @@ chunks = thepipe.extract("https://example.com")
 ```
 Then feed it into GPT-4-Vision:
 ```python
-from openai import OpenAI
-client = OpenAI()
 response = client.chat.completions.create(
     model="gpt-4-vision-preview",
     messages = chunks,
