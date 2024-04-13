@@ -12,10 +12,9 @@ import pandas as pd
 from PIL import Image
 import requests
 import json
-import pytesseract
 from playwright.sync_api import sync_playwright
 import fitz
-from core import Chunk, print_status, SourceTypes, create_chunks_from_messages
+from core import Chunk, print_status, SourceTypes, create_chunks_from_messages, API_URL
 import docx2txt
 import tempfile
 from pptx import Presentation
@@ -33,9 +32,9 @@ DOCUMENT_EXTENSIONS = {'.pdf', '.docx', '.pptx'}
 OTHER_EXTENSIONS = {'.zip', '.ipynb'}
 KNOWN_EXTENSIONS = IMAGE_EXTENSIONS.union(CODE_EXTENSIONS).union(CTAGS_CODE_EXTENSIONS).union(PLAINTEXT_EXTENSIONS).union(IMAGE_EXTENSIONS).union(SPREADSHEET_EXTENSIONS).union(DOCUMENT_EXTENSIONS).union(OTHER_EXTENSIONS)
 GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN")
-THEPIPE_API_KEY: str = "5efa1f414d4c303416fe79bb873e2d00"
+THEPIPE_API_KEY: str = os.getenv("THEPIPE_API_KEY")
 
-def extract_from_source(source: str, match: Optional[str] = None, ignore: Optional[str] = None, limit: int = 64000, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False) -> List[str]:
+def extract_from_source(source: str, match: Optional[str] = None, ignore: Optional[str] = None, limit: int = 64000, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = True) -> List[Chunk]:
     try:
         source_type = detect_type(source)
         if source_type is None:
@@ -47,21 +46,28 @@ def extract_from_source(source: str, match: Optional[str] = None, ignore: Option
             return extract_from_directory(dir_path=source, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
         elif source_type == SourceTypes.GITHUB:
             return extract_github(github_url=source, file_path='', match=match, ignore=ignore, text_only=text_only, verbose=verbose, ai_extraction=ai_extraction, branch='master')
-        elif source_type == SourceTypes.ZIP:
-            return extract_zip(file_path=source, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
         elif source_type == SourceTypes.URL:
             return extract_url(url=source, text_only=text_only)
-        elif source_type == SourceTypes.IPYNB:
-            return extract_from_ipynb(file_path=source, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
-        elif source_type == SourceTypes.SPREADSHEET:
-            return [extract_spreadsheet(file_path=source)]
-        return extract_from_file(file_path=source, source_type=source_type, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
-    except:
-        if verbose: print_status(f"Failed to extract from {source}", status='error')
+        elif source_type == SourceTypes.ZIP:
+            return extract_zip(file_path=source, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+        return extract_from_file(file_path=source, source_type=source_type, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local)
+    except Exception as e:
+        if verbose: print_status(f"Failed to extract from {source}: {e}", status='error')
         return [Chunk(path=source)]
 
-def extract_from_file(file_path: str, source_type: str, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False) -> List[str]:
-    try:
+def extract_from_file(file_path: str, source_type: str, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = True) -> List[Chunk]:
+    if not local:
+        with open(file_path, 'rb') as f:
+            response = requests.post(
+                url=API_URL,
+                files={'file': (file_path, f)},
+                data={'api_key': THEPIPE_API_KEY, 'ai_extraction': ai_extraction, 'text_only': text_only}
+            ).json()
+            if 'error' in response:
+                raise ValueError(f"{response['error']}")
+            chunks = create_chunks_from_messages(response['messages'])
+            return chunks
+    try:    
         if source_type == SourceTypes.PDF:
             extraction = extract_pdf(file_path=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
         elif source_type == SourceTypes.DOCX:
@@ -172,10 +178,9 @@ def extract_zip(file_path: str, match: Optional[str] = None, ignore: Optional[st
 def extract_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
     chunks = []
     if ai_extraction:
-        base_url = "https://thepipe.up.railway.app/extract"
         with open(file_path, "rb") as f:
             response = requests.post(
-                url=base_url,
+                url=API_URL,
                 files={'file': (file_path, f)},
                 data={'api_key': THEPIPE_API_KEY, 'ai_extraction': ai_extraction, 'text_only': text_only}
             )
@@ -219,6 +224,7 @@ def extract_image(file_path: str, text_only: bool = False) -> Chunk:
     img = Image.open(file_path)
     img.load() # needed to close the file
     if text_only:
+        import pytesseract # import only if needed
         text = pytesseract.image_to_string(img)
         return Chunk(path=file_path, text=text, image=None, source_type=SourceTypes.IMAGE)
     else:
@@ -233,7 +239,16 @@ def extract_spreadsheet(file_path: str) -> Chunk:
     json_dict = json.dumps(dict, indent=4)
     return Chunk(path=file_path, text=json_dict, image=None, source_type=SourceTypes.SPREADSHEET)
     
-def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
+def extract_url(url: str, text_only: bool = False, local: bool = True) -> List[Chunk]:
+    if not local:
+        response = requests.post(
+            url=API_URL,
+            data={'url': url, 'api_key': THEPIPE_API_KEY, 'text_only': text_only}
+        ).json()
+        if 'error' in response:
+            raise ValueError(f"{response['error']}")
+        chunks = create_chunks_from_messages(response['messages'])
+        return chunks
     chunks = []
     _, extension = os.path.splitext(urlparse(url).path)
     if extension is not None and extension in KNOWN_EXTENSIONS:
@@ -256,19 +271,19 @@ def extract_url(url: str, text_only: bool = False) -> List[Chunk]:
                 total_height = page.evaluate("document.body.scrollHeight")
                 # Scroll to the bottom of the page and take screenshots
                 current_scroll_position = 0
-                page.wait_for_timeout(1000) # wait for dynamic content to load
                 scrolldowns, max_scrolldowns = 0, 10 # in case of infinite scroll
                 while current_scroll_position < total_height and scrolldowns < max_scrolldowns:
+                    page.wait_for_timeout(100) # wait for dynamic content to load
                     screenshot = page.screenshot()
                     img = Image.open(BytesIO(screenshot))
                     chunks.append(Chunk(path=url, text=None, image=img, source_type=SourceTypes.URL))
                     current_scroll_position += viewport_height
                     page.evaluate(f"window.scrollTo(0, {current_scroll_position})")
                     scrolldowns += 1
-                text = page.inner_text('body')
-                if text:
-                    chunks.append(Chunk(path=url, text=text, image=None, source_type=SourceTypes.URL))
-                browser.close()
+            text = page.inner_text('body')
+            if text:
+                chunks.append(Chunk(path=url, text=text, image=None, source_type=SourceTypes.URL))
+            browser.close()
     if not chunks:
         raise ValueError("No content extracted from URL.")
     return chunks

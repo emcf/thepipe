@@ -5,6 +5,8 @@ from PIL import Image
 from colorama import Style, Fore
 from enum import Enum
 
+API_URL = "https://thepipe.up.railway.app/extract"
+
 class SourceTypes(Enum):
     DIR = "directory"
     UNCOMPRESSIBLE_CODE = "code"
@@ -28,8 +30,6 @@ class Chunk:
         self.source_type = source_type
 
 def print_status(text: str, status: str) -> None:
-    if len(text) > 80:
-        text = text[:50] + '...'
     if status == 'success':
         message = Fore.GREEN + f"{text} ✔️"
     elif status == 'info':
