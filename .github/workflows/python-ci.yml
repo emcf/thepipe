@@ -22,8 +22,10 @@ jobs:
         node-version: 18
     - name: Install ctags
       run: sudo apt-get install -y universal-ctags
-    - name: Install npm dependencies
-      run: npm install
+    - name: Install playwright
+      run: |
+        npm install playwright
+        npm install playwright-core
     - name: Install Playwright Browsers
       run: npm install -D @playwright/test && yes | npx playwright install --with-deps
     - name: Set up Python 3.10

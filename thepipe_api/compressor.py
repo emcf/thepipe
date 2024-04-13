@@ -4,9 +4,10 @@ import subprocess
 import tempfile
 from typing import List
 import os
-from core import Chunk, SourceTypes, print_status, count_tokens
-from thepipe import count_tokens
+from .core import Chunk, SourceTypes, print_status, count_tokens
+from .thepipe import count_tokens
 
+CTAGS_EXECUTABLE_PATH = "C:\ctags.exe" if os.name == 'nt' else "ctags-universal"
 CTAGS_LANGUAGES = {'py': "Python", "cpp": "C++", "c": "C"}
 CTAGS_OUTPUT_FILE = 'ctags_output.json'
 MAX_COMPRESSION_ATTEMPTS = 3
@@ -22,7 +23,7 @@ def compress_with_ctags(chunk: Chunk, extension: str) -> Chunk:
             tmp_file.write(chunk.text)
         # need custom options for ctags to work with typescript
         cmd = [
-                "ctags.exe" if os.name == 'nt' else "ctags-universal",
+                CTAGS_EXECUTABLE_PATH,
                 f"--languages={language}",
                 "--output-format=json",
                 "-f", "-",

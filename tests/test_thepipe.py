@@ -4,10 +4,10 @@ import unittest
 import os
 import sys
 sys.path.append('..')
-import thepipe
-import core
-import extractor
-import compressor
+from thepipe_api import thepipe
+from thepipe_api import core
+from thepipe_api import extractor
+from thepipe_api import compressor
 from PIL import Image
 from io import BytesIO
 

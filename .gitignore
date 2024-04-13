@@ -1,10 +1,11 @@
 __pycache__/
 tests/__pycache__/
+thepipeapi/__pycache__/
 .pytest_cache/
 .vscode/
 outputs/
 logs/
-node_modules/
-ctags.exe
+node/node_modules/
+thepipeapi/ctags.exe
 thepipe.bat
 *.egg-info/

@@ -14,7 +14,7 @@ import requests
 import json
 from playwright.sync_api import sync_playwright
 import fitz
-from core import Chunk, print_status, SourceTypes, create_chunks_from_messages, API_URL
+from .core import Chunk, print_status, SourceTypes, create_chunks_from_messages, API_URL
 import docx2txt
 import tempfile
 from pptx import Presentation
@@ -35,25 +35,21 @@ GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN")
 THEPIPE_API_KEY: str = os.getenv("THEPIPE_API_KEY")
 
 def extract_from_source(source: str, match: Optional[str] = None, ignore: Optional[str] = None, limit: int = 64000, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = True) -> List[Chunk]:
-    try:
-        source_type = detect_type(source)
-        if source_type is None:
-            return [Chunk(path=source)]
-        if verbose: print_status(f"Extracting from {source_type.value}", status='info')
-        if source_type == SourceTypes.DIR or source == '.' or source == './':
-            if source == '.' or source == './':
-                source = os.getcwd()
-            return extract_from_directory(dir_path=source, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
-        elif source_type == SourceTypes.GITHUB:
-            return extract_github(github_url=source, file_path='', match=match, ignore=ignore, text_only=text_only, verbose=verbose, ai_extraction=ai_extraction, branch='master')
-        elif source_type == SourceTypes.URL:
-            return extract_url(url=source, text_only=text_only)
-        elif source_type == SourceTypes.ZIP:
-            return extract_zip(file_path=source, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
-        return extract_from_file(file_path=source, source_type=source_type, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local)
-    except Exception as e:
-        if verbose: print_status(f"Failed to extract from {source}: {e}", status='error')
+    source_type = detect_type(source)
+    if source_type is None:
         return [Chunk(path=source)]
+    if verbose: print_status(f"Extracting from {source_type.value}", status='info')
+    if source_type == SourceTypes.DIR or source == '.' or source == './':
+        if source == '.' or source == './':
+            source = os.getcwd()
+        return extract_from_directory(dir_path=source, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+    elif source_type == SourceTypes.GITHUB:
+        return extract_github(github_url=source, file_path='', match=match, ignore=ignore, text_only=text_only, verbose=verbose, ai_extraction=ai_extraction, branch='master')
+    elif source_type == SourceTypes.URL:
+        return extract_url(url=source, text_only=text_only)
+    elif source_type == SourceTypes.ZIP:
+        return extract_zip(file_path=source, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+    return extract_from_file(file_path=source, source_type=source_type, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local)
 
 def extract_from_file(file_path: str, source_type: str, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = True) -> List[Chunk]:
     if not local:
