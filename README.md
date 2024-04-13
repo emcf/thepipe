@@ -5,12 +5,15 @@
 
 The Pipe is a multimodal-first tool for feeding files and web pages into vision language models like GPT-4V, Gemini Pro, and LLaVa. It is best for LLM and RAG applications that require a deep understanding of complex sources. The Pipe is available as a hosted API at [thepi.pe](https://thepi.pe) and as a standalone tool you can use locally.
 
-## Getting Started 🚀
+## Getting Started  🚀
 
-First, install thepipe:
-```bash
+First, install The Pipe. 
+```
 pip install thepipe_api
 ```
+
+Ensure the `THEPIPE_API_KEY` environment variable is set. Don't have an API key yet? [Get one here](https://thepi.pe). Looking to host it locally? See the [local installation](#local-installation) section.
+
 Now you can extract comprehensive text and visuals from any file:
 ```python
 from thepipe_api import thepipe
@@ -64,7 +67,7 @@ The pipe is accessible from the command line or from [Python](https://www.python
 
 ## Local Installation 🛠️
 
-To use The Pipe locally, you will need [playwright](https://github.com/microsoft/playwright), [ctags](https://github.com/universal-ctags/), [pytesseract](https://github.com/h/pytesseract), and the local python requirements, which differ from the more lightweight API requirements:
+To use The Pipe locally, you will need [playwright](https://github.com/microsoft/playwright), [ctags](https://github.com/universal-ctags/), [pytesseract](https://github.com/h/pytesseract), and the local python requirements, which differ from the more lightweight API requirements. You will also need to use the local version of the requirements file:
 
 ```bash
 git clone https://github.com/emcf/thepipe
@@ -75,19 +78,15 @@ Tip for windows users: you may need to install the python-libmagic binaries with
 
 Now you can use The Pipe:
 ```bash
-python thepipe.py path/to/directory
+from thepipe_api import thepipe
+chunks = thepipe.extract("example.pdf", local=True)
 ```
 
-This command will process all supported files within the specified directory, compressing any information over the token limit if necessary, and outputting the resulting prompt and images to a folder.
-
 Arguments are:
-- The input source (required): can be a file path, a URL, or a directory path.
-- `--local` (optional): Use the local version of The Pipe instead of the hosted API.
-- `--match` (optional): Regex pattern to match files in the directory.
-- `--ignore` (optional): Regex pattern to ignore files in the directory.
-- `--limit` (optional): The token limit for the output prompt, defaults to 100K. Prompts exceeding the limit will be compressed.
-- `--ai_extraction` (optional): Extract tables, figures, and math from PDFs using our extractor. Incurs extra costs.
-- `--text_only` (optional): Do not extract images from documents or websites. Additionally, image files will be represented with OCR instead of as images.
-
-![Demo](https://ngrdaaykhfrmtpodlakn.supabase.co/storage/v1/object/public/assets/demo.gif?t=2024-03-24T19%3A13%3A46.695Z)
-
+- `source` (required): can be a file path, a URL, or a directory path.
+- `local` (optional): Use the local version of The Pipe instead of the hosted API.
+- `match` (optional): Regex pattern to match files in the directory.
+- `ignore` (optional): Regex pattern to ignore files in the directory.
+- `limit` (optional): The token limit for the output prompt, defaults to 100K. Prompts exceeding the limit will be compressed.
+- `ai_extraction` (optional): Extract tables, figures, and math from PDFs using our extractor. Incurs extra costs.
+- `text_only` (optional): Do not extract images from documents or websites. Additionally, image files will be represented with OCR instead of as images.
