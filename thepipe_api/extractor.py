@@ -8,19 +8,13 @@ import os
 import tempfile
 from urllib.parse import urlparse
 import zipfile
-import pandas as pd
 from PIL import Image
 import requests
 import json
-from playwright.sync_api import sync_playwright
 import fitz
 from .core import Chunk, print_status, SourceTypes, create_chunks_from_messages, API_URL
-import docx2txt
 import tempfile
-from pptx import Presentation
-from pptx.enum.shapes import MSO_SHAPE_TYPE
 import mimetypes
-from magika import Magika
 
 FILES_TO_IGNORE = {'package-lock.json', '.gitignore', '.bin', '.pyc', '.pyo', '.exe', '.bat', '.dll', '.obj', '.o', '.a', '.lib', '.so', '.dylib', '.ncb', '.sdf', '.suo', '.pdb', '.idb', '.pyd', '.ipynb_checkpoints', '.npy', '.pth'} # Files to ignore, please feel free to customize!
 CODE_EXTENSIONS = {'.h', '.json', '.js', '.jsx', '.ts', '.tsx',  '.cs', '.java', '.html', '.css', '.ini', '.xml', '.yaml', '.xaml', '.sh'} # Plaintext files that should not be compressed with LLMLingua
@@ -103,6 +97,7 @@ def detect_type(source: str) -> Optional[SourceTypes]:
     _, extension = os.path.splitext(source)
     # if that fails, try to detect the file type using Magika
     if (not extension) or (extension not in KNOWN_EXTENSIONS):
+        from magika import Magika # import only if needed
         magika = Magika()
         try:
             with open(source, 'rb') as file:
@@ -180,7 +175,6 @@ def extract_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = F
                 files={'file': (file_path, f)},
                 data={'api_key': THEPIPE_API_KEY, 'ai_extraction': ai_extraction, 'text_only': text_only}
             )
-            response.raise_for_status()
             response_json = response.json()
             if 'error' in response_json:
                 raise ValueError(f"{response_json['error']}")
@@ -227,6 +221,7 @@ def extract_image(file_path: str, text_only: bool = False) -> Chunk:
         return Chunk(path=file_path, text=None, image=img, source_type=SourceTypes.IMAGE)
     
 def extract_spreadsheet(file_path: str) -> Chunk:
+    import pandas as pd # import only if needed
     if file_path.endswith(".csv"):
         df = pd.read_csv(file_path)
     elif file_path.endswith(".xls") or file_path.endswith(".xlsx"):
@@ -257,6 +252,7 @@ def extract_url(url: str, text_only: bool = False, local: bool = True) -> List[C
             chunks = extract_from_source(source=file_path, text_only=text_only)
     else:
         # use playwright to extract text and images from the URL
+        from playwright.sync_api import sync_playwright # import only if needed
         with sync_playwright() as p:
             browser = p.chromium.launch()
             page = browser.new_page()
@@ -296,6 +292,7 @@ def extract_github(github_url: str, file_path: str = '', match: Optional[str] = 
 
 def extract_docx(file_path: str, verbose: bool = False, text_only: bool = False) -> List[Chunk]:
     # make new temp image directory
+    import docx2txt # import only if needed
     chunks = []
     temp_image_dir = tempfile.mkdtemp()
     text = docx2txt.process(file_path, temp_image_dir)
@@ -315,6 +312,8 @@ def extract_docx(file_path: str, verbose: bool = False, text_only: bool = False)
     return chunks
 
 def extract_pptx(file_path: str, verbose: bool = False, text_only: bool = False) -> List[Chunk]:
+    from pptx import Presentation # import only if needed
+    from pptx.enum.shapes import MSO_SHAPE_TYPE # import only if needed
     prs = Presentation(file_path)
     chunks = []
     # parse shapes inside slides

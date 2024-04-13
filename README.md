@@ -64,11 +64,11 @@ The pipe is accessible from the command line or from [Python](https://www.python
 
 ## Local Installation 🛠️
 
-To use The Pipe locally, you will need [playwright](https://github.com/microsoft/playwright), [ctags](https://github.com/universal-ctags/), [pytesseract](https://github.com/h/pytesseract), and the python requirements:
+To use The Pipe locally, you will need [playwright](https://github.com/microsoft/playwright), [ctags](https://github.com/universal-ctags/), [pytesseract](https://github.com/h/pytesseract), and the local python requirements, which differ from the more lightweight API requirements:
 
 ```bash
 git clone https://github.com/emcf/thepipe
-pip install -r requirements.txt
+pip install -r requirements_local.txt
 ```
 
 Tip for windows users: you may need to install the python-libmagic binaries with `pip install python-magic-bin`.
