@@ -73,6 +73,6 @@ def create_messages_from_chunks(chunks: List[Chunk]) -> List[Dict]:
         if chunk.image:
             base64_image = image_to_base64(chunk.image)
             content.append({"type": "text", "text": f"""{chunk.path} image:"""})
-            content.append({"type": "image_url", "image_url": f"data:image/jpeg;base64,{base64_image}"})
-        messages.append({"role": "system", "content": content})
+            content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}})
+        messages.append({"role": "user", "content": content})
     return messages
