@@ -58,7 +58,7 @@ def create_chunks_from_messages(messages: List[Dict]) -> List[Chunk]:
                 text = content['text']
             elif content['type'] == 'image_url':
                 # base64 image
-                base64_string = content['image_url'].split(',')[1]
+                base64_string = content['image_url']['url'].split(",")[1]
                 image_data = base64.b64decode(base64_string)
                 image = Image.open(BytesIO(image_data))
         chunks.append(Chunk(path=None, text=text, image=image))
