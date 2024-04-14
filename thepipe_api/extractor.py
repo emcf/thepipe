@@ -76,6 +76,8 @@ def extract_from_file(file_path: str, source_type: str, verbose: bool = False, a
         elif source_type == SourceTypes.COMPRESSIBLE_CODE:
             extraction = [extract_plaintext(file_path=file_path)]
             extraction = [Chunk(path=e.path, text=e.text, image=None, source_type=SourceTypes.COMPRESSIBLE_CODE) for e in extraction]
+        elif source_type == SourceTypes.IPYNB:
+            extraction = extract_from_ipynb(file_path=file_path, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
         else:
             extraction = [extract_plaintext(file_path=file_path)]
         if verbose: print_status(f"Extracted from {file_path}", status='success')
