@@ -8,7 +8,7 @@
 
 ### Feed PDFs, word docs, slides, web pages and more into Vision-LLMs with one line of code ⚡
 
-The Pipe is a multimodal-first tool for feeding files and web pages into vision-language models such as GPT-4V. It is best for LLM and RAG applications that require a deep understanding of tricky data sources. The Pipe is available as a hosted API at [thepi.pe](https://thepi.pe), or it can be set up locally. It can be called from Python (`thepipe.extract("https://example.com")`) or from the command line (`thepipe path/to/example.pdf`).
+The Pipe is a multimodal-first tool for feeding files and web pages into vision-language models such as GPT-4V. It is best for LLM and RAG applications that require a deep understanding of tricky data sources. The Pipe is available as a hosted API at [thepi.pe](https://thepi.pe), or it can be set up locally.
 
 ![Demo](https://ngrdaaykhfrmtpodlakn.supabase.co/storage/v1/object/public/assets/demo.gif?t=2024-03-24T19%3A13%3A46.695Z)
 
@@ -38,6 +38,11 @@ response = client.chat.completions.create(
 )
 ```
 The Pipe's output is a list of sensible "chunks", and thus can be used either for storage in a vector database or for direct use as a prompt. Extra features such as data table extraction, bar chart extraction, custom web authentications and more are available in the [API documentation](https://thepi.pe/docs). [LiteLLM](https://github.com/BerriAI/litellm) can be used to easily integrate The Pipe with any LLM provider.
+
+You can also use The Pipe from the command line. Here's how to recursively extract from a directory:
+```
+thepipe path/to/folder
+```
 
 ## Features 🌟
 
