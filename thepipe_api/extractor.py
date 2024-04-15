@@ -251,7 +251,7 @@ def extract_url(url: str, text_only: bool = False, local: bool = True) -> List[C
             response = requests.get(url)
             with open(file_path, 'wb') as file:
                 file.write(response.content)
-            chunks = extract_from_source(source=file_path, text_only=text_only)
+            chunks = extract_from_source(source=file_path, text_only=text_only, local=local)
     else:
         # use playwright to extract text and images from the URL
         from playwright.sync_api import sync_playwright # import only if needed
