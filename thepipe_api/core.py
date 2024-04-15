@@ -39,7 +39,7 @@ def print_status(text: str, status: str) -> None:
     print(Style.RESET_ALL + message + Style.RESET_ALL)
 
 def count_tokens(chunks: List[Chunk]) -> int:
-    return sum([(len(chunk.path)+len(chunk.text))/4 for chunk in chunks if chunk.text is not None])
+    return sum([((len(chunk.path) if chunk.path else 0) + (len(chunk.text) if chunk.text else 0))/4 for chunk in chunks])
 
 def image_to_base64(image: Image.Image) -> str:
     buffered = BytesIO()

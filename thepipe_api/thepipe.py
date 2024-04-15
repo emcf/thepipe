@@ -17,8 +17,11 @@ def save_outputs(chunks: List[Chunk], verbose: bool = False, text_only: bool = F
         if chunk.text is not None:
             text += f"""{chunk.path}:\n```\n{chunk.text}\n```\n\n"""
         if chunk.image is not None:
-            clean_path = chunk.path.replace('/', '_').replace('\\', '_')
-            clean_path = re.sub(r"[^a-zA-Z0-9 _]", "", clean_path)
+            if chunk.path is None:
+                clean_path = f"image"
+            else:
+                clean_path = chunk.path.replace('/', '_').replace('\\', '_')
+                clean_path = re.sub(r"[^a-zA-Z0-9 _]", "", clean_path)
             chunk.image.convert('RGB').save(f'outputs/{clean_path}_{i}.jpg')
             n_images += 1
     # Save the text
