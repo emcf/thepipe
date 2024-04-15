@@ -1,1 +1,2 @@
-from .thepipe import main, extract, save_outputs
+from .thepipe import extract, save_outputs
+from .extractor import extract_from_source
