@@ -31,11 +31,11 @@ class Chunk:
 
 def print_status(text: str, status: str) -> None:
     if status == 'success':
-        message = Fore.GREEN + f"{text} ✔️"
+        message = Fore.GREEN + f"{text}"
     elif status == 'info':
         message = Fore.YELLOW + f"{text}..."
     elif status == 'error':
-        message = Fore.RED + f"{text} ❌"
+        message = Fore.RED + f"{text}"
     print(Style.RESET_ALL + message + Style.RESET_ALL)
 
 def count_tokens(chunks: List[Chunk]) -> int:
