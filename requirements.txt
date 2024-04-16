@@ -7,5 +7,4 @@ requests
 pillow
 cssutils
 beautifulsoup4
-PyMuPDF
 magika

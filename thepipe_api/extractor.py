@@ -11,7 +11,6 @@ import zipfile
 from PIL import Image
 import requests
 import json
-import fitz
 from .core import Chunk, print_status, SourceTypes, create_chunks_from_messages, API_URL
 import tempfile
 import mimetypes
@@ -183,6 +182,7 @@ def extract_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = F
             messages = response_json['messages']
             chunks = create_chunks_from_messages(messages)
     else:
+        import fitz
         # extract text and images of each page from the PDF
         with open(file_path, 'rb') as file:
             doc = fitz.open(file_path)
