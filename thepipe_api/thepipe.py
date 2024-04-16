@@ -16,7 +16,7 @@ def save_outputs(chunks: List[Chunk], verbose: bool = False, text_only: bool = F
             continue
         if chunk.text is not None:
             text += f"""{chunk.path}:\n```\n{chunk.text}\n```\n\n"""
-        if chunk.image is not None:
+        if (chunk.image is not None) and (not text_only):
             if chunk.path is None:
                 clean_path = f"image"
             else:
