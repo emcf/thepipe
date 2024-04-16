@@ -89,7 +89,7 @@ def extract_from_file(file_path: str, source_type: str, verbose: bool = False, a
 def detect_type(source: str) -> Optional[SourceTypes]:
     if source.startswith("https://github.com"):
         return SourceTypes.GITHUB
-    elif source.startswith("http") or source.startswith("www.") or source.startswith("ftp."):
+    elif source.startswith("http") or source.startswith("ftp."):
         return SourceTypes.URL
     elif source.endswith(".zip"):
         return SourceTypes.ZIP
