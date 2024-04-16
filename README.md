@@ -86,10 +86,15 @@ pip install -r requirements_local.txt
 
 Tip for windows users: you may need to install the python-libmagic binaries with `pip install python-magic-bin`.
 
-Now you can use The Pipe:
+Now you can use The Pipe with Python:
 ```bash
 from thepipe_api import thepipe
 chunks = thepipe.extract("example.pdf", local=True)
+```
+
+or from the command line:
+```bash
+thepipe path/to/folder --local
 ```
 
 Arguments are:
