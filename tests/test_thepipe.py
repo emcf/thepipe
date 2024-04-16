@@ -44,24 +44,19 @@ class test_thepipe(unittest.TestCase):
     
     def test_extract_from_source(self):
         # test extracting examples for all supported file type
-        chunks = extractor.extract_from_source(source=self.files_directory)
+        chunks = extractor.extract_from_source(source=self.files_directory, ignore="unknown")
         self.assertEqual(type(chunks), list)
         for chunk in chunks:
             self.assertEqual(type(chunk), core.Chunk)
             self.assertIsNotNone(chunk.path)
             self.assertIsNotNone(chunk.text or chunk.image)
-        # ensure unknown sources still acknowledges the existence of the source
-        chunks = extractor.extract_from_source(source='none')
-        self.assertEqual(type(chunks), list)
-        self.assertEqual(len(chunks), 1)
-        # ensure a chunk is still created to acknowledge the existence of an unknown source
-        chunks = extractor.extract_from_source(source=self.files_directory+"/example.unknown")
-        self.assertEqual(type(chunks), list)
-        self.assertEqual(len(chunks), 1)
+        # ensure unknown sources fail (test has "unknown in filename)
+        with self.assertRaises(Exception):
+            chunks = extractor.extract_from_source(source=self.files_directory+"/example.unknown")
 
     def test_extract_from_source_text_only(self):
         # test extracting examples for all supported file type
-        chunks = extractor.extract_from_source(source=self.files_directory, text_only=True)
+        chunks = extractor.extract_from_source(source=self.files_directory, text_only=True, ignore="unknown")
         self.assertEqual(type(chunks), list)
         # ensure no images are extracted
         for chunk in chunks:
