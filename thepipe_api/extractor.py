@@ -28,15 +28,15 @@ KNOWN_EXTENSIONS = IMAGE_EXTENSIONS.union(CODE_EXTENSIONS).union(CTAGS_CODE_EXTE
 GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN")
 THEPIPE_API_KEY: str = os.getenv("THEPIPE_API_KEY")
 
-def extract_from_source(source: str, match: Optional[str] = None, ignore: Optional[str] = None, limit: int = 64000, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = True) -> List[Chunk]:
+def extract_from_source(source: str, match: Optional[str] = None, ignore: Optional[str] = None, limit: int = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = True) -> List[Chunk]:
     source_type = detect_type(source)
     if source_type is None:
-        return [Chunk(path=source)]
+        raise ValueError(f"Could not detect source type for {source}.")
     if verbose: print_status(f"Extracting from {source_type.value}", status='info')
     if source_type == SourceTypes.DIR or source == '.' or source == './':
         if source == '.' or source == './':
             source = os.getcwd()
-        return extract_from_directory(dir_path=source, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+        return extract_from_directory(dir_path=source, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, limit=limit)
     elif source_type == SourceTypes.GITHUB:
         return extract_github(github_url=source, file_path='', match=match, ignore=ignore, text_only=text_only, verbose=verbose, ai_extraction=ai_extraction, branch='master')
     elif source_type == SourceTypes.URL:
@@ -149,13 +149,13 @@ def should_ignore(file_path: str, ignore: Optional[str] = None) -> bool:
         return True
     return False
 
-def extract_from_directory(dir_path: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False) -> List[Chunk]:
+def extract_from_directory(dir_path: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, limit: int = None) -> List[Chunk]:
     all_files = glob.glob(dir_path + "/**/*", recursive=True)
     matched_files = [file for file in all_files if re.search(match, file, re.IGNORECASE)] if match else all_files
     file_paths = [file for file in matched_files if not should_ignore(file, ignore)]
     contents = []
     with ThreadPoolExecutor() as executor:
-        results = executor.map(lambda file_path: extract_from_source(source=file_path, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only), file_paths)
+        results = executor.map(lambda file_path: extract_from_source(source=file_path, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, limit=limit), file_paths)
         for result in results:
             contents += result
     return contents

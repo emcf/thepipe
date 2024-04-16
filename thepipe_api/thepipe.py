@@ -43,7 +43,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument('source', type=str, help='The source file or directory to compress.')
     parser.add_argument('--match', type=str, default=None, help='The glob filename pattern to match in the directory. Glob notation, not regex. Only matches filenames, not paths.')
     parser.add_argument('--ignore', type=str, default=None, help='The regex filepath pattern to ignore in the directory. Regex notation, not glob. Matches filenames and paths.')
-    parser.add_argument('--limit', type=float, default=1e5, help='The token limit for the compressed project context.')
+    parser.add_argument('--limit', type=int, default=None, help='The token limit for the compressed project context.')
     parser.add_argument('--ai_extraction', action='store_true', help='Use ai_extraction to extract text from images.')
     parser.add_argument('--text_only', action='store_true', help='Extract only text from the source.')
     parser.add_argument('--quiet', action='store_true', help='Do not print status messages.')
