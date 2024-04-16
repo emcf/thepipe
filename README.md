@@ -12,6 +12,16 @@ The Pipe is a multimodal-first tool for feeding files and web pages into vision-
 
 ![Demo](https://ngrdaaykhfrmtpodlakn.supabase.co/storage/v1/object/public/assets/demo.gif?t=2024-03-24T19%3A13%3A46.695Z)
 
+## Features 🌟
+
+- Extracts text and visuals from files or web pages 📚
+- Outputs chunks optimized for multimodal LLMs 🖼️
+- Interpret complex PDFs, web pages, slides, CSVs, and more 🧠
+- Auto-compress prompts exceeding your chosen token limit 📦
+- Works even with missing file extensions, in-memory data streams 💾
+- Works with codebases, git repos, and custom integrations 🌐
+- Multi-threaded ⚡️
+
 ## Getting Started  🚀
 
 First, install The Pipe. 
@@ -44,16 +54,6 @@ You can also use The Pipe from the command line. Here's how to recursively extra
 thepipe path/to/folder
 ```
 
-## Features 🌟
-
-- Extracts text and visuals from any file or web page 📚
-- Outputs RAG-ready chunks, optimized for multimodal LLMs 🖼️ + 💬
-- Can interpret complex PDFs, web apps, markdown, etc 🧠
-- Auto-compress prompts exceeding your chosen token limit 📦
-- Works with missing file extensions, in-memory data streams 💾
-- Works with codebases, URL, git repos, and more 🌐
-- Multi-threaded ⚡️
-
 ##  How it works 🛠️
 
 The pipe is accessible from the command line or from [Python](https://www.python.org/downloads/). The input source is either a file path, a URL, or a directory (or zip file) path. The pipe will extract information from the source and process it for downstream use with [language models](https://en.wikipedia.org/wiki/Large_language_model), [vision transformers](https://en.wikipedia.org/wiki/Vision_transformer), or [vision-language models](https://arxiv.org/abs/2304.00685). The output from the pipe is a sensible text-based (or multimodal) representation of the extracted information, carefully crafted to fit within context windows for any models from [gemma-7b](https://huggingface.co/google/gemma-7b) to [GPT-4](https://openai.com/gpt-4). It uses a variety of heuristics for optimal performance with vision-language models, including AI filetype detection with [filetype detection](https://opensource.googleblog.com/2024/02/magika-ai-powered-fast-and-efficient-file-type-identification.html), AI [PDF extraction](thepi.pe/docs), efficient [token compression](https://arxiv.org/abs/2403.12968), automatic [image encoding](https://en.wikipedia.org/wiki/Base64), [reranking](https://arxiv.org/abs/2310.06839) for [lost-in-the-middle](https://arxiv.org/abs/2307.03172) effects, and more, all pre-built to work out-of-the-box.
@@ -66,7 +66,7 @@ The pipe is accessible from the command line or from [Python](https://www.python
 | Code                                  | `.py`, `.tsx`, `.js`, `.html`, `.css`, `.cpp`, etc | ✔️ (varies)   | ❌               | Combines all code files. `.c`, `.cpp`, `.py` are compressible with ctags, others are not |
 | Plaintext                             | `.txt`, `.md`, `.rtf`, etc               | ✔️               | ❌               | Regular text files                                                      |
 | PDF                                   | `.pdf`                                  | ✔️               | ✔️    | Extracts text and images of each page; can use AI for extraction of table data and  images within pages |
-| Image                                 | `.jpg`, `.jpeg`, `.png`, `.gif`, `.bmp`, `.tiff`, `.webp`, `.svg` | ❌                | ✔️              | Extracts images, uses OCR if text_only                        |
+| Image                                 | `.jpg`, `.jpeg`, `.png` | ❌                | ✔️              | Extracts images, uses OCR if text_only                        |
 | Data Table                           | `.csv`, `.xls`, `.xlsx`             | ✔️                | ❌               | Extracts data from spreadsheets; converts to text representation. For very large datasets, will only extract column names and types         |
 | Jupyter Notebook                      | `.ipynb`                                | ❌               | ✔️               | Extracts code, markdown, and images from Jupyter notebooks                                  |
 | Microsoft Word Document               | `.docx`                                 | ✔️               | ✔️               | Extracts text and images from Word documents                                        |
