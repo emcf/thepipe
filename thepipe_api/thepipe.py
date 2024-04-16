@@ -55,9 +55,7 @@ def parse_arguments() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_arguments()
-    chunks = extract(source=args.source, match=args.match, ignore=args.ignore, limit=args.limit, verbose=args.verbose, ai_extraction=args.ai_extraction, text_only=args.text_only, local=args.local)
-    if not args.local:
-        chunks = core.create_chunks_from_messages(chunks)
+    chunks = extractor.extract_from_source(source=args.source, match=args.match, ignore=args.ignore, limit=args.limit, verbose=args.verbose, ai_extraction=args.ai_extraction, text_only=args.text_only, local=args.local)
     save_outputs(chunks=chunks, verbose=args.verbose, text_only=args.text_only)
 
 if __name__ == '__main__':
