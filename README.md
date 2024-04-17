@@ -105,3 +105,5 @@ Arguments are:
 - `limit` (optional): The token limit for the output prompt, defaults to 100K. Prompts exceeding the limit will be compressed.
 - `ai_extraction` (optional): Extract tables, figures, and math from PDFs using our extractor. Incurs extra costs.
 - `text_only` (optional): Do not extract images from documents or websites. Additionally, image files will be represented with OCR instead of as images.
+
+<a href="https://cal.com/emmett-mcf/30min"><img alt="Book us with Cal.com" src="https://cal.com/book-with-cal-dark.svg" /></a>
