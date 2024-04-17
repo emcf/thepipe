@@ -54,11 +54,11 @@ def extract_from_file(file_path: str, source_type: str, verbose: bool = False, a
                     data={'api_key': THEPIPE_API_KEY, 'ai_extraction': ai_extraction, 'text_only': text_only}
                 )
         except Exception as e:
-            raise ValueError(f"Failed to extract from file. This may mean our backend couldn't handle this request. Exception: {e}.")
+            raise ValueError(f"Failed to extract from {file_path}. Exception: {e}.")
         try:
             response = response.json()
         except json.JSONDecodeError:
-            raise ValueError(f"Our backend likely couldn't handle this request. This can happen with large content, very large files, or unsupported files")
+            raise ValueError(f"Failed to extract from {file_path}. Response: {response}.")
         if 'error' in response:
             raise ValueError(f"{response['error']}")
         chunks = create_chunks_from_messages(response['messages'])
@@ -186,7 +186,7 @@ def extract_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = F
         try:
             response_json = response.json()
         except json.JSONDecodeError:
-            raise ValueError(f"Our backend likely couldn't handle this request. This can happen with large content such as videos, streams, or very large files/websites. See emmett@thepi.pe for help.")
+            raise ValueError(f"Our backend likely couldn't handle this request. This can happen with large content such as videos, streams, or very large files/websites. Re")
         if 'error' in response_json:
             raise ValueError(f"{response_json['error']}")
         messages = response_json['messages']
@@ -248,9 +248,13 @@ def extract_url(url: str, text_only: bool = False, local: bool = True) -> List[C
             response = requests.post(
                 url=API_URL,
                 data={'url': url, 'api_key': THEPIPE_API_KEY, 'text_only': text_only}
-            ).json()
+            )
         except Exception as e:
             raise ValueError(f"Failed to extract from URL. This may mean our backend couldn't handle this request. Exception: {e}.")
+        try:
+            response = response.json()
+        except json.JSONDecodeError:
+            raise ValueError(f"Failed to extract from URL. Response: {response}.")
         if 'error' in response:
             raise ValueError(f"{response['error']}")
         chunks = create_chunks_from_messages(response['messages'])
