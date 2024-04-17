@@ -54,11 +54,11 @@ def extract_from_file(file_path: str, source_type: str, verbose: bool = False, a
                     data={'api_key': THEPIPE_API_KEY, 'ai_extraction': ai_extraction, 'text_only': text_only}
                 )
         except Exception as e:
-            raise ValueError(f"Failed to extract from {file_path}. Exception: {e}.")
+            raise ValueError(f"Failed to extract from {file_path}. This may mean our backend couldn't handle this request. Exception: {e}.")
         try:
             response = response.json()
         except json.JSONDecodeError:
-            raise ValueError(f"Failed to extract from {file_path}. Response: {response}.")
+            raise ValueError(f"Failed to extract from {file_path}. This may mean our backend couldn't handle this request. Response: {response}.")
         if 'error' in response:
             raise ValueError(f"{response['error']}")
         chunks = create_chunks_from_messages(response['messages'])
@@ -254,7 +254,7 @@ def extract_url(url: str, text_only: bool = False, local: bool = True) -> List[C
         try:
             response = response.json()
         except json.JSONDecodeError:
-            raise ValueError(f"Failed to extract from URL. Response: {response}.")
+            raise ValueError(f"Failed to extract from URL. This may mean our backend couldn't handle this request. Response: {response}.")
         if 'error' in response:
             raise ValueError(f"{response['error']}")
         chunks = create_chunks_from_messages(response['messages'])
