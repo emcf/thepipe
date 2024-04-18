@@ -8,7 +8,7 @@
 
 ### Feed PDFs, word docs, slides, web pages and more into Vision-LLMs with one line of code ⚡
 
-The Pipe is a multimodal-first tool for feeding files and web pages into vision-language models such as GPT-4V. It is best for LLM and RAG applications that require a deep understanding of tricky data sources. The Pipe is available as a hosted API at [thepi.pe](https://thepi.pe), or it can be set up locally.
+The Pipe is a multimodal-first tool for feeding files and web pages into vision-language models such as GPT-4V. It is best for LLM and RAG applications that require a deep understanding of tricky data sources. The Pipe is available as a hosted API at [thepi.pe](https://thepi.pe), or it can be set up locally. 
 
 ![Demo](https://ngrdaaykhfrmtpodlakn.supabase.co/storage/v1/object/public/assets/demo.gif?t=2024-03-24T19%3A13%3A46.695Z)
 
@@ -34,23 +34,22 @@ Ensure the `THEPIPE_API_KEY` environment variable is set. Don't have an API key 
 Now you can extract comprehensive text and visuals from any file:
 ```python
 from thepipe_api import thepipe
-chunks = thepipe.extract("example.pdf")
+messages = thepipe.extract("example.pdf")
 ```
 Or any website:
 ```python
-chunks = thepipe.extract("https://example.com")
+messages = thepipe.extract("https://example.com")
 ```
 Then feed it into GPT-4-Vision:
 ```python
 response = client.chat.completions.create(
     model="gpt-4-vision-preview",
-    messages = chunks,
+    messages = messages,
 )
 ```
-The Pipe's output is a list of sensible "chunks", and thus can be used either for storage in a vector database or for direct use as a prompt. Extra features such as data table extraction, bar chart extraction, custom web authentications and more are available in the [API documentation](https://thepi.pe/docs). [LiteLLM](https://github.com/BerriAI/litellm) can be used to easily integrate The Pipe with any LLM provider.
 
 You can also use The Pipe from the command line. Here's how to recursively extract from a directory, matching only a specific file type:
-```
+```bash
 thepipe path/to/folder --match *jsx
 ```
 
@@ -71,9 +70,26 @@ thepipe path/to/folder --match *jsx
 | GitHub Repository                     | GitHub repo URLs                         | ✔️               | ✔️                | Extracts from GitHub repositories; supports branch specification         |
 | ZIP File                              | `.zip`                                  | ✔️               | ✔️                | Extracts contents of ZIP files; supports nested directory extraction     |
 
-##  How it works 🛠️
+## How it works 🛠️
 
-The pipe is accessible from the command line or from [Python](https://www.python.org/downloads/). The input source is either a file path, a URL, or a directory. The pipe will extract information from the source and process it for downstream use with [language models](https://en.wikipedia.org/wiki/Large_language_model), [vision transformers](https://en.wikipedia.org/wiki/Vision_transformer), or [vision-language models](https://arxiv.org/abs/2304.00685). The output from the pipe is a sensible text-based (or multimodal) representation of the extracted information, carefully crafted to fit within context windows for any models from [gemma-7b](https://huggingface.co/google/gemma-7b) to [GPT-4](https://openai.com/gpt-4). It uses a variety of heuristics for optimal performance with vision-language models, including AI filetype detection with [filetype detection](https://opensource.googleblog.com/2024/02/magika-ai-powered-fast-and-efficient-file-type-identification.html), AI [PDF extraction](thepi.pe/docs), efficient [token compression](https://arxiv.org/abs/2403.12968), automatic [image encoding](https://en.wikipedia.org/wiki/Base64), [reranking](https://arxiv.org/abs/2310.06839) for [lost-in-the-middle](https://arxiv.org/abs/2307.03172) effects, and more, all pre-built to work out-of-the-box.
+The input source is either a file path, a URL, or a directory. The pipe will extract information from the source and process it for downstream use with [language models](https://en.wikipedia.org/wiki/Large_language_model), [vision transformers](https://en.wikipedia.org/wiki/Vision_transformer), or [vision-language models](https://arxiv.org/abs/2304.00685). The output from the pipe is a sensible list of multimodal messages representing chunks of the extracted information, carefully crafted to fit within context windows for any models from [gemma-7b](https://huggingface.co/google/gemma-7b) to [GPT-4](https://openai.com/gpt-4). The messages returned should look like this:
+```json
+[
+  {
+    "type": "text",
+    "content": "Extracted text here..."
+  },
+  {
+    "type": "image_url",
+    "image_url": {
+      "url": "data:image/jpeg;base64,..."}
+  },
+  ...
+]
+```
+The text and images from these messages may also be prepared for a vector database with `thepipe.core.create_chunks_from_messages` or for downstream use with RAG frameworks such as Llamaindex or Langchain. [LiteLLM](https://github.com/BerriAI/litellm) can be used to easily integrate The Pipe with any LLM provider. 
+
+It uses a variety of heuristics for optimal performance with vision-language models, including AI filetype detection with [filetype detection](https://opensource.googleblog.com/2024/02/magika-ai-powered-fast-and-efficient-file-type-identification.html), opt-in AI [PDF extraction](thepi.pe/docs), efficient [token compression](https://arxiv.org/abs/2403.12968), automatic [image encoding](https://en.wikipedia.org/wiki/Base64), [reranking](https://arxiv.org/abs/2310.06839) for [lost-in-the-middle](https://arxiv.org/abs/2307.03172) effects, and more, all pre-built to work out-of-the-box.
 
 
 ## Local Installation 🛠️
@@ -103,12 +119,12 @@ Arguments are:
 - `local` (optional): Use the local version of The Pipe instead of the hosted API.
 - `match` (optional): Regex pattern to match files in the directory.
 - `ignore` (optional): Regex pattern to ignore files in the directory.
-- `limit` (optional): The token limit for the output prompt, defaults to 100K. Prompts exceeding the limit will be compressed.
+- `limit` (optional): The token limit for the output prompt, defaults to 100K. Prompts exceeding the limit will be compressed. This may not work as expected with the API, as it is in active development.
 - `ai_extraction` (optional): Extract tables, figures, and math from PDFs using our extractor. Incurs extra costs.
 - `text_only` (optional): Do not extract images from documents or websites. Additionally, image files will be represented with OCR instead of as images.
 
-<a href="https://cal.com/emmett-mcf/30min"><img alt="Book us with Cal.com" src="https://cal.com/book-with-cal-dark.svg" /></a>
-
 # Sponsors
 
-Thank you to [Cal.com](https://cal.com/) for sponsoring this project. 
+<a href="https://cal.com/emmett-mcf/30min"><img alt="Book us with Cal.com" src="https://cal.com/book-with-cal-dark.svg" /></a>
+
+Thank you to [Cal.com](https://cal.com/) for sponsoring this project. Contact emmett@thepi.pe for sponsorship information.
