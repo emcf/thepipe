@@ -24,6 +24,8 @@ The Pipe is a multimodal-first tool for feeding files and web pages into vision-
 
 ## Getting Started  🚀
 
+The Pipe handles a wide array of complex filetypes, and thus has many dependencies that must be installed separately. It also requires a strong machine for good response times. For this reason, we host it as an API that works out-of-the-box. 
+
 First, install The Pipe. 
 ```
 pip install thepipe_api
@@ -94,14 +96,14 @@ It uses a variety of heuristics for optimal performance with vision-language mod
 
 ## Local Installation 🛠️
 
-To use The Pipe locally, you will need [playwright](https://github.com/microsoft/playwright), [ctags](https://github.com/universal-ctags/), [pytesseract](https://github.com/h/pytesseract), and the local python requirements, which differ from the more lightweight API requirements. You will also need to use the local version of the requirements file:
+The Pipe handles a wide array of complex filetypes, and thus requires installation of many different packages to function. It also requires a very capable machine for good response times. For this reason, we host it as an API that works out-of-the-box. To use The Pipe locally for free instead, you will need [playwright](https://github.com/microsoft/playwright), [ctags](https://github.com/universal-ctags/), [pytesseract](https://github.com/h/pytesseract), and the local python requirements, which differ from the more lightweight API requirements:
 
 ```bash
 git clone https://github.com/emcf/thepipe
 pip install -r requirements_local.txt
 ```
 
-Tip for windows users: you may need to install the python-libmagic binaries with `pip install python-magic-bin`. You may also need to ensure the tesseract-ocr binaries and the ctags binaries are in your PATH.
+Tip for windows users: Install the python-libmagic binaries with `pip install python-magic-bin`. Ensure the `tesseract-ocr` binaries and the `ctags` binaries are in your PATH.
 
 Now you can use The Pipe with Python:
 ```bash
