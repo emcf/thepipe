@@ -31,7 +31,7 @@ First, install The Pipe.
 pip install thepipe_api
 ```
 
-Ensure the `THEPIPE_API_KEY` environment variable is set. Don't have an API key yet? [Get one here](https://thepi.pe). Alternatively, see the local installation section for the more advanced local setup.
+The Pipe is available as a hosted API, or it can be set up locally. An API key is recommended for out-of-the-box functionality (alternatively, see the local installation section). Ensure the `THEPIPE_API_KEY` environment variable is set. Don't have a key yet? [Get one here](https://thepi.pe).
 
 Now you can extract comprehensive text and visuals from any file:
 ```python
