@@ -88,7 +88,6 @@ The input source is either a file path, a URL, or a directory. The pipe will ext
     "image_url": {
       "url": "data:image/jpeg;base64,..."}
   },
-  ...
 ]
 ```
 The text and images from these messages may also be prepared for a vector database with `thepipe.core.create_chunks_from_messages` or for downstream use with RAG frameworks. [LiteLLM](https://github.com/BerriAI/litellm) can be used to easily integrate The Pipe with any LLM provider. 
