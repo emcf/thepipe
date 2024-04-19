@@ -14,6 +14,8 @@ import json
 from .core import Chunk, print_status, SourceTypes, create_chunks_from_messages, API_URL
 import tempfile
 import mimetypes
+import dotenv
+dotenv.load_dotenv()
 
 FILES_TO_IGNORE = {'package-lock.json', '.gitignore', '.bin', '.pyc', '.pyo', '.exe', '.bat', '.dll', '.obj', '.o', '.a', '.lib', '.so', '.dylib', '.ncb', '.sdf', '.suo', '.pdb', '.idb', '.pyd', '.ipynb_checkpoints', '.npy', '.pth'} # Files to ignore, please feel free to customize!
 CODE_EXTENSIONS = {'.h', '.json', '.js', '.jsx', '.ts', '.tsx',  '.cs', '.java', '.html', '.css', '.ini', '.xml', '.yaml', '.xaml', '.sh'} # Plaintext files that should not be compressed with LLMLingua
@@ -62,6 +64,9 @@ def extract_from_file(file_path: str, source_type: str, verbose: bool = False, a
         if 'error' in response:
             raise ValueError(f"{response['error']}")
         chunks = create_chunks_from_messages(response['messages'])
+        for c in chunks:
+            c.path = file_path
+            c.source_type = source_type
         return chunks
     try:    
         if source_type == SourceTypes.PDF:
