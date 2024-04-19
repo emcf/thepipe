@@ -64,6 +64,9 @@ def extract_from_file(file_path: str, source_type: str, verbose: bool = False, a
         if 'error' in response:
             raise ValueError(f"{response['error']}")
         chunks = create_chunks_from_messages(response['messages'])
+        for c in chunks:
+            c.path = file_path
+            c.source_type = source_type
         return chunks
     try:    
         if source_type == SourceTypes.PDF:
