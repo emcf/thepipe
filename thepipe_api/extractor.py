@@ -46,14 +46,14 @@ def extract_from_source(source: str, match: Optional[str] = None, ignore: Option
         return extract_zip(file_path=source, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
     return extract_from_file(file_path=source, source_type=source_type, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local)
 
-def extract_from_file(file_path: str, source_type: str, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = True) -> List[Chunk]:
+def extract_from_file(file_path: str, source_type: str, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = True, limit: int = None) -> List[Chunk]:
     if not local:
         try:
             with open(file_path, 'rb') as f:
                 response = requests.post(
                     url=API_URL,
                     files={'file': (file_path, f)},
-                    data={'api_key': THEPIPE_API_KEY, 'ai_extraction': ai_extraction, 'text_only': text_only}
+                    data={'api_key': THEPIPE_API_KEY, 'ai_extraction': ai_extraction, 'text_only': text_only, 'limit': limit}
                 )
         except Exception as e:
             raise ValueError(f"Failed to extract from {file_path}. This may mean our backend couldn't handle this request. Exception: {e}.")
@@ -179,14 +179,14 @@ def extract_zip(file_path: str, match: Optional[str] = None, ignore: Optional[st
         extracted_files = extract_from_directory(dir_path=temp_dir, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
     return extracted_files
 
-def extract_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
+def extract_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False, limit: int = None) -> List[Chunk]:
     chunks = []
     if ai_extraction:
         with open(file_path, "rb") as f:
             response = requests.post(
                 url=API_URL,
                 files={'file': (file_path, f)},
-                data={'api_key': THEPIPE_API_KEY, 'ai_extraction': ai_extraction, 'text_only': text_only}
+                data={'api_key': THEPIPE_API_KEY, 'ai_extraction': ai_extraction, 'text_only': text_only, 'limit': limit}
             )
         try:
             response_json = response.json()
@@ -247,12 +247,12 @@ def extract_spreadsheet(file_path: str) -> Chunk:
     json_dict = json.dumps(dict, indent=4)
     return Chunk(path=file_path, text=json_dict, image=None, source_type=SourceTypes.SPREADSHEET)
     
-def extract_url(url: str, text_only: bool = False, local: bool = True) -> List[Chunk]:
+def extract_url(url: str, text_only: bool = False, local: bool = True, limit: int = None) -> List[Chunk]:
     if not local:
         try:
             response = requests.post(
                 url=API_URL,
-                data={'url': url, 'api_key': THEPIPE_API_KEY, 'text_only': text_only}
+                data={'url': url, 'api_key': THEPIPE_API_KEY, 'text_only': text_only, 'limit': limit}
             )
         except Exception as e:
             raise ValueError(f"Failed to extract from URL. This may mean our backend couldn't handle this request. Exception: {e}.")
