@@ -80,14 +80,20 @@ The input source is either a file path, a URL, or a directory. The pipe will ext
 ```json
 [
   {
-    "type": "text",
-    "content": "Extracted text here..."
-  },
-  {
-    "type": "image_url",
-    "image_url": {
-      "url": "data:image/jpeg;base64,..."}
-  },
+    "role": "user",
+    "content": [
+      {
+        "type": "text",
+        "text": "What’s in this image?"
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": f"data:image/jpeg;base64,{base64_image}"
+        }
+      }
+    ]
+  }
 ]
 ```
 If you want to feed these messages directly into the model, it is important to be mindful of the token limit.
