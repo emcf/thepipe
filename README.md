@@ -52,9 +52,9 @@ response = client.chat.completions.create(
 
 ![Just call OpenAI](https://rpnutzemutbrumczwvue.supabase.co/storage/v1/object/public/assets/IMG_0180.jpg)
 
-You can also use The Pipe from the command line. Here's how to recursively extract from a directory, matching only a specific file type:
+You can also use The Pipe from the command line. Here's how to recursively extract from a directory, matching only files containing a substring (in this example, typescript files) and ignore files containing other substrings (in this example, anything in the "tests" folder):
 ```bash
-thepipe path/to/folder --match *jsx
+thepipe path/to/folder --match tsx --ignore tests
 ```
 
 ## Supported File Types 📚
@@ -123,8 +123,8 @@ thepipe path/to/folder --local
 Arguments are:
 - `source` (required): can be a file path, a URL, or a directory path.
 - `local` (optional): Use the local version of The Pipe instead of the hosted API.
-- `match` (optional): Regex pattern to match files in the directory.
-- `ignore` (optional): Regex pattern to ignore files in the directory.
+- `match` (optional): Substring to match files in the directory. Regex is not yet supported.
+- `ignore` (optional): Substring to ignore files in the directory. Regex is not yet supported.
 - `limit` (optional): The token limit for the output prompt, defaults to 100K. Prompts exceeding the limit will be compressed. This may not work as expected with the API, as it is in active development.
 - `ai_extraction` (optional): Extract tables, figures, and math from PDFs using our extractor. Incurs extra costs.
 - `text_only` (optional): Do not extract images from documents or websites. Additionally, image files will be represented with OCR instead of as images.

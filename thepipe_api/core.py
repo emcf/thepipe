@@ -43,7 +43,7 @@ def count_tokens(chunks: List[Chunk]) -> int:
 
 def image_to_base64(image: Image.Image) -> str:
     buffered = BytesIO()
-    if image.mode == 'RGBA':
+    if image.mode == 'RGBA' or image.mode == 'P':
         image = image.convert('RGB')
     image.save(buffered, format="JPEG")
     return base64.b64encode(buffered.getvalue()).decode()
