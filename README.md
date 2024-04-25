@@ -89,7 +89,7 @@ The input source is either a file path, a URL, or a directory. The pipe will ext
       {
         "type": "image_url",
         "image_url": {
-          "url": f"data:image/jpeg;base64,{base64_image}"
+          "url": "data:image/jpeg;base64,..."
         }
       }
     ]
