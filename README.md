@@ -84,7 +84,7 @@ The input source is either a file path, a URL, or a directory. The pipe will ext
     "content": [
       {
         "type": "text",
-        "text": "What’s in this image?"
+        "text": "..."
       },
       {
         "type": "image_url",

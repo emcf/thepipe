@@ -9,3 +9,4 @@ cssutils
 beautifulsoup4
 magika
 python-dotenv
+openpyxl
