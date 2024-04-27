@@ -113,9 +113,10 @@ class test_thepipe(unittest.TestCase):
     def test_compress_spreadsheet(self):
         chunks = extractor.extract_from_source(source=self.files_directory+"/example.xlsx")
         new_chunks = compressor.compress_chunks(chunks=chunks, limit=30)
-        self.assertEqual(len(new_chunks), 1)
         # verify that the compressed text is shorter than the original
-        self.assertLess(len(new_chunks[0].text.replace("Column names and types: ","")), len(chunks[0].text))
+        all_text = ''.join([chunk.text for chunk in chunks if chunk.text])
+        all_new_text = ''.join([chunk.text for chunk in new_chunks if chunk.text])
+        self.assertLess(len(all_new_text), len(all_text))
     
     def test_compress_with_llmlingua(self):
         chunks = extractor.extract_from_source(source=self.files_directory+"/example.md")

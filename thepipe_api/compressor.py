@@ -96,7 +96,7 @@ def compress_chunks(chunks: List[Chunk], verbose: bool = False, limit: int = 1e5
             elif chunk.source_type in {SourceTypes.PLAINTEXT, SourceTypes.PDF, SourceTypes.DOCX, SourceTypes.PPTX, SourceTypes.URL}:
                 new_chunk = compress_with_llmlingua(chunk)
             elif chunk.source_type == SourceTypes.SPREADSHEET:
-                new_chunk = compress_spreadsheet(chunk)
+                new_chunk = compress_with_llmlingua(chunk)
             else:
                 # if the chunk is not compressible, keep the original text
                 new_chunk = chunk
