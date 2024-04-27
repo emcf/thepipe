@@ -15,7 +15,15 @@ from .core import Chunk, print_status, SourceTypes, create_chunks_from_messages,
 import tempfile
 import mimetypes
 import dotenv
+from datetime import datetime
+from json import JSONEncoder
 dotenv.load_dotenv()
+
+class JSONDateEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return JSONEncoder.default(self, obj)
 
 FILES_TO_IGNORE = {'package-lock.json', '.gitignore', '.bin', '.pyc', '.pyo', '.exe', '.bat', '.dll', '.obj', '.o', '.a', '.lib', '.so', '.dylib', '.ncb', '.sdf', '.suo', '.pdb', '.idb', '.pyd', '.ipynb_checkpoints', '.npy', '.pth'} # Files to ignore, please feel free to customize!
 CODE_EXTENSIONS = {'.h', '.json', '.js', '.jsx', '.ts', '.tsx',  '.cs', '.java', '.html', '.css', '.ini', '.xml', '.yaml', '.xaml', '.sh'} # Plaintext files that should not be compressed with LLMLingua
@@ -244,7 +252,7 @@ def extract_spreadsheet(file_path: str) -> Chunk:
     elif file_path.endswith(".xls") or file_path.endswith(".xlsx"):
         df = pd.read_excel(file_path)
     dict = df.to_dict(orient='records')
-    json_dict = json.dumps(dict, indent=4)
+    json_dict = json.dumps(dict, indent=4, cls=JSONDateEncoder)
     return Chunk(path=file_path, text=json_dict, image=None, source_type=SourceTypes.SPREADSHEET)
     
 def extract_url(url: str, text_only: bool = False, local: bool = True, limit: int = None) -> List[Chunk]:
