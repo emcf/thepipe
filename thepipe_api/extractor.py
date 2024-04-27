@@ -86,7 +86,7 @@ def extract_from_file(file_path: str, source_type: str, verbose: bool = False, a
         elif source_type == SourceTypes.IMAGE:
             extraction = [extract_image(file_path=file_path, text_only=text_only)]
         elif source_type == SourceTypes.SPREADSHEET:
-            extraction = [extract_spreadsheet(file_path=file_path)]
+            extraction = extract_spreadsheet(file_path=file_path)
         elif source_type == SourceTypes.PLAINTEXT:
             extraction = [extract_plaintext(file_path=file_path)]
         elif source_type == SourceTypes.UNCOMPRESSIBLE_CODE:
@@ -245,15 +245,18 @@ def extract_image(file_path: str, text_only: bool = False) -> Chunk:
     else:
         return Chunk(path=file_path, text=None, image=img, source_type=SourceTypes.IMAGE)
     
-def extract_spreadsheet(file_path: str) -> Chunk:
+def extract_spreadsheet(file_path: str) -> List[Chunk]:
     import pandas as pd # import only if needed
     if file_path.endswith(".csv"):
         df = pd.read_csv(file_path)
     elif file_path.endswith(".xls") or file_path.endswith(".xlsx"):
         df = pd.read_excel(file_path)
-    dict = df.to_dict(orient='records')
-    json_dict = json.dumps(dict, indent=4, cls=JSONDateEncoder)
-    return Chunk(path=file_path, text=json_dict, image=None, source_type=SourceTypes.SPREADSHEET)
+    dicts = df.to_dict(orient='records')
+    chunks = []
+    for item in dicts:
+        item_json = json.dumps(item, indent=4, cls=JSONDateEncoder)
+        chunks.append(Chunk(path=file_path, text=item_json, image=None, source_type=SourceTypes.SPREADSHEET))
+    return chunks
     
 def extract_url(url: str, text_only: bool = False, local: bool = True, limit: int = None) -> List[Chunk]:
     if not local:
