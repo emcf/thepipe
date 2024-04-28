@@ -21,3 +21,5 @@ PyMuPDF
 pdf2image
 python-magic
 python-dotenv
+whisper
+moviepy

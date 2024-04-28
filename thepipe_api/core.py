@@ -21,6 +21,8 @@ class SourceTypes(Enum):
     URL = "website"
     GITHUB = "github repository"
     ZIP = "zip"
+    VIDEO = "video"
+    AUDIO = "audio"
 
 class Chunk:
     def __init__(self, path: str, text: Optional[str] = None, image: Optional[Image.Image] = None, source_type: Optional[SourceTypes] = None):

@@ -1,6 +1,7 @@
 import base64
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
+import math
 import re
 from typing import Dict, List, Optional
 import glob
@@ -32,6 +33,8 @@ PLAINTEXT_EXTENSIONS = {'.txt', '.md', '.rtf'}
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
 SPREADSHEET_EXTENSIONS = {'.csv', '.xls', '.xlsx'}
 DOCUMENT_EXTENSIONS = {'.pdf', '.docx', '.pptx'}
+VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mov', '.mkv'}
+AUDIO_EXTENSIONS = {'.mp3', '.wav'}
 OTHER_EXTENSIONS = {'.zip', '.ipynb'}
 KNOWN_EXTENSIONS = IMAGE_EXTENSIONS.union(CODE_EXTENSIONS).union(CTAGS_CODE_EXTENSIONS).union(PLAINTEXT_EXTENSIONS).union(IMAGE_EXTENSIONS).union(SPREADSHEET_EXTENSIONS).union(DOCUMENT_EXTENSIONS).union(OTHER_EXTENSIONS)
 GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN")
@@ -50,8 +53,6 @@ def extract_from_source(source: str, match: Optional[str] = None, ignore: Option
         return extract_github(github_url=source, file_path='', match=match, ignore=ignore, text_only=text_only, verbose=verbose, ai_extraction=ai_extraction, branch='master')
     elif source_type == SourceTypes.URL:
         return extract_url(url=source, text_only=text_only, local=local)
-    elif source_type == SourceTypes.ZIP:
-        return extract_zip(file_path=source, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
     return extract_from_file(file_path=source, source_type=source_type, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local)
 
 def extract_from_file(file_path: str, source_type: str, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = True, limit: int = None) -> List[Chunk]:
@@ -97,6 +98,12 @@ def extract_from_file(file_path: str, source_type: str, verbose: bool = False, a
             extraction = [Chunk(path=e.path, text=e.text, image=None, source_type=SourceTypes.COMPRESSIBLE_CODE) for e in extraction]
         elif source_type == SourceTypes.IPYNB:
             extraction = extract_from_ipynb(file_path=file_path, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+        elif source_type == SourceTypes.ZIP:
+            extraction = extract_zip(file_path=file_path, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+        elif source_type == SourceTypes.VIDEO:
+            extraction = extract_video(file_path=file_path, verbose=verbose, text_only=text_only)
+        elif source_type == SourceTypes.AUDIO:
+            extraction = extract_audio(file_path=file_path, verbose=verbose)
         else:
             extraction = [extract_plaintext(file_path=file_path)]
         if verbose: print_status(f"Extracted from {file_path}", status='success')
@@ -146,6 +153,12 @@ def detect_type(source: str) -> Optional[SourceTypes]:
         return SourceTypes.DOCX
     elif extension == '.pptx':
         return SourceTypes.PPTX
+    elif extension == '.zip':
+        return SourceTypes.ZIP
+    elif extension in VIDEO_EXTENSIONS:
+        return SourceTypes.VIDEO
+    elif extension in AUDIO_EXTENSIONS:
+        return SourceTypes.AUDIO
     elif extension in PLAINTEXT_EXTENSIONS:
         return SourceTypes.PLAINTEXT
     return None
@@ -314,6 +327,44 @@ def extract_url(url: str, text_only: bool = False, local: bool = True, limit: in
     if not chunks:
         raise ValueError("No content extracted from URL.")
     return chunks
+
+def extract_video(file_path: str, verbose: bool = False, text_only: bool = False) -> List[Chunk]:
+    from moviepy.editor import VideoFileClip # import only if needed
+    import whisper # import only if needed
+    model = whisper.load_model("small")
+    video = VideoFileClip(file_path)
+    chunk_duration = 60
+    num_chunks = math.ceil(video.duration / chunk_duration)
+    chunks = []
+    for i in range(num_chunks):
+        # calculate start and end time for the current chunk
+        start_time = i * chunk_duration
+        end_time = start_time + chunk_duration
+        if end_time > video.duration:
+            end_time = video.duration
+        # extract frame at the middle of the chunk
+        frame_time = (start_time + end_time) / 2
+        frame = video.get_frame(frame_time)
+        image = Image.fromarray(frame)
+        # extract and transcribe audio for the current chunk
+        audio_path = os.path.join(tempfile.gettempdir(), f"temp_audio_{i}.wav")
+        video.subclip(start_time, end_time).audio.write_audiofile(audio_path, codec='pcm_s16le')
+        result = model.transcribe(audio_path, verbose=verbose)
+        transcription = result['text']
+        # add chunk
+        if not text_only:
+            chunks.append(Chunk(path=file_path, text=transcription, image=image, source_type=SourceTypes.VIDEO))
+        else:
+            chunks.append(Chunk(path=file_path, text=transcription, image=None, source_type=SourceTypes.VIDEO))
+        os.remove(audio_path)
+    return chunks
+
+def extract_audio(file_path: str, verbose: bool = False) -> List[Chunk]:
+    import whisper # import only if needed
+    model = whisper.load_model("small")
+    result = model.transcribe(file_path, verbose=verbose)
+    transcription = result['text']
+    return [Chunk(path=file_path, text=transcription, image=None, source_type=SourceTypes.AUDIO)]
 
 def extract_github(github_url: str, file_path: str = '', match: Optional[str] = None, ignore: Optional[str] = None, text_only: bool = False, ai_extraction: bool = False, branch: str = 'main', verbose: bool = False) -> List[Chunk]:
     files_contents = []
