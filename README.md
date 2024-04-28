@@ -4,19 +4,20 @@
   <a href="https://github.com/emcf/thepipe/blob/main/README.md">English</a> | <a href="https://github.com/emcf/thepipe/blob/main/README_cn.md">中文</a>
 </p>
 
-[![codecov](https://codecov.io/gh/emcf/thepipe/graph/badge.svg?token=OE7CUEFUL9)](https://codecov.io/gh/emcf/thepipe) ![python-gh-action](https://github.com/emcf/thepipe/actions/workflows/python-ci.yml/badge.svg) <a href="https://thepi.pe/">![Website](https://img.shields.io/website?url=https%3A%2F%2Fthepipe.up.railway.app%2F&label=API%20status)</a> <a href="https://thepi.pe/">![get API](https://img.shields.io/badge/API-get%20access-blue)</a>
+[![codecov](https://codecov.io/gh/emcf/thepipe/graph/badge.svg?token=OE7CUEFUL9)](https://codecov.io/gh/emcf/thepipe) ![python-gh-action](https://github.com/emcf/thepipe/actions/workflows/python-ci.yml/badge.svg) <a href="https://thepi.pe/">![Website](https://img.shields.io/website?url=https%3A%2F%2Fthepipe.up.railway.app%2F&label=API%20status)</a> <a href="https://thepi.pe/">![get API](https://img.shields.io/badge/API-access-blue)</a>
 
 ### Feed PDFs, word docs, slides, web pages and more into Vision-LLMs with one line of code ⚡
 
 The Pipe is a multimodal-first tool for feeding files and web pages into vision-language models such as GPT-4V. It is best for LLM and RAG applications that require a deep understanding of tricky data sources. The Pipe is available as a hosted API at [thepi.pe](https://thepi.pe), or it can be set up locally. 
 
-![Demo](https://rpnutzemutbrumczwvue.supabase.co/storage/v1/object/public/assets/grader.py%20(6).png)
+![Science assistant demo](https://rpnutzemutbrumczwvue.supabase.co/storage/v1/object/public/assets/science_assistantpy2.png)
+
 
 ## Features 🌟
 
 - Extracts text and visuals from files or web pages 📚
-- Outputs chunks optimized for multimodal LLMs 🖼️
-- Interpret complex PDFs, web pages, slides, CSVs, and more 🧠
+- Outputs chunks optimized for multimodal LLMs and RAG frameworks 🖼️
+- Interpret complex PDFs, web pages, docs, slides, CSVs, and more 🧠
 - Auto-compress prompts exceeding your chosen token limit 📦
 - Works even with missing file extensions, in-memory data streams 💾
 - Works with codebases, git repos, and custom integrations 🌐
@@ -56,6 +57,7 @@ You can also use The Pipe from the command line. Here's how to recursively extra
 ```bash
 thepipe path/to/folder --match tsx --ignore tests
 ```
+
 
 ## Supported File Types 📚
 
@@ -97,11 +99,13 @@ The input source is either a file path, a URL, or a directory. The pipe will ext
 ]
 ```
 If you want to feed these messages directly into the model, it is important to be mindful of the token limit.
-OpenAI does not allow too many images in the prompt (see discussion [here](https://community.openai.com/t/gpt-4-vision-maximum-amount-of-images/573110/6)), so long files should be extracted with `text_only=True` to avoid this issue. 
+OpenAI does not allow too many images in the prompt (see discussion [here](https://community.openai.com/t/gpt-4-vision-maximum-amount-of-images/573110/6)), so long files should be extracted with `text_only=True` to avoid this issue, while long text files should either be compressed or embedded in a RAG framework.
 
 The text and images from these messages may also be prepared for a vector database with `thepipe.core.create_chunks_from_messages` or for downstream use with RAG frameworks. [LiteLLM](https://github.com/BerriAI/litellm) can be used to easily integrate The Pipe with any LLM provider. 
 
 It uses a variety of heuristics for optimal performance with vision-language models, including AI filetype detection with [filetype detection](https://opensource.googleblog.com/2024/02/magika-ai-powered-fast-and-efficient-file-type-identification.html), opt-in AI [table, equation, and figure extraction](https://thepi.pe/pricing), efficient [token compression](https://arxiv.org/abs/2403.12968), automatic [image encoding](https://en.wikipedia.org/wiki/Base64), [reranking](https://arxiv.org/abs/2310.06839) for [lost-in-the-middle](https://arxiv.org/abs/2307.03172) effects, and more, all pre-built to work out-of-the-box.
+
+![Demo](https://rpnutzemutbrumczwvue.supabase.co/storage/v1/object/public/assets/grader.py%20(6).png)
 
 
 ## Local Installation 🛠️
