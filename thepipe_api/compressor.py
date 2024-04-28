@@ -68,17 +68,6 @@ def compress_with_llmlingua(chunk: Chunk) -> Chunk:
     new_chunk = Chunk(path=chunk.path, text=new_chunk_text, image=chunk.image, source_type=chunk.source_type)
     return new_chunk
 
-def compress_spreadsheet(chunk: Chunk) -> Chunk:
-    loaded_json = json.loads(chunk.text)
-    row_one = loaded_json[0]
-    colnames = []
-    coltypes = []
-    for key, value in row_one.items():
-        colnames.append(key)
-        coltypes.append(type(value))
-    new_chunk_text = "Column names and types: " + str(list(zip(colnames, coltypes)))
-    return Chunk(path=chunk.path, text=new_chunk_text, image=chunk.image, source_type=chunk.source_type)
-
 def compress_chunks(chunks: List[Chunk], verbose: bool = False, limit: int = 1e5) -> List[Chunk]:
     new_chunks = chunks
     for _ in range(MAX_COMPRESSION_ATTEMPTS):
