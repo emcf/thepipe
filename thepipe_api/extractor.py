@@ -331,7 +331,7 @@ def extract_url(url: str, text_only: bool = False, local: bool = True, limit: in
 def extract_video(file_path: str, verbose: bool = False, text_only: bool = False) -> List[Chunk]:
     from moviepy.editor import VideoFileClip # import only if needed
     import whisper # import only if needed
-    model = whisper.load_model("small")
+    model = whisper.load_model("base")
     video = VideoFileClip(file_path)
     chunk_duration = 60
     num_chunks = math.ceil(video.duration / chunk_duration)
@@ -361,7 +361,7 @@ def extract_video(file_path: str, verbose: bool = False, text_only: bool = False
 
 def extract_audio(file_path: str, verbose: bool = False) -> List[Chunk]:
     import whisper # import only if needed
-    model = whisper.load_model("small")
+    model = whisper.load_model("base")
     result = model.transcribe(file_path, verbose=verbose)
     transcription = result['text']
     return [Chunk(path=file_path, text=transcription, image=None, source_type=SourceTypes.AUDIO)]
