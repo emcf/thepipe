@@ -6,7 +6,7 @@
 
 [![codecov](https://codecov.io/gh/emcf/thepipe/graph/badge.svg?token=OE7CUEFUL9)](https://codecov.io/gh/emcf/thepipe) ![python-gh-action](https://github.com/emcf/thepipe/actions/workflows/python-ci.yml/badge.svg) <a href="https://thepi.pe/">![Website](https://img.shields.io/website?url=https%3A%2F%2Fthepipe.up.railway.app%2F&label=API%20status)</a> <a href="https://thepi.pe/">![get API](https://img.shields.io/badge/API-access-blue)</a>
 
-### Feed PDFs, word docs, slides, web pages and more into Vision-LLMs with one line of code ⚡
+### Feed PDFs, web pages, word docs, slides, videos, CSV, and more into Vision-LLMs with one line of code ⚡
 
 The Pipe is a multimodal-first tool for feeding files and web pages into vision-language models such as GPT-4V. It is best for LLM and RAG applications that require a deep understanding of tricky data sources. The Pipe is available as a hosted API at [thepi.pe](https://thepi.pe), or it can be set up locally. 
 
@@ -17,7 +17,7 @@ The Pipe is a multimodal-first tool for feeding files and web pages into vision-
 
 - Extracts text and visuals from files or web pages 📚
 - Outputs chunks optimized for multimodal LLMs and RAG frameworks 🖼️
-- Interpret complex PDFs, web pages, docs, slides, CSVs, and more 🧠
+- Interpret complex PDFs, web pages, docs, videos, data, and more 🧠
 - Auto-compress prompts exceeding your chosen token limit 📦
 - Works even with missing file extensions, in-memory data streams 💾
 - Works with codebases, git repos, and custom integrations 🌐
@@ -39,7 +39,7 @@ Now you can extract comprehensive text and visuals from any file:
 from thepipe_api import thepipe
 messages = thepipe.extract("example.pdf")
 ```
-Or any website:
+Or websites:
 ```python
 messages = thepipe.extract("https://example.com")
 ```
@@ -72,8 +72,11 @@ thepipe path/to/folder --match tsx --ignore tests
 | Jupyter Notebook                      | `.ipynb`                                | ❌               | ✔️               | Extracts code, markdown, and images from Jupyter notebooks                                  |
 | Microsoft Word Document               | `.docx`                                 | ✔️               | ✔️               | Extracts text and images from Word documents                                        |
 | Microsoft PowerPoint Presentation     | `.pptx`                                 | ✔️               | ✔️               | Extracts text and images from PowerPoint presentations                              |
+| Video                                 | `.mp4`, `.avi`, `.mov`, `.wmv`     | ✔️               | ✔️                | Extracts frames from video files; supports frame extraction and OCR for text extraction from frames |
+| Audio                                 | `.mp3`, `.wav`          | ✔️               | ❌                | Extracts text from audio files; supports speech-to-text conversion        | 
 | Website                               | URLs (inputs containing `http`, `https`, `ftp`)             | ✔️                | ✔️    | Extracts text from web page along with image (or images if scrollable); text-only extraction available          |
 | GitHub Repository                     | GitHub repo URLs                         | ✔️               | ✔️                | Extracts from GitHub repositories; supports branch specification         |
+| YouTube Video                         | YouTube video URLs                      | ✔️               | ✔️                | Extracts text from YouTube videos; supports subtitles extraction          |
 | ZIP File                              | `.zip`                                  | ✔️               | ✔️                | Extracts contents of ZIP files; supports nested directory extraction     |
 
 ## How it works 🛠️

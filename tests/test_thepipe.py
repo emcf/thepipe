@@ -46,7 +46,20 @@ class test_thepipe(unittest.TestCase):
         self.assertTrue(any(chunk.text for chunk in chunks))
         # verify it transcribed the audio correctly, i.e., 'citizens' is in the extracted text
         self.assertTrue(any('citizens' in chunk.text.lower() for chunk in chunks if chunk.text is not None))
-
+    
+    def test_extract_youtube(self):
+        chunks = extractor.extract_from_source("https://www.youtube.com/watch?v=wUEr7TayrmU")
+        # verify it extracted the youtube video into chunks
+        self.assertEqual(type(chunks), list)
+        self.assertNotEqual(len(chunks), 0)
+        self.assertEqual(type(chunks[0]), core.Chunk)
+        # verify it extracted visual data
+        self.assertTrue(any(chunk.image for chunk in chunks))
+        # verify it extracted audio data
+        self.assertTrue(any(chunk.text for chunk in chunks))
+        # verify it transcribed the audio correctly, i.e., 'citizens' is in the extracted text
+        self.assertTrue(any('eliminated' in chunk.text.lower() for chunk in chunks if chunk.text is not None))
+    
     def test_image_to_base64(self):
         image = Image.open(os.path.join(self.files_directory, 'example.jpg'))
         image.load() # needed to close the file

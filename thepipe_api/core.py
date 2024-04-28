@@ -23,6 +23,7 @@ class SourceTypes(Enum):
     ZIP = "zip"
     VIDEO = "video"
     AUDIO = "audio"
+    YOUTUBE_VIDEO = "youtube video"
 
 class Chunk:
     def __init__(self, path: str, text: Optional[str] = None, image: Optional[Image.Image] = None, source_type: Optional[SourceTypes] = None):

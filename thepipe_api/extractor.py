@@ -51,6 +51,8 @@ def extract_from_source(source: str, match: Optional[str] = None, ignore: Option
         return extract_from_directory(dir_path=source, match=match, ignore=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, limit=limit, local=local)
     elif source_type == SourceTypes.GITHUB:
         return extract_github(github_url=source, file_path='', match=match, ignore=ignore, text_only=text_only, verbose=verbose, ai_extraction=ai_extraction, branch='master')
+    elif source_type == SourceTypes.YOUTUBE_VIDEO:
+        return extract_youtube(youtube_url=source, text_only=text_only, verbose=verbose)
     elif source_type == SourceTypes.URL:
         return extract_url(url=source, text_only=text_only, local=local)
     return extract_from_file(file_path=source, source_type=source_type, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local)
@@ -113,6 +115,8 @@ def extract_from_file(file_path: str, source_type: str, verbose: bool = False, a
         return [Chunk(path=file_path)]
 
 def detect_type(source: str) -> Optional[SourceTypes]:
+    if source.startswith("https://www.youtube.com"):
+        return SourceTypes.YOUTUBE_VIDEO
     if source.startswith("https://github.com"):
         return SourceTypes.GITHUB
     elif source.startswith("http") or source.startswith("ftp."):
@@ -357,6 +361,17 @@ def extract_video(file_path: str, verbose: bool = False, text_only: bool = False
         else:
             chunks.append(Chunk(path=file_path, text=transcription, image=None, source_type=SourceTypes.VIDEO))
         os.remove(audio_path)
+    return chunks
+
+def extract_youtube(youtube_url: str, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
+    from pytube import YouTube # import only if needed
+    temp_dir = "youtube_temp"
+    filename = "temp_video.mp4"
+    yt = YouTube(youtube_url)
+    stream = yt.streams.filter(progressive=True, file_extension='mp4').first()
+    stream.download(temp_dir, filename=filename)
+    video_path = os.path.join(temp_dir, filename)
+    chunks = extract_video(file_path=video_path, verbose=verbose, text_only=text_only)
     return chunks
 
 def extract_audio(file_path: str, verbose: bool = False) -> List[Chunk]:

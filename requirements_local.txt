@@ -24,3 +24,4 @@ python-dotenv
 git+https://github.com/openai/whisper.git
 moviepy
 openpyxl
+pytube
