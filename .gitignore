@@ -11,3 +11,4 @@ thepipe.bat
 *.egg-info/
 build/
 dist/
+youtube_temp/

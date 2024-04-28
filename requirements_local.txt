@@ -21,3 +21,7 @@ PyMuPDF
 pdf2image
 python-magic
 python-dotenv
+git+https://github.com/openai/whisper.git
+moviepy
+openpyxl
+pytube
