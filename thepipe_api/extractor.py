@@ -115,9 +115,9 @@ def extract_from_file(file_path: str, source_type: str, verbose: bool = False, a
         return [Chunk(path=file_path)]
 
 def detect_type(source: str) -> Optional[SourceTypes]:
-    if source.startswith("https://www.youtube.com"):
+    if source.startswith("https://www.youtube.com") or source.startswith("https://youtube.com"):
         return SourceTypes.YOUTUBE_VIDEO
-    if source.startswith("https://github.com"):
+    elif source.startswith("https://github.com") or source.startswith("https://www.github.com"):
         return SourceTypes.GITHUB
     elif source.startswith("http") or source.startswith("ftp."):
         return SourceTypes.URL
@@ -352,15 +352,19 @@ def extract_video(file_path: str, verbose: bool = False, text_only: bool = False
         image = Image.fromarray(frame)
         # extract and transcribe audio for the current chunk
         audio_path = os.path.join(tempfile.gettempdir(), f"temp_audio_{i}.wav")
-        video.subclip(start_time, end_time).audio.write_audiofile(audio_path, codec='pcm_s16le')
-        result = model.transcribe(audio_path, verbose=verbose)
-        transcription = result['text']
+        audio = video.subclip(start_time, end_time).audio
+        if audio is None:
+            transcription = None
+        else:
+            audio.write_audiofile(audio_path, codec='pcm_s16le')
+            result = model.transcribe(audio_path, verbose=verbose)
+            transcription = result['text']
+            os.remove(audio_path)
         # add chunk
         if not text_only:
             chunks.append(Chunk(path=file_path, text=transcription, image=image, source_type=SourceTypes.VIDEO))
         else:
             chunks.append(Chunk(path=file_path, text=transcription, image=None, source_type=SourceTypes.VIDEO))
-        os.remove(audio_path)
     return chunks
 
 def extract_youtube(youtube_url: str, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
