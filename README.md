@@ -6,9 +6,9 @@
 
 [![codecov](https://codecov.io/gh/emcf/thepipe/graph/badge.svg?token=OE7CUEFUL9)](https://codecov.io/gh/emcf/thepipe) ![python-gh-action](https://github.com/emcf/thepipe/actions/workflows/python-ci.yml/badge.svg) <a href="https://thepi.pe/">![Website](https://img.shields.io/website?url=https%3A%2F%2Fthepipe.up.railway.app%2F&label=API%20status)</a> <a href="https://thepi.pe/">![get API](https://img.shields.io/badge/API-access-blue)</a> <a href="https://discord.gg/bXfKeGs5qV">![Join discord](https://img.shields.io/discord/1227806200478044274?color=4f69ef&label=Discord&logo=discord&logoColor=ffffff)</a>
 
-### Feed PDFs, web pages, word docs, slides, videos, CSV, and more into Vision-LLMs with one line of code ⚡
+### Feed PDFs, URLs, Slides, YouTube videos, Word docs and more into Vision-Language models with one line of code ⚡
 
-The Pipe is a multimodal-first tool for feeding files and web pages into vision-language models such as GPT-4V. It is best for LLM and RAG applications that require a deep understanding of tricky data sources. The Pipe is available as a hosted API at [thepi.pe](https://thepi.pe), or it can be set up locally. 
+The Pipe is a multimodal-first tool for feeding files and web pages into vision-language models such as GPT-4V. It is best for LLM and RAG applications that want to support comprehensive textual and visual understanding across a wide range of data sources. The Pipe is available as a 24/7 hosted API at [thepi.pe](https://thepi.pe), or it can be set up locally to let you run the compute.
 
 ![Science assistant demo](https://rpnutzemutbrumczwvue.supabase.co/storage/v1/object/public/assets/science_assistantpy2.png)
 
@@ -74,9 +74,9 @@ thepipe path/to/folder --match tsx --ignore tests
 | Microsoft PowerPoint Presentation     | `.pptx`                                 | ✔️               | ✔️               | Extracts text and images from PowerPoint presentations                              |
 | Video                                 | `.mp4`, `.avi`, `.mov`, `.wmv`     | ✔️               | ✔️                | Extracts frames from video files; supports frame extraction and OCR for text extraction from frames |
 | Audio                                 | `.mp3`, `.wav`          | ✔️               | ❌                | Extracts text from audio files; supports speech-to-text conversion        | 
-| Website                               | URLs (inputs containing `http`, `https`, `ftp`)             | ✔️                | ✔️    | Extracts text from web page along with image (or images if scrollable); text-only extraction available          |
-| GitHub Repository                     | GitHub repo URLs                         | ✔️               | ✔️                | Extracts from GitHub repositories; supports branch specification         |
-| YouTube Video                         | YouTube video URLs                      | ✔️               | ✔️                | Extracts text from YouTube videos; supports subtitles extraction          |
+| Website                               | URLs (inputs starting with `http`, `https`, `ftp`)             | ✔️                | ✔️    | Extracts text from web page along with image (or images if scrollable); text-only extraction available          |
+| GitHub Repository                     | GitHub repo URLs (inputs starting with `https://github.com` or `https://www.github.com`)                          | ✔️               | ✔️                | Extracts from GitHub repositories; supports branch specification         |
+| YouTube Video                         | YouTube video URLs (inputs starting with `https://youtube.com` or `https://www.youtube.com`)                     | ✔️               | ✔️                | Extracts frames and transcript from YouTube videos in per-minute chunks          |
 | ZIP File                              | `.zip`                                  | ✔️               | ✔️                | Extracts contents of ZIP files; supports nested directory extraction     |
 
 ## How it works 🛠️
