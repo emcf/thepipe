@@ -359,12 +359,12 @@ def extract_video(file_path: str, verbose: bool = False, text_only: bool = False
             audio.write_audiofile(audio_path, codec='pcm_s16le')
             result = model.transcribe(audio_path, verbose=verbose)
             transcription = result['text']
+            os.remove(audio_path)
         # add chunk
         if not text_only:
             chunks.append(Chunk(path=file_path, text=transcription, image=image, source_type=SourceTypes.VIDEO))
         else:
             chunks.append(Chunk(path=file_path, text=transcription, image=None, source_type=SourceTypes.VIDEO))
-        os.remove(audio_path)
     return chunks
 
 def extract_youtube(youtube_url: str, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
