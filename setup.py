@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='thepipe_api',
-    version='0.3.3',
+    version='0.3.4',
     author='Emmett McFarlane',
     author_email='emmett@thepi.pe',
     description='Automate information extraction for multimodal LLMs.',
