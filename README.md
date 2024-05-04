@@ -113,8 +113,25 @@ It uses a variety of heuristics for optimal performance with vision-language mod
 
 ## Local Installation 🛠️
 
-If you do not wish to use our API, you are welcome host The Pipe for yourself locally. 
-If you choose to do this, you must install a number of dependencies for the code to function correctly, some of which may incur compute costs and/or require a GPU for reasonable performance. Additional installed dependencies are required: pytorch, universal-ctags, playwright, pytesseract, llmlingua, moviepy, and pytube. This installation process will depend on your system and compute capabilities. After installing them, follow these steps for a local setup:
+The Pipe handles a wide array of complex filetypes, and thus requires installation of many different packages to function. It also requires a very capable machine for good response times. For this reason, we host it as an API that works out-of-the-box. To use The Pipe locally for free instead, you will need [playwright](https://github.com/microsoft/playwright), [ctags](https://github.com/universal-ctags/), [pytesseract](https://github.com/h/pytesseract), and the local python requirements, which differ from the more lightweight API requirements:
+
+```bash
+git clone https://github.com/emcf/thepipe
+pip install -r requirements_local.txt
+```
+
+Tip for windows users: Install the python-libmagic binaries with `pip install python-magic-bin`. Ensure the `tesseract-ocr` binaries and the `ctags` binaries are in your PATH.
+
+Now you can use The Pipe with Python:
+```bash
+from thepipe_api import thepipe
+chunks = thepipe.extract("example.pdf", local=True)
+```
+
+or from the command line:
+```bash
+thepipe path/to/folder --match .tsx --ignore tests
+```
 
 Arguments are:
 - `source` (required): can be a file path, a URL, or a directory path.
