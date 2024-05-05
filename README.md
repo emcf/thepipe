@@ -72,11 +72,11 @@ thepipe path/to/folder --match tsx --ignore tests
 | Jupyter Notebook                      | `.ipynb`                                | ❌               | ✔️               | Extracts code, markdown, and images from Jupyter notebooks                                  |
 | Microsoft Word Document               | `.docx`                                 | ✔️               | ✔️               | Extracts text and images from Word documents                                        |
 | Microsoft PowerPoint Presentation     | `.pptx`                                 | ✔️               | ✔️               | Extracts text and images from PowerPoint presentations                              |
-| Video                                 | `.mp4`, `.avi`, `.mov`, `.wmv`     | ✔️               | ✔️                | Extracts frames from video files; supports frame extraction and OCR for text extraction from frames |
+| Video                                 | `.mp4`, `.avi`, `.mov`, `.wmv`     | ✔️               | ✔️                | Extracts frames and audio transcript from videos in per-minute chunks. |
 | Audio                                 | `.mp3`, `.wav`          | ✔️               | ❌                | Extracts text from audio files; supports speech-to-text conversion        | 
 | Website                               | URLs (inputs starting with `http`, `https`, `ftp`)             | ✔️                | ✔️    | Extracts text from web page along with image (or images if scrollable); text-only extraction available          |
 | GitHub Repository                     | GitHub repo URLs (inputs starting with `https://github.com` or `https://www.github.com`)                          | ✔️               | ✔️                | Extracts from GitHub repositories; supports branch specification         |
-| YouTube Video                         | YouTube video URLs (inputs starting with `https://youtube.com` or `https://www.youtube.com`)                     | ✔️               | ✔️                | Extracts frames and transcript from YouTube videos in per-minute chunks          |
+| YouTube Video                         | YouTube video URLs (inputs starting with `https://youtube.com` or `https://www.youtube.com`)                     | ✔️               | ✔️                | Extracts frames and transcript from YouTube videos in per-minute chunks.          |
 | ZIP File                              | `.zip`                                  | ✔️               | ✔️                | Extracts contents of ZIP files; supports nested directory extraction     |
 
 ## How it works 🛠️
