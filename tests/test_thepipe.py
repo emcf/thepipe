@@ -113,6 +113,7 @@ class test_thepipe(unittest.TestCase):
         # test cases that should not be ignored
         self.assertFalse(extractor.should_ignore(self.files_directory+"/example.md", ignore=None))
 
+    @unittest.skipUnless(os.environ.get('TEST_WEB'), "requires TEST_WEB")
     def test_extract_url(self):
         # test web page extraction
         chunks = extractor.extract_url('https://en.wikipedia.org/wiki/Piping')
