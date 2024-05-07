@@ -8,7 +8,7 @@
 
 ### Feed PDFs, URLs, Slides, YouTube videos, Word docs and more into Vision-Language models with one line of code ⚡
 
-The Pipe is a multimodal-first tool for feeding files and web pages into vision-language models such as GPT-4V. It is best for LLM and RAG applications that want to support comprehensive textual and visual understanding across a wide range of data sources. The Pipe is available as a 24/7 hosted API at [thepi.pe](https://thepi.pe), or it can be set up locally to let you run the compute.
+The Pipe is a multimodal-first tool for feeding files and web pages into vision-language models such as GPT-4V. It is best for LLM and RAG applications that want to support comprehensive textual and visual understanding across a wide range of data sources. The Pipe is available as a hosted API at [thepi.pe](https://thepi.pe), or it can be set up locally if you have the the compute.
 
 ![Science assistant demo](https://rpnutzemutbrumczwvue.supabase.co/storage/v1/object/public/assets/science_assistantpy2.png)
 
