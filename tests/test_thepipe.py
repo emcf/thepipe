@@ -47,6 +47,7 @@ class test_thepipe(unittest.TestCase):
         # verify it transcribed the audio correctly, i.e., 'citizens' is in the extracted text
         self.assertTrue(any('citizens' in chunk.text.lower() for chunk in chunks if chunk.text is not None))
     
+    @unittest.skipUnless(os.environ.get('TEST_YOUTUBE_DL'), "requires TEST_YOUTUBE_DL")
     def test_extract_youtube(self):
         chunks = extractor.extract_from_source("https://www.youtube.com/watch?v=wUEr7TayrmU")
         # verify it extracted the youtube video into chunks
