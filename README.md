@@ -25,7 +25,7 @@ The Pipe is a multimodal-first tool for feeding files and web pages into vision-
 
 ## Getting Started  🚀
 
-The Pipe handles a wide array of complex filetypes, and thus has many dependencies that must be installed separately. It also requires a strong machine for good response times. For this reason, we host it as an API that works out-of-the-box. 
+The Pipe can read a wide array of file types, and thus has many dependencies that must be installed separately. It also requires a strong machine for good response times. For this reason, we host it as an API that works out-of-the-box. 
 
 First, install The Pipe. 
 ```
