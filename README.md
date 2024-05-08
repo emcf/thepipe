@@ -43,10 +43,10 @@ Or websites:
 ```python
 messages = thepipe.extract("https://example.com")
 ```
-Then feed it into GPT-4-Vision:
+Then feed it into GPT-4V like so:
 ```python
-response = client.chat.completions.create(
-    model="gpt-4-vision-preview",
+response = openai.chat.completions.create(
+    model="gpt-4-turbo",
     messages = messages,
 )
 ```
