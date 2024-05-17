@@ -4,8 +4,7 @@ import subprocess
 import tempfile
 from typing import List, Optional
 import os
-from .core import Chunk, SourceTypes, print_status, count_tokens
-from .thepipe import count_tokens
+from .core import Chunk, SourceTypes, print_status
 from PIL import Image
 
 CTAGS_EXECUTABLE_PATH = "C:\ctags.exe" if os.name == 'nt' else "ctags-universal"
@@ -97,9 +96,10 @@ def calculate_tokens(chunk: Chunk) -> int:
 def compress_chunks(chunks: List[Chunk], verbose: bool = False, limit: Optional[int] = None) -> List[Chunk]:
     new_chunks = chunks
     for _ in range(min(MAX_COMPRESSION_ATTEMPTS, len(chunks))):
-        if count_tokens(new_chunks) <= limit:
+        token_count = sum(calculate_tokens(chk) for chk in new_chunks)
+        if token_count <= limit:
             break
-        if verbose: print_status(f"Compressing prompt ({count_tokens(chunks)} tokens / {limit} limit)", status='info')
+        if verbose: print_status(f"Compressing prompt ({token_count} tokens / {limit} limit)", status='info')
         new_chunks = []
         chunk_with_most_tokens = max(chunks, key=calculate_tokens)
         for chunk in chunks:
@@ -123,6 +123,6 @@ def compress_chunks(chunks: List[Chunk], verbose: bool = False, limit: Optional[
                 new_res = (new_chunk.image.width//2, new_chunk.image.height//2)
                 new_chunk.image = new_chunk.image.resize(new_res)
             new_chunks.append(new_chunk)
-    if count_tokens(new_chunks) > limit and verbose: 
+    if sum(calculate_tokens(chk) for chk in new_chunks) > limit and verbose: 
         print_status("Failed to compress within limit, continuing", status='error')
     return new_chunks
