@@ -6,6 +6,7 @@ from typing import List, Optional
 import os
 from .core import Chunk, SourceTypes, print_status, count_tokens
 from .thepipe import count_tokens
+from PIL import Image
 
 CTAGS_EXECUTABLE_PATH = "C:\ctags.exe" if os.name == 'nt' else "ctags-universal"
 CTAGS_LANGUAGES = {'py': "Python", "cpp": "C++", "c": "C"}
@@ -68,6 +69,31 @@ def compress_with_llmlingua(chunk: Chunk) -> Chunk:
     new_chunk = Chunk(path=chunk.path, text=new_chunk_text, image=chunk.image, source_type=chunk.source_type)
     return new_chunk
 
+# uses https://platform.openai.com/docs/guides/vision
+def calculate_image_tokens(image: Image.Image, detail: str = "auto") -> int:
+    width, height = image.size
+    if detail == "low":
+        return 85
+    elif detail == "high":
+        # High detail calculation
+        width, height = min(width, 2048), min(height, 2048)
+        short_side = min(width, height)
+        scale = 768 / short_side
+        scaled_width = int(width * scale)
+        scaled_height = int(height * scale)
+        tiles = (scaled_width // 512) * (scaled_height // 512)
+        return 170 * tiles + 85
+    else:  # auto
+        if width <= 512 and height <= 512:
+            return 85
+        else:
+            return calculate_image_tokens(image, detail="high")
+
+def calculate_tokens(chunk: Chunk) -> int:
+    text_tokens = len(chunk.text)/4 if chunk.text else 0
+    image_tokens = calculate_image_tokens(chunk.image) if chunk.image else 0
+    return max(text_tokens, image_tokens)
+
 def compress_chunks(chunks: List[Chunk], verbose: bool = False, limit: Optional[int] = None) -> List[Chunk]:
     new_chunks = chunks
     for _ in range(MAX_COMPRESSION_ATTEMPTS):
@@ -75,10 +101,10 @@ def compress_chunks(chunks: List[Chunk], verbose: bool = False, limit: Optional[
             break
         if verbose: print_status(f"Compressing prompt ({count_tokens(chunks)} tokens / {limit} limit)", status='info')
         new_chunks = []
-        longest_chunk = max(chunks, key=lambda x: len(x.text) if x.text is not None else 0)
+        chunk_with_most_tokens = max(chunks, key=calculate_tokens)
         for chunk in chunks:
             # if not longest, skip
-            if chunk != longest_chunk:
+            if chunk != chunk_with_most_tokens:
                 new_chunks.append(chunk)
                 continue
             new_chunk = None
