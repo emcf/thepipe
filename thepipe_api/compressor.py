@@ -11,7 +11,7 @@ from PIL import Image
 CTAGS_EXECUTABLE_PATH = "C:\ctags.exe" if os.name == 'nt' else "ctags-universal"
 CTAGS_LANGUAGES = {'py': "Python", "cpp": "C++", "c": "C"}
 CTAGS_OUTPUT_FILE = 'ctags_output.json'
-MAX_COMPRESSION_ATTEMPTS = 10
+MAX_COMPRESSION_ATTEMPTS = 25
 
 def compress_with_ctags(chunk: Chunk, extension: str) -> Chunk:
     if chunk.text is None:
@@ -96,7 +96,7 @@ def calculate_tokens(chunk: Chunk) -> int:
 
 def compress_chunks(chunks: List[Chunk], verbose: bool = False, limit: Optional[int] = None) -> List[Chunk]:
     new_chunks = chunks
-    for _ in range(MAX_COMPRESSION_ATTEMPTS):
+    for _ in range(min(MAX_COMPRESSION_ATTEMPTS, len(chunks))):
         if count_tokens(new_chunks) <= limit:
             break
         if verbose: print_status(f"Compressing prompt ({count_tokens(chunks)} tokens / {limit} limit)", status='info')
