@@ -2,7 +2,7 @@ import json
 import shutil
 import subprocess
 import tempfile
-from typing import List
+from typing import List, Optional
 import os
 from .core import Chunk, SourceTypes, print_status, count_tokens
 from .thepipe import count_tokens
@@ -10,7 +10,7 @@ from .thepipe import count_tokens
 CTAGS_EXECUTABLE_PATH = "C:\ctags.exe" if os.name == 'nt' else "ctags-universal"
 CTAGS_LANGUAGES = {'py': "Python", "cpp": "C++", "c": "C"}
 CTAGS_OUTPUT_FILE = 'ctags_output.json'
-MAX_COMPRESSION_ATTEMPTS = 3
+MAX_COMPRESSION_ATTEMPTS = 10
 
 def compress_with_ctags(chunk: Chunk, extension: str) -> Chunk:
     if chunk.text is None:
@@ -68,23 +68,26 @@ def compress_with_llmlingua(chunk: Chunk) -> Chunk:
     new_chunk = Chunk(path=chunk.path, text=new_chunk_text, image=chunk.image, source_type=chunk.source_type)
     return new_chunk
 
-def compress_chunks(chunks: List[Chunk], verbose: bool = False, limit: int = 1e5) -> List[Chunk]:
+def compress_chunks(chunks: List[Chunk], verbose: bool = False, limit: Optional[int] = None) -> List[Chunk]:
     new_chunks = chunks
     for _ in range(MAX_COMPRESSION_ATTEMPTS):
         if count_tokens(new_chunks) <= limit:
             break
         if verbose: print_status(f"Compressing prompt ({count_tokens(chunks)} tokens / {limit} limit)", status='info')
         new_chunks = []
+        longest_chunk = max(chunks, key=lambda x: len(x.text) if x.text is not None else 0)
         for chunk in chunks:
+            # if not longest, skip
+            if chunk != longest_chunk:
+                new_chunks.append(chunk)
+                continue
             new_chunk = None
-            if chunk is None or  chunk.text is None:
+            if chunk is None or chunk.text is None:
                 new_chunk = chunk
             elif chunk.source_type == SourceTypes.COMPRESSIBLE_CODE:
                 extension = chunk.path.split('.')[-1]
                 new_chunk = compress_with_ctags(chunk, extension=extension)
             elif chunk.source_type in {SourceTypes.PLAINTEXT, SourceTypes.PDF, SourceTypes.DOCX, SourceTypes.PPTX, SourceTypes.URL}:
-                new_chunk = compress_with_llmlingua(chunk)
-            elif chunk.source_type == SourceTypes.SPREADSHEET:
                 new_chunk = compress_with_llmlingua(chunk)
             else:
                 # if the chunk is not compressible, keep the original text
