@@ -92,6 +92,10 @@ def compress_chunks(chunks: List[Chunk], verbose: bool = False, limit: Optional[
             else:
                 # if the chunk is not compressible, keep the original text
                 new_chunk = chunk
+            if new_chunk.image is not None:
+                # resize image to half its current res
+                new_res = (new_chunk.image.width//2, new_chunk.image.height//2)
+                new_chunk.image = new_chunk.image.resize(new_res)
             new_chunks.append(new_chunk)
     if count_tokens(new_chunks) > limit and verbose: 
         print_status("Failed to compress within limit, continuing", status='error')
