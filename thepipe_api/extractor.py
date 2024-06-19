@@ -43,7 +43,7 @@ THEPIPE_API_KEY: str = os.getenv("THEPIPE_API_KEY")
 def extract_from_source(source: str, match: Optional[str] = None, ignore: Optional[str] = None, limit: int = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = True) -> List[Chunk]:
     source_type = detect_type(source)
     if source_type is None:
-        raise ValueError(f"Could not detect source type for {source}.")
+        return [Chunk(path=source, text=None, image=None, source_type=None)]
     if verbose: print_status(f"Extracting from {source_type.value}", status='info')
     if source_type == SourceTypes.DIR or source == '.' or source == './':
         if source == '.' or source == './':
@@ -216,7 +216,7 @@ def extract_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = F
         try:
             response_json = response.json()
         except json.JSONDecodeError:
-            raise ValueError(f"Our backend likely couldn't handle this request. This can happen with large content such as videos, streams, or very large files/websites. Re")
+            raise ValueError(f"Our backend likely couldn't handle this request. This can happen with large content such as videos, streams, or very large files/websites.")
         if 'error' in response_json:
             raise ValueError(f"{response_json['error']}")
         messages = response_json['messages']
@@ -270,7 +270,9 @@ def extract_spreadsheet(file_path: str) -> List[Chunk]:
         df = pd.read_excel(file_path)
     dicts = df.to_dict(orient='records')
     chunks = []
-    for item in dicts:
+    for i, item in enumerate(dicts):
+        # format each row as json along with the row number
+        item['row_number'] = i
         item_json = json.dumps(item, indent=4, cls=JSONDateEncoder)
         chunks.append(Chunk(path=file_path, text=item_json, image=None, source_type=SourceTypes.SPREADSHEET))
     return chunks

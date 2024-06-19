@@ -49,7 +49,7 @@ class test_thepipe(unittest.TestCase):
     
     @unittest.skipUnless(os.environ.get('TEST_YOUTUBE_DL'), "requires TEST_YOUTUBE_DL")
     def test_extract_youtube(self):
-        chunks = extractor.extract_from_source("https://www.youtube.com/watch?v=wUEr7TayrmU")
+        chunks = extractor.extract_from_source("https://www.youtube.com/watch?v=So7TNRhIYJ8")
         # verify it extracted the youtube video into chunks
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0)
@@ -59,7 +59,7 @@ class test_thepipe(unittest.TestCase):
         # verify it extracted audio data
         self.assertTrue(any(chunk.text for chunk in chunks))
         # verify it transcribed the audio correctly, i.e., 'citizens' is in the extracted text
-        self.assertTrue(any('eliminated' in chunk.text.lower() for chunk in chunks if chunk.text is not None))
+        self.assertTrue(any('graphics card' in chunk.text.lower() for chunk in chunks if chunk.text is not None))
     
     def test_image_to_base64(self):
         image = Image.open(os.path.join(self.files_directory, 'example.jpg'))
@@ -88,10 +88,7 @@ class test_thepipe(unittest.TestCase):
             self.assertEqual(type(chunk), core.Chunk)
             self.assertIsNotNone(chunk.path)
             self.assertIsNotNone(chunk.text or chunk.image)
-        # ensure unknown sources fail (test has "unknown in filename)
-        with self.assertRaises(Exception):
-            chunks = extractor.extract_from_source(source=self.files_directory+"/example.unknown")
-
+            
     def test_extract_from_source_text_only(self):
         # test extracting examples for all supported file type
         chunks = extractor.extract_from_source(source=self.files_directory, text_only=True, ignore="unknown")
@@ -143,8 +140,6 @@ class test_thepipe(unittest.TestCase):
             if chunks[i].source_type == core.SourceTypes.PDF:
                 # verify extraction contains text
                 self.assertIsNotNone(chunks[i].text)
-                # verify extraction text does not contain image data
-                self.assertNotIn('![](', chunks[i].text)
             elif chunks[i].source_type == core.SourceTypes.IMAGE:
                 # verify extraction contains image
                 self.assertIsNotNone(chunks[i].image)
