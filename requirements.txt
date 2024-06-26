@@ -1,7 +1,7 @@
+llama-index
 aiohttp==3.8.3
 charset-normalizer>=2.0,<3.0
 colorama
 requests
 pillow
-llama-index
 pydantic
