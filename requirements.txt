@@ -1,4 +1,4 @@
-llama-index
+llama-index==0.10.50
 aiohttp==3.8.3
 charset-normalizer>=2.0,<3.0
 colorama
