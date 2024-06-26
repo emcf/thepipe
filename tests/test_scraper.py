@@ -124,7 +124,7 @@ class test_scraper(unittest.TestCase):
         self.assertIn('pipe', chunk.texts[0])
         # verify if at least one image was scraped
         self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
-        # verify document url scrape result
+        # verify file url scrape result
         chunks = scraper.scrape_url('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf')
         self.assertEqual(len(chunks), 1)
 
