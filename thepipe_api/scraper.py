@@ -115,12 +115,12 @@ def scrape_directory(dir_path: str, include_regex: Optional[List[str]] = [], ign
             extraction += result
     return extraction
 
-def scrape_zip(file_path: str, match: Optional[str] = None, ignore: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False) -> List[Chunk]:
+def scrape_zip(file_path: str, include_regex: Optional[List[str]] = [], ignore_regex: Optional[List[str]] = [], verbose: bool = False, ai_extraction: bool = False, text_only: bool = False) -> List[Chunk]:
     extracted_files = []
     with tempfile.TemporaryDirectory() as temp_dir:
         with zipfile.ZipFile(file_path, 'r') as zip_ref:
             zip_ref.extractall(temp_dir)
-        extracted_files = scrape_directory(dir_path=temp_dir, include_regex=match, ignore_regex=ignore, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+        extracted_files = scrape_directory(dir_path=temp_dir, include_regex=include_regex, ignore_regex=ignore_regex, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
     return extracted_files
 
 def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
@@ -154,16 +154,16 @@ def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = Fa
                     continue
                 image_url = re.search(r'\((.*?)\)', content).group(1)
                 try:
-                    image = Image.open(requests.get(image_url, stream=True).raw)
+                    image = Image.open(image_url) # the image url is a local path
                     chunks.append(Chunk(path=file_path, images=[image]))
                 except Exception as e:
-                    if verbose: print(f"[thepipe] Error loading image {image_url}: {e}", status='error')
+                    if verbose: print(f"[thepipe] Error loading image {image_url}: {e}")
             else:
                 # matched text
                 chunks.append(Chunk(path=file_path, texts=[content.strip()]))
         # remove the output folder
         shutil.rmtree(MD_FOLDER)
-        if verbose: print(f"[thepipe] AI extracted from {file_path}", status='success')
+        if verbose: print(f"[thepipe] AI extracted from {file_path}")
         return chunks
     else:
         # if not using AI extraction, for each page, extract markdown and (optionally) full page images
@@ -265,7 +265,7 @@ def extract_page_content(url: str, verbose: bool = False) -> Tuple[str, List[str
                         img_path = base_url + img_path
                     images.append(img_path)
                 except Exception as e:
-                    if verbose: print(f"[thepipe] Ignoring error loading image {img_path}: {e}", status='error')
+                    if verbose: print(f"[thepipe] Ignoring error loading image {img_path}: {e}")
                     continue # ignore incompatible image extractions
         browser.close()
 

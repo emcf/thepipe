@@ -41,7 +41,7 @@ def save_outputs(chunks: List[Chunk], verbose: bool = False, text_only: bool = F
         file.write(text)
     
     if verbose:
-        print(f"[thepipe] {calculate_tokens(chunks)} tokens saved to outputs folder", status='success')
+        print(f"[thepipe] {calculate_tokens(chunks)} tokens saved to outputs folder")
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Compress project files into a context prompt.')
