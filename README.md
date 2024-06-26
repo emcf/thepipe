@@ -35,7 +35,7 @@ thepi.pe is an AI-native scraping engine that generates LLM-ready markdown and v
 
 ## Get started in 5 minutes  🚀
 
-thepi.pe can read a wide range of filetypes and web sources, so it requires a few dependencies. It also requires a strong machine (at most, 16GB+ VRAM) for AI extraction features. For these reasons, we host a REST API that works out-of-the-box at [thepi.pe](https://thepi.pe).
+thepi.pe can read a wide range of filetypes and web sources, so it requires a few dependencies. It also requires a strong machine (16GB+ VRAM for optimal response times) for AI extraction features. For these reasons, we host a REST API that works out-of-the-box at [thepi.pe](https://thepi.pe).
 
 ### Hosted API (Python)
 
