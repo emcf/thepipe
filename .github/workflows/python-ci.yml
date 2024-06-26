@@ -20,16 +20,6 @@ jobs:
     - uses: actions/setup-node@v4
       with:
         node-version: 18
-    - name: Install playwright
-      run: |
-        npm install playwright
-        npm install playwright-core
-    - name: Install Playwright
-      run: npx playwright install --with-deps
-    - name: Install playwright browsers
-      run: |
-        pip install playwright
-        python -m playwright install
     - name: Set up Python 3.10
       uses: actions/setup-python@v3
       with:
@@ -40,6 +30,8 @@ jobs:
         pip install flake8 coverage
         pip install -r requirements.txt
         pip install -r local.txt
+    - name: Install playwright browsers
+      run: python -m playwright install
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
