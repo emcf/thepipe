@@ -27,6 +27,7 @@ jobs:
     - name: Install Playwright
       run: npx playwright install --with-deps
     - name: Install playwright browsers
+      run: pip install playwright
       run: python -m playwright install
     - name: Set up Python 3.10
       uses: actions/setup-python@v3
