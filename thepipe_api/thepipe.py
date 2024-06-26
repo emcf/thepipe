@@ -1,63 +1,72 @@
-from typing import List, Dict, Optional
+from typing import List, Optional
 import argparse
-import re
 import os
-from .core import Chunk, print_status, count_tokens
-from . import extractor, compressor, core
+from .core import Chunk, calculate_tokens
+from . import scraper
+from . import chunker
+
+def extract(source: str, match: Optional[List[str]] = None, ignore: str = None, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False, local: bool = False) -> List[Chunk]:
+    raise DeprecationWarning("This function is deprecated. Please use scraper.scrape_file or scraper.scrape_url instead.")
+    # if its a url, return the url source type
+    if source.startswith('http'):
+        return scraper.scrape_url(url=source, match=match, ignore=ignore, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
+    # if it's a directory, return the directory source type
+    if os.path.isdir(source) or source in ('.', './'):
+        if source in ('.', './'):
+            source = os.getcwd()
+        return scraper.scrape_directory(dir_path=source, include_regex=match, ignore_regex=ignore, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=False)
+    # if it's a file, return the file source type
+    return scraper.scrape_file(source=source, match=match, ignore=ignore, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=False)
 
 def save_outputs(chunks: List[Chunk], verbose: bool = False, text_only: bool = False) -> None:
     if not os.path.exists('outputs'):
         os.makedirs('outputs')
-    # Save the chunks to files
     text = ""
-    n_images = 0
+
+    # Save the text and images to the outputs directory
     for i, chunk in enumerate(chunks):
         if chunk is None:
             continue
         if chunk.path is not None:
             text += f'{chunk.path}:\n'
-        if chunk.text is not None:
-            text += f'```\n{chunk.text}\n```\n'
-        if (chunk.image is not None) and (not text_only):
-            if chunk.path is None:
-                clean_path = f"image"
-            else:
-                clean_path = chunk.path.replace('/', '_').replace('\\', '_')
-                clean_path = re.sub(r"[^a-zA-Z0-9 _]", "", clean_path)
-            chunk.image.convert('RGB').save(f'outputs/{clean_path}_{i}.jpg')
-            n_images += 1
+        if chunk.texts:
+            for chunk_text in chunk.texts:
+                text += f'```\n{chunk_text}\n```\n'
+        if chunk.images and not text_only:
+            for j, image in enumerate(chunk.images):
+                image.convert('RGB').save(f'outputs/{i}_{j}.jpg')
+
     # Save the text
     with open('outputs/prompt.txt', 'w', encoding='utf-8') as file:
         file.write(text)
+    
     if verbose:
-        print_status(f"Output {len(text)/4} tokens and {n_images} images to 'outputs'", status='success')
-
-def extract(source: str, match: Optional[str] = None, ignore: Optional[str] = None, limit: int = 1e5, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = False) -> List[Dict]:
-    chunks = extractor.extract_from_source(source=source, match=match, ignore=ignore, limit=limit, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=local)
-    if local:
-        chunks = compressor.compress_chunks(chunks=chunks, verbose=verbose, limit=limit)
-    final_prompt = core.create_messages_from_chunks(chunks)
-    if verbose: print_status(f"Successfully created prompt ({count_tokens(chunks)} tokens)", status='success')
-    return final_prompt
+        print(f"[thepipe] {calculate_tokens(chunks)} tokens saved to outputs folder", status='success')
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Compress project files into a context prompt.')
     parser.add_argument('source', type=str, help='The source file or directory to compress.')
-    parser.add_argument('--match', type=str, default=None, help='The glob filename pattern to match in the directory. Glob notation, not regex. Only matches filenames, not paths.')
-    parser.add_argument('--ignore', type=str, default=None, help='The regex filepath pattern to ignore in the directory. Regex notation, not glob. Matches filenames and paths.')
-    parser.add_argument('--limit', type=int, default=None, help='The token limit for the compressed project context.')
+    parser.add_argument('--include_regex', type=str, default=None, help='List of regex patterns to match in a directory.')
+    parser.add_argument('--ignore_regex', type=str, default=None, help='List of regex patterns to ignore in a directory.')
     parser.add_argument('--ai_extraction', action='store_true', help='Use ai_extraction to extract text from images.')
     parser.add_argument('--text_only', action='store_true', help='Extract only text from the source.')
-    parser.add_argument('--quiet', action='store_true', help='Do not print status messages.')
-    parser.add_argument('--local', action='store_true', help='Use local machine to extract data. Not recommended for systems with limited resources.')
+    parser.add_argument('--verbose', action='store_true', help='Print status messages.')
     args = parser.parse_args()
-    verbose = not args.quiet
-    args.verbose = verbose
     return args
 
 def main() -> None:
     args = parse_arguments()
-    chunks = extractor.extract_from_source(source=args.source, match=args.match, ignore=args.ignore, limit=args.limit, verbose=args.verbose, ai_extraction=args.ai_extraction, text_only=args.text_only, local=args.local)
+    if args.source.startswith('http'):
+        chunks = scraper.scrape_url(url=args.source, ai_extraction=args.ai_extraction, text_only=args.text_only)
+    elif args.source == '.':
+        args.source = os.getcwd()
+        chunks = scraper.scrape_directory(dir_path=args.source, include_regex=args.include_regex, ignore_regex=args.ignore_regex, ai_extraction=args.ai_extraction, text_only=args.text_only, verbose=args.verbose)
+    elif os.path.isdir(args.source):
+        chunks = scraper.scrape_directory(dir_path=args.source, include_regex=args.include_regex, ignore_regex=args.ignore_regex, ai_extraction=args.ai_extraction, text_only=args.text_only, verbose=args.verbose)
+    elif os.path.isfile(args.source):
+        chunks = scraper.scrape_file(source=args.source, verbose=args.verbose, ai_extraction=args.ai_extraction, text_only=args.text_only)
+    else:
+        raise FileNotFoundError(f"Source must be a valid URL, file, or directory. Got: {args.source}")
     save_outputs(chunks=chunks, verbose=args.verbose, text_only=args.text_only)
 
 if __name__ == '__main__':

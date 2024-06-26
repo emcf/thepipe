@@ -1,48 +1,53 @@
 import base64
 from io import BytesIO
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from PIL import Image
 from colorama import Style, Fore
-from enum import Enum
-
-API_URL = "https://thepipe.up.railway.app/extract"
-
-class SourceTypes(Enum):
-    DIR = "directory"
-    UNCOMPRESSIBLE_CODE = "code"
-    COMPRESSIBLE_CODE = "code "
-    PLAINTEXT = "plaintext"
-    PDF = "pdf"
-    IMAGE = "image"
-    SPREADSHEET = "spreadsheet"
-    IPYNB = "ipynb"
-    DOCX = "docx"
-    PPTX = "pptx"
-    URL = "website"
-    GITHUB = "github repository"
-    ZIP = "zip"
-    VIDEO = "video"
-    AUDIO = "audio"
-    YOUTUBE_VIDEO = "youtube video"
+from llama_index.core.schema import Document, ImageDocument
 
 class Chunk:
-    def __init__(self, path: str, text: Optional[str] = None, image: Optional[Image.Image] = None, source_type: Optional[SourceTypes] = None):
+    def __init__(self, path: Optional[str] = None, texts: Optional[List[str]] = [], images: Optional[List[Image.Image]] = [], audios: Optional[List] = [], videos: Optional[List] = []):
         self.path = path
-        self.text = text
-        self.image = image
-        self.source_type = source_type
+        self.texts = texts
+        self.images = images
+        self.audios = audios
+        self.videos = videos
 
-def print_status(text: str, status: str) -> None:
-    if status == 'success':
-        message = Fore.GREEN + f"{text}"
-    elif status == 'info':
-        message = Fore.YELLOW + f"{text}..."
-    elif status == 'error':
-        message = Fore.RED + f"{text}"
-    print(Style.RESET_ALL + message + Style.RESET_ALL)
+    def to_llamaindex(self) -> List[Union[Document, ImageDocument]]:
+        document_text = "\n".join(self.texts)
+        if len(self.images) > 0:
+            return [ImageDocument(text=document_text, image=image) for image in self.images]
+        else:
+            return [Document(text=document_text)]
 
-def count_tokens(chunks: List[Chunk]) -> int:
-    return sum([((len(chunk.path) if chunk.path else 0) + (len(chunk.text) if chunk.text else 0))/4 for chunk in chunks])
+# uses https://platform.openai.com/docs/guides/vision
+def calculate_image_tokens(image: Image.Image, detail: str = "auto") -> int:
+    width, height = image.size
+    if detail == "low":
+        return 85
+    elif detail == "high":
+        # High detail calculation
+        width, height = min(width, 2048), min(height, 2048)
+        short_side = min(width, height)
+        scale = 768 / short_side
+        scaled_width = int(width * scale)
+        scaled_height = int(height * scale)
+        tiles = (scaled_width // 512) * (scaled_height // 512)
+        return 170 * tiles + 85
+    else:  # auto
+        if width <= 512 and height <= 512:
+            return 85
+        else:
+            return calculate_image_tokens(image, detail="high")
+
+def calculate_tokens(chunks: List[Chunk]) -> int:
+    n_tokens = 0
+    for chunk in chunks:
+        for text in chunk.texts:
+            n_tokens += len(text)/4
+        for image in chunk.images:
+            n_tokens += calculate_image_tokens(image)
+    return n_tokens
 
 def image_to_base64(image: Image.Image) -> str:
     buffered = BytesIO()
@@ -51,30 +56,18 @@ def image_to_base64(image: Image.Image) -> str:
     image.save(buffered, format="JPEG")
     return base64.b64encode(buffered.getvalue()).decode()
 
-def create_chunks_from_messages(messages: List[Dict]) -> List[Chunk]:
-    chunks = []
-    for message in messages:
-        text = None
-        image = None
-        for content in message['content']:
-            if content['type'] == 'text':
-                text = content['text']
-            elif content['type'] == 'image_url':
-                # base64 image
-                base64_string = content['image_url']['url'].split(",")[1]
-                image_data = base64.b64decode(base64_string)
-                image = Image.open(BytesIO(image_data))
-        chunks.append(Chunk(path=None, text=text, image=image))
-    return chunks
-
-def create_messages_from_chunks(chunks: List[Chunk]) -> List[Dict]:
+def to_messages(chunks: List[Chunk]) -> List[Dict]:
+    # audio and video are not yet supported as they
+    # are not common in SOTA multimodel LLMs (June 2024)
     messages = []
     for chunk in chunks:
         content = []
-        if chunk.text:
-            content.append({"type": "text", "text": f"""{chunk.path}:\n```\n{chunk.text}\n```\n"""})
-        if chunk.image:
-            base64_image = image_to_base64(chunk.image)
-            content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}})
+        if chunk.texts:
+            for text in chunk.texts:
+                content.append({"type": "text", "text": {"content": text}})
+        if chunk.images:
+            for image in chunk.images:
+                base64_image = image_to_base64(image)
+                content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}})
         messages.append({"role": "user", "content": content})
     return messages
