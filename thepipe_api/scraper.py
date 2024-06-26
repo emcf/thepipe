@@ -110,7 +110,6 @@ def scrape_directory(dir_path: str, include_regex: Optional[str] = None, verbose
     all_files = glob.glob(f'{dir_path}/**/*', recursive=True)
     if include_regex:
         all_files = [file for file in all_files if re.search(include_regex, file, re.IGNORECASE)]
-    print('scraping files:', all_files)
     with ThreadPoolExecutor() as executor:
         results = executor.map(lambda file_path: scrape_file(source=file_path, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only), all_files)
         for result in results:

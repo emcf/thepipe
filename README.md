@@ -49,17 +49,16 @@ import thepipe_api as tp
 from openai import OpenAI
 
 # scrape markdown + images
-messages = tp.scrape_file(
+chunks = tp.scrape_file(
   source="example.pdf",
-  ai_extraction=True,
-  api_key="your_key"
+  ai_extraction=True
 )
 
 # call LLM
 client = OpenAI()
 response = client.chat.completions.create(
     model="gpt-4o",
-    messages=messages,
+    messages=tp.to_messages(chunks),
 )
 ```
 
@@ -75,17 +74,10 @@ import thepipe_api as tp
 from openai import OpenAI
 
 # scrape markdown + images
-messages = tp.scrape_file(
+chunks = tp.scrape_file(
   source="example.pdf",
   ai_extraction=True,
   local=True
-)
-
-# call LLM
-client = OpenAI()
-response = client.chat.completions.create(
-    model="gpt-4o",
-    messages=messages,
 )
 ```
 
