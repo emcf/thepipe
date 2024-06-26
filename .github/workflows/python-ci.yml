@@ -20,6 +20,12 @@ jobs:
     - uses: actions/setup-node@v4
       with:
         node-version: 18
+    - name: Install playwright
+      run: |
+        npm install playwright
+        npm install playwright-core
+    - name: Install Playwright
+      run: npx playwright install --with-deps
     - name: Set up Python 3.10
       uses: actions/setup-python@v3
       with:

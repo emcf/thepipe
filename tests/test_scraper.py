@@ -6,9 +6,6 @@ import sys
 sys.path.append('..')
 from thepipe_api import core
 from thepipe_api import scraper
-from thepipe_api import thepipe
-from PIL import Image
-from io import BytesIO
 
 class test_scraper(unittest.TestCase):
     def setUp(self):
