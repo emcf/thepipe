@@ -89,9 +89,9 @@ response = client.chat.completions.create(
 )
 ```
 
-You can also use The Pipe from the command line. Here's how to recursively extract from a directory, matching only files containing a substring (in this example, `.tsx` files) and ignore files containing other substrings (in this example, anything in the `tests` folder):
+You can also use The Pipe from the command line:
 ```bash
-thepipe path/to/folder --match tsx --ignore tests
+thepipe path/to/folder --include_regex .*.tsx --ignore_regex .*tests.*
 ```
 
 
@@ -138,7 +138,7 @@ thepi.pe uses computer vision models and heuristics to extract clean content fro
 ]
 ```
 
-You can feed these messages directly into the model, or you can use `thepipe_api.chunk_by_page`, `thepipe_api.chunk_by_section`, `thepipe_api.chunk_semantic` to chunk these messages for a vector database such as ChromaDB or a RAG framework (a chunk can be converted to LlamaIndex format with `.to_llamaindex`).
+You can feed these messages directly into the model, or you can use `thepipe_api.chunk_by_page`, `thepipe_api.chunk_by_section`, `thepipe_api.chunk_semantic` to chunk these messages for a vector database such as ChromaDB or a RAG framework (a chunk can be converted to LlamaIndex Document/ImageDocument with `.to_llamaindex`).
 
 > ⚠️ **It is important to be mindful of your model's token limit.**
 GPT-4o does not work with too many images in the prompt (see discussion [here](https://community.openai.com/t/gpt-4-vision-maximum-amount-of-images/573110/6)). Large documents should be extracted with `text_only=True` to avoid this issue, or alternatively they can be chunked and saved into a vector database or RAG framework.
