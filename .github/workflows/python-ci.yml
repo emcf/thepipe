@@ -25,7 +25,9 @@ jobs:
         npm install playwright
         npm install playwright-core
     - name: Install Playwright Browsers
-      run: npm install -D @playwright/test && yes | npx playwright install --with-deps
+      run: npx playwright install --with-deps
+    - name: Run Playwright tests
+      run: npx playwright test
     - name: Set up Python 3.10
       uses: actions/setup-python@v3
       with:
