@@ -169,19 +169,31 @@ def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = Fa
     else:
         # if not using AI extraction, for each page, extract markdown and (optionally) full page images
         import fitz
-        import pymupdf4llm
         doc = fitz.open(file_path)
-        md_reader = pymupdf4llm.helpers.pymupdf_rag.to_markdown(doc, page_chunks=True)
-        for i, page in enumerate(doc):
-            #text = page.get_text()
-            text = md_reader[i]["text"]
-            if text_only:
-                chunks.append(Chunk(path=file_path, texts=[text]))
-            else:
-                pix = page.get_pixmap()
-                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                chunks.append(Chunk(path=file_path, texts=[text], images=[img]))
-        doc.close()
+        try:
+            import pymupdf4llm
+            md_reader = pymupdf4llm.helpers.pymupdf_rag.to_markdown(doc, page_chunks=True)
+            for i, page in enumerate(doc):
+                text = md_reader[i]["text"]
+                if text_only:
+                    chunks.append(Chunk(path=file_path, texts=[text]))
+                else:
+                    pix = page.get_pixmap()
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    chunks.append(Chunk(path=file_path, texts=[text], images=[img]))
+            doc.close()
+        except:
+            # try with default pumupdf, since pymupdf4llm often fails
+            for i in range(len(doc)):
+                page = doc[i]
+                text = page.get_text()
+                if text_only:
+                    chunks.append(Chunk(path=file_path, texts=[text]))
+                else:
+                    pix = page.get_pixmap()
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    chunks.append(Chunk(path=file_path, texts=[text], images=[img]))
+            doc.close()
     return chunks
 
 def get_images_from_ipynb_markdown(text: str) -> List[Image.Image]:
