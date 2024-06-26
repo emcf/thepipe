@@ -14,7 +14,7 @@ def extract(source: str, match: Optional[List[str]] = None, ignore: str = None, 
     if os.path.isdir(source) or source in ('.', './'):
         if source in ('.', './'):
             source = os.getcwd()
-        return scraper.scrape_directory(dir_path=source, include_regex=match, ignore_regex=ignore, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=False)
+        return scraper.scrape_directory(dir_path=source, include_regex=match, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=False)
     # if it's a file, return the file source type
     return scraper.scrape_file(source=source, match=match, ignore=ignore, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=False)
 
@@ -46,8 +46,7 @@ def save_outputs(chunks: List[Chunk], verbose: bool = False, text_only: bool = F
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Compress project files into a context prompt.')
     parser.add_argument('source', type=str, help='The source file or directory to compress.')
-    parser.add_argument('--include_regex', type=str, default=None, help='List of regex patterns to match in a directory.')
-    parser.add_argument('--ignore_regex', type=str, default=None, help='List of regex patterns to ignore in a directory.')
+    parser.add_argument('--include_regex', type=str, default=None, help='Regex pattern to match in a directory.')
     parser.add_argument('--ai_extraction', action='store_true', help='Use ai_extraction to extract text from images.')
     parser.add_argument('--text_only', action='store_true', help='Extract only text from the source.')
     parser.add_argument('--verbose', action='store_true', help='Print status messages.')
@@ -60,9 +59,9 @@ def main() -> None:
         chunks = scraper.scrape_url(url=args.source, ai_extraction=args.ai_extraction, text_only=args.text_only)
     elif args.source == '.':
         args.source = os.getcwd()
-        chunks = scraper.scrape_directory(dir_path=args.source, include_regex=args.include_regex, ignore_regex=args.ignore_regex, ai_extraction=args.ai_extraction, text_only=args.text_only, verbose=args.verbose)
+        chunks = scraper.scrape_directory(dir_path=args.source, include_regex=args.include_regex, ai_extraction=args.ai_extraction, text_only=args.text_only, verbose=args.verbose)
     elif os.path.isdir(args.source):
-        chunks = scraper.scrape_directory(dir_path=args.source, include_regex=args.include_regex, ignore_regex=args.ignore_regex, ai_extraction=args.ai_extraction, text_only=args.text_only, verbose=args.verbose)
+        chunks = scraper.scrape_directory(dir_path=args.source, include_regex=args.include_regex, ai_extraction=args.ai_extraction, text_only=args.text_only, verbose=args.verbose)
     elif os.path.isfile(args.source):
         chunks = scraper.scrape_file(source=args.source, verbose=args.verbose, ai_extraction=args.ai_extraction, text_only=args.text_only)
     else:

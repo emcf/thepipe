@@ -19,6 +19,28 @@ class test_scraper(unittest.TestCase):
                 os.remove(os.path.join(self.outputs_directory, file))
             os.rmdir(self.outputs_directory)
     
+    def test_scrape_zip(self):
+        chunks = scraper.scrape_file(self.files_directory+"/example.zip", verbose=True)
+        # verify it scraped the zip file into chunks
+        self.assertEqual(type(chunks), list)
+        self.assertNotEqual(len(chunks), 0)
+        self.assertEqual(type(chunks[0]), core.Chunk)
+        # verify it scraped text data
+        self.assertTrue(any(len(chunk.texts) > 0 for chunk in chunks))
+        # verify it scraped image data
+        self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
+    
+    def test_scrape_ipynb(self):
+        chunks = scraper.scrape_file(self.files_directory+"/example.ipynb", verbose=True)
+        # verify it scraped the ipynb file into chunks
+        self.assertEqual(type(chunks), list)
+        self.assertNotEqual(len(chunks), 0)
+        self.assertEqual(type(chunks[0]), core.Chunk)
+        # verify it scraped text data
+        self.assertTrue(any(len(chunk.texts) > 0 for chunk in chunks))
+        # verify it scraped image data
+        self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
+
     def test_scrape_pdf_with_ai_extraction(self):
         chunks = scraper.scrape_file("tests/files/example.pdf", ai_extraction=True, verbose=True)
         # verify it scraped the pdf file into chunks
@@ -86,28 +108,6 @@ class test_scraper(unittest.TestCase):
         # verify it scraped image data
         self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
 
-    def test_scrape_zip(self):
-        chunks = scraper.scrape_file(self.files_directory+"/example.zip", verbose=True)
-        # verify it scraped the zip file into chunks
-        self.assertEqual(type(chunks), list)
-        self.assertNotEqual(len(chunks), 0)
-        self.assertEqual(type(chunks[0]), core.Chunk)
-        # verify it scraped text data
-        self.assertTrue(any(len(chunk.texts) > 0 for chunk in chunks))
-        # verify it scraped image data
-        self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
-
-    def test_scape_ipynb(self):
-        chunks = scraper.scrape_file(self.files_directory+"/example.ipynb", verbose=True)
-        # verify it scraped the ipynb file into chunks
-        self.assertEqual(type(chunks), list)
-        self.assertNotEqual(len(chunks), 0)
-        self.assertEqual(type(chunks[0]), core.Chunk)
-        # verify it scraped text data
-        self.assertTrue(any(len(chunk.texts) > 0 for chunk in chunks))
-        # verify it scraped image data
-        self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
-
     def test_scrape_tweet(self):
         tweet_url = "https://x.com/ylecun/status/1796734866156843480"
         chunks = scraper.scrape_url(tweet_url)
@@ -155,7 +155,7 @@ class test_scraper(unittest.TestCase):
     
     def test_scrape_directory(self):
         # verify scraping entire example directory, bar the 'unknown' file
-        chunks = scraper.scrape_directory(dir_path=self.files_directory, ignore_regex=['.*unknown.*'])
+        chunks = scraper.scrape_directory(dir_path=self.files_directory, include_regex='^(?!.*unknown).*')
         self.assertEqual(type(chunks), list)
         for chunk in chunks:
             self.assertEqual(type(chunk), core.Chunk)
@@ -164,7 +164,7 @@ class test_scraper(unittest.TestCase):
             
     def test_scrape_directory_text_only(self):
         # verify scraping examples for all supported file type
-        chunks = scraper.scrape_directory(dir_path=self.files_directory, text_only=True, ignore_regex=['.*unknown.*'])
+        chunks = scraper.scrape_directory(dir_path=self.files_directory, text_only=True, include_regex='^(?!.*unknown).*')
         self.assertEqual(type(chunks), list)
         # ensure no images are scraped
         for chunk in chunks:

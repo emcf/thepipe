@@ -29,8 +29,8 @@ class JSONDateEncoder(JSONEncoder):
             return obj.isoformat()
         return JSONEncoder.default(self, obj)
 
-FOLDERS_TO_IGNORE = ['*node_modules.*', '.*venv.*', '.*.git.*', '.*.vscode.*', '.*pycache.*', '.*dist.*', '.*build.*', '.*target.*', '.*out.*', '.*output.*', '.*outputs*']
-FILES_TO_IGNORE = ['package-lock.json', '.gitignore', '.*.bin', '.*.pyc', '.*.pyo', '.*.exe', '.*.bat', '.*.dll', '.*.obj', '.*.o', '.*.a', '.*.lib', '.*.so', '.*.dylib', '.*.ncb', '.*.sdf', '.*.suo', '.*.pdb', '.*.idb', '.*.pyd', '.*.ipynb_checkpoints', '.*.npy', '.*.pth']
+FOLDERS_TO_IGNORE = ['*node_modules.*', '.*venv.*', '.*\.git.*', '.*\.vscode.*', '.*pycache.*']
+FILES_TO_IGNORE = ['package-lock.json', '.gitignore', '.*\.bin', '.*\.pyc', '.*\.pyo', '.*\.exe', '.*\.dll', '.*\.ipynb_checkpoints']
 GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", None)
 THEPIPE_API_KEY: str = os.getenv("THEPIPE_API_KEY", None)
 USER_AGENT_STRING: str = os.getenv("USER_AGENT_STRING", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")
@@ -43,6 +43,9 @@ def detect_source_type(source: str) -> str:
     # otherwise, try to detect the file type by its extension
     _, extension = os.path.splitext(source)
     if extension:
+        if extension == '.ipynb':
+            # special case for notebooks, mimetypes is not familiar
+            return 'application/x-ipynb+json'
         guessed_mimetype = mimetypes.guess_type(source)[0]
         if guessed_mimetype:
             return guessed_mimetype
@@ -75,7 +78,7 @@ def scrape_file(source: str, verbose: bool = False, ai_extraction: bool = False,
         extraction = scrape_spreadsheet(file_path=source)
     elif source_type == 'application/x-ipynb+json':
         extraction = scrape_ipynb(file_path=source, verbose=verbose, text_only=text_only)
-    elif source_type == 'application/zip':
+    elif source_type == 'application/zip' or source_type == 'application/x-zip-compressed':
         extraction = scrape_zip(file_path=source, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
     elif source_type.startswith('video/'):
         extraction = scrape_video(file_path=source, verbose=verbose, text_only=text_only)
@@ -102,26 +105,25 @@ def scrape_plaintext(file_path: str) -> List[Chunk]:
         text = file.read()
     return [Chunk(path=file_path, texts=[text])]
 
-def scrape_directory(dir_path: str, include_regex: Optional[List[str]] = [], ignore_regex: Optional[List[str]] = [], verbose: bool = False, ai_extraction: bool = False, text_only: bool = False) -> List[Chunk]:
+def scrape_directory(dir_path: str, include_regex: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False) -> List[Chunk]:
     extraction = []
-    all_files = glob.glob(dir_path + "/**/*", recursive=True)
-    for include_regex_string in include_regex:
-        all_files = [file for file in all_files if re.search(include_regex_string, file, re.IGNORECASE)]
-    for ignore_regex_string in ignore_regex + FILES_TO_IGNORE + FOLDERS_TO_IGNORE:
-        all_files = [file for file in all_files if not re.search(ignore_regex_string, file, re.IGNORECASE)]
+    all_files = glob.glob(f'{dir_path}/**/*', recursive=True)
+    if include_regex:
+        all_files = [file for file in all_files if re.search(include_regex, file, re.IGNORECASE)]
+    print('scraping files:', all_files)
     with ThreadPoolExecutor() as executor:
-        results = executor.map(lambda file_path: scrape_file(source=file_path, match=include_regex, ignore=ignore_regex, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only), all_files)
+        results = executor.map(lambda file_path: scrape_file(source=file_path, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only), all_files)
         for result in results:
             extraction += result
     return extraction
 
-def scrape_zip(file_path: str, include_regex: Optional[List[str]] = [], ignore_regex: Optional[List[str]] = [], verbose: bool = False, ai_extraction: bool = False, text_only: bool = False) -> List[Chunk]:
-    extracted_files = []
+def scrape_zip(file_path: str, include_regex: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False) -> List[Chunk]:
+    chunks = []
     with tempfile.TemporaryDirectory() as temp_dir:
         with zipfile.ZipFile(file_path, 'r') as zip_ref:
             zip_ref.extractall(temp_dir)
-        extracted_files = scrape_directory(dir_path=temp_dir, include_regex=include_regex, ignore_regex=ignore_regex, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
-    return extracted_files
+        chunks = scrape_directory(dir_path=temp_dir, include_regex=include_regex, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+    return chunks
 
 def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
     chunks = []
@@ -409,7 +411,7 @@ def scrape_audio(file_path: str, verbose: bool = False) -> List[Chunk]:
     transcription = '\n'.join(formatted_transcription)
     return [Chunk(path=file_path, texts=[transcription])]
 
-def scrape_github(github_url: str, include_regex: Optional[List[str]] = [], ignore_regex: Optional[List[str]] = [], text_only: bool = False, ai_extraction: bool = False, branch: str = 'main', verbose: bool = False) -> List[Chunk]:
+def scrape_github(github_url: str, include_regex: Optional[str] = None, text_only: bool = False, ai_extraction: bool = False, branch: str = 'main', verbose: bool = False) -> List[Chunk]:
     files_contents = []
     if not GITHUB_TOKEN:
         raise ValueError("GITHUB_TOKEN environment variable is not set.")
@@ -417,7 +419,7 @@ def scrape_github(github_url: str, include_regex: Optional[List[str]] = [], igno
     with tempfile.TemporaryDirectory() as temp_dir:
         # requires git
         os.system(f"git clone {github_url} {temp_dir} --quiet")
-        files_contents = scrape_directory(dir_path=temp_dir, include_regex=include_regex, ignore_regex=ignore_regex, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+        files_contents = scrape_directory(dir_path=temp_dir, include_regex=include_regex, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
     return files_contents
 
 def scrape_docx(file_path: str, verbose: bool = False, text_only: bool = False) -> List[Chunk]:
@@ -539,6 +541,7 @@ def scrape_ipynb(file_path: str, verbose: bool = False, text_only: bool = False)
     chunks = []
     # parse cells in the notebook
     for cell in notebook['cells']:
+        print('scraping cell')
         texts = []
         images = []
         # parse cell content based on type

@@ -64,4 +64,3 @@ class test_core(unittest.TestCase):
         self.assertEqual(type(args), argparse.Namespace)
         self.assertIn('source', vars(args))
         self.assertIn('include_regex', vars(args))
-        self.assertIn('ignore_regex', vars(args))

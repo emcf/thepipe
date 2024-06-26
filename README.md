@@ -91,7 +91,7 @@ response = client.chat.completions.create(
 
 You can also use The Pipe from the command line:
 ```bash
-thepipe path/to/folder --include_regex .*.tsx --ignore_regex .*tests.*
+thepipe path/to/folder --include_regex .*\.tsx
 ```
 
 
