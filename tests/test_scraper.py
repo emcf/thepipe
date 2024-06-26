@@ -52,7 +52,7 @@ class test_scraper(unittest.TestCase):
         self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
 
     def test_scrape_audio(self):
-        chunks = scraper.scrape_file(file_path=self.files_directory+"/example.mp3", verbose=True)
+        chunks = scraper.scrape_file(self.files_directory+"/example.mp3", verbose=True)
         # verify it scraped the audio file into chunks
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0)

@@ -59,10 +59,10 @@ def scrape_file(source: str, verbose: bool = False, ai_extraction: bool = False,
     source_type = detect_source_type(source)
     if source_type is None:
         if verbose:
-            print(f"[thepipe] Unsupported source type: {source}", status="error")
+            print(f"[thepipe] Unsupported source type: {source}")
         return extraction
     if verbose: 
-        print(f"[thepipe] Scraping {source_type}: {source}...", status="info")
+        print(f"[thepipe] Scraping {source_type}: {source}...")
     if source_type == 'application/pdf':
         extraction = scrape_pdf(file_path=source, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
     elif source_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
@@ -91,9 +91,9 @@ def scrape_file(source: str, verbose: bool = False, ai_extraction: bool = False,
                 print(f"[thepipe] Error extracting from {source}: {e}")
     if verbose: 
         if extraction:
-            print(f"[thepipe] Extracted from {source}", status="success")
+            print(f"[thepipe] Extracted from {source}")
         else:
-            print(f"[thepipe] No content extracted from {source}", status="error")
+            print(f"[thepipe] No content extracted from {source}")
     
     return extraction
 
