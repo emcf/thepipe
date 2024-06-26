@@ -63,5 +63,5 @@ class test_core(unittest.TestCase):
         args = thepipe.parse_arguments()
         self.assertEqual(type(args), argparse.Namespace)
         self.assertIn('source', vars(args))
-        self.assertIn('match', vars(args))
-        self.assertIn('ignore', vars(args))
+        self.assertIn('include_regex', vars(args))
+        self.assertIn('ignore_regex', vars(args))
