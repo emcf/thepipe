@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='thepipe_api',
-    version='1.0.0',
+    version='1.0.1',
     author='Emmett McFarlane',
     author_email='emmett@thepi.pe',
     description='AI-native scraper for multimodal LLMs.',

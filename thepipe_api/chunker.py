@@ -3,6 +3,24 @@ from typing import Dict, List, Optional, Tuple
 from .core import Chunk, calculate_tokens
 from sklearn.metrics.pairwise import cosine_similarity
 
+def chunk_by_document(chunks: List[Chunk]) -> List[Chunk]:
+    chunks_by_doc = {}
+    new_chunks = []
+    for chunk in chunks:
+        if not chunk.path:
+            raise ValueError("Document chunking requires the path attribute to determine the document boundaries")
+        if chunk.path not in chunks_by_doc:
+            chunks_by_doc[chunk.path] = []
+        chunks_by_doc[chunk.path].append(chunk)
+    for doc_chunks in chunks_by_doc.values():
+        doc_texts = []
+        doc_images = []
+        for chunk in doc_chunks:
+            doc_texts.extend(chunk.texts)
+            doc_images.extend(chunk.images)
+        new_chunks.append(Chunk(path=doc_chunks[0].path, texts=doc_texts, images=doc_images))
+    return new_chunks    
+
 def chunk_by_page(chunks: List[Chunk]) -> List[Chunk]:
     # by-page chunking is default behavior
     return chunks
@@ -28,7 +46,7 @@ def chunk_by_section(chunks: List[Chunk]) -> List[Chunk]:
         section_chunks.append(Chunk(texts=[current_chunk_text], images=current_chunk_images))
     return section_chunks
 
-def chunk_semantic(chunks: List[Chunk], model_name: str = 'sentence-transformers/all-MiniLM-L6-v2', buffer_size: int = 2, similarity_threshold: float = 0.5) -> List[Chunk]:
+def chunk_semantic(chunks: List[Chunk], model_name: str = 'sentence-transformers/all-MiniLM-L6-v2', buffer_size: int = 3, similarity_threshold: float = 0.1) -> List[Chunk]:
     from sentence_transformers import SentenceTransformer
     model = SentenceTransformer(model_name)
     # Flatten the chunks into sentences
@@ -69,8 +87,12 @@ def chunk_semantic(chunks: List[Chunk], model_name: str = 'sentence-transformers
     for group in grouped_sentences:
         group_texts = [sentences[i] for i in group]
         group_images = []
+        seen_images = []
         for i in group:
-            group_images.extend(sentence_chunk_map[i].images)
+            for image in sentence_chunk_map[i].images:
+                if image not in seen_images:
+                    group_images.append(image)
+                    seen_images.append(image)
         new_chunks.append(Chunk(texts=group_texts, images=group_images))
     
     return new_chunks

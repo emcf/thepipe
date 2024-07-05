@@ -38,9 +38,9 @@ class test_core(unittest.TestCase):
         decoded_image = Image.open(BytesIO(image_data))
         self.assertEqual(image.size, decoded_image.size)
 
-    def test_to_messages(self):
-        chunks = scraper.scrape_file(source=self.files_directory+"/example.md")
-        messages = core.to_messages(chunks)
+    def test_chunks_to_messages(self):
+        chunks = scraper.scrape_file(source=self.files_directory+"/example.md", local=True)
+        messages = core.chunks_to_messsages(chunks)
         self.assertEqual(type(messages), list)
         for message in messages:
             self.assertEqual(type(message), dict)
@@ -55,7 +55,7 @@ class test_core(unittest.TestCase):
             text = file.read()
         self.assertIn('Hello, World!', text)
         # verify with images
-        chunks = scraper.scrape_file(source=self.files_directory+"/example.jpg")
+        chunks = scraper.scrape_file(source=self.files_directory+"/example.jpg", local=True)
         thepipe.save_outputs(chunks)
         self.assertTrue(any('.jpg' in f for f in os.listdir(self.outputs_directory)))
 
@@ -64,3 +64,14 @@ class test_core(unittest.TestCase):
         self.assertEqual(type(args), argparse.Namespace)
         self.assertIn('source', vars(args))
         self.assertIn('include_regex', vars(args))
+
+    def test_calculate_tokens(self):
+        text = "Hello, World!"
+        tokens = core.calculate_tokens([core.Chunk(texts=[text])])
+        self.assertAlmostEqual(tokens, 3.25, places=0)
+
+    def test_calculate_image_tokens(self):
+        image = Image.open(os.path.join(self.files_directory, 'example.jpg'))
+        image.load() # needed to close the file
+        tokens = core.calculate_image_tokens(image)
+        self.assertAlmostEqual(tokens, 85, places=0)

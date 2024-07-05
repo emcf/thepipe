@@ -1,22 +1,81 @@
 from typing import List, Optional
 import argparse
 import os
-from .core import Chunk, calculate_tokens
+import warnings
+from .core import Chunk, calculate_tokens, chunks_to_messsages
 from . import scraper
 from . import chunker
+import requests
 
-def extract(source: str, match: Optional[List[str]] = None, ignore: str = None, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False, local: bool = False) -> List[Chunk]:
-    raise DeprecationWarning("This function is deprecated. Please use scraper.scrape_file or scraper.scrape_url instead.")
-    # if its a url, return the url source type
+API_URL_V1 = "https://thepipe.up.railway.app/extract"
+
+def extract(source: str, match: Optional[str] = None, ignore: Optional[str] = None, ai_extraction: Optional[bool] = False, text_only: Optional[bool] = False, verbose: Optional[bool] = False, local: Optional[bool] = False) -> List[Chunk]:
+    warnings.warn("This function is deprecated. Please use scraper.scrape_file or scraper.scrape_url instead.", DeprecationWarning, stacklevel=2)
+    chunks = None
     if source.startswith('http'):
-        return scraper.scrape_url(url=source, match=match, ignore=ignore, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
-    # if it's a directory, return the directory source type
-    if os.path.isdir(source) or source in ('.', './'):
-        if source in ('.', './'):
-            source = os.getcwd()
-        return scraper.scrape_directory(dir_path=source, include_regex=match, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=False)
-    # if it's a file, return the file source type
-    return scraper.scrape_file(source=source, match=match, ignore=ignore, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=False)
+        if local:
+            chunks = scraper.scrape_url(url=source, ai_extraction=ai_extraction, text_only=text_only)
+            messages = chunks_to_messsages(chunks)
+        else:
+            response = requests.post(
+                url=API_URL_V1,
+                data={'url': source, 'api_key': os.getenv("THEPIPE_API_KEY", None), 'text_only': text_only}
+            )
+            response_json = response.json()
+            if 'error' in response_json:
+                raise ValueError(f"{response_json['error']}")
+            messages = response_json['messages']
+    else:
+        if local:
+            # if it's a file, return the file source type
+            chunks = scraper.scrape_file(source=source, ai_extraction=ai_extraction, text_only=text_only)
+            messages = chunks_to_messsages(chunks)
+        else:
+            with open(source, 'rb') as f:
+                response = requests.post(
+                    url=API_URL_V1,
+                    files={'file': (source, f)},
+                    data={'api_key': os.getenv("THEPIPE_API_KEY", None), 'text_only': text_only}
+                )
+            response_json = response.json()
+            if 'error' in response_json:
+                raise ValueError(f"{response_json['error']}")
+            messages = response_json['messages']
+    return messages
+
+def scrape(source: str, match: Optional[str] = None, ai_extraction: Optional[bool] = False, text_only: Optional[bool] = False, verbose: Optional[bool] = False, local: Optional[bool] = False) -> List[Chunk]:
+    warnings.warn("This function is deprecated. Please use scrape instead", DeprecationWarning, stacklevel=2)
+    chunks = None
+    if source.startswith('http'):
+        if local:
+            chunks = scraper.scrape_url(url=source, match=match, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
+            messages = chunks_to_messsages(chunks)
+        else:
+            response = requests.post(
+                url=API_URL_V1,
+                data={'url': source, 'api_key': os.getenv("THEPIPE_API_KEY", None), 'text_only': text_only}
+            )
+            response_json = response.json()
+            if 'error' in response_json:
+                raise ValueError(f"{response_json['error']}")
+            messages = response_json['messages']
+    else:
+        if local:
+            # if it's a file, return the file source type
+            chunks = scraper.scrape_file(source=source, ai_extraction=ai_extraction, text_only=text_only)
+            messages = chunks_to_messsages(chunks)
+        else:
+            with open(source, 'rb') as f:
+                response = requests.post(
+                    url=API_URL_V1,
+                    files={'file': (source, f)},
+                    data={'api_key': os.getenv("THEPIPE_API_KEY", None), 'text_only': text_only}
+                )
+            response_json = response.json()
+            if 'error' in response_json:
+                raise ValueError(f"{response_json['error']}")
+            messages = response_json['messages']
+    return messages
 
 def save_outputs(chunks: List[Chunk], verbose: bool = False, text_only: bool = False) -> None:
     if not os.path.exists('outputs'):

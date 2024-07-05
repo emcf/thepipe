@@ -19,7 +19,18 @@ class Chunk:
             return [ImageDocument(text=document_text, image=image) for image in self.images]
         else:
             return [Document(text=document_text)]
-
+        
+    def to_message(self) -> Dict:
+        content = []
+        if self.texts:
+            for text in self.texts:
+                content.append({"type": "text", "text": {"content": text}})
+        if self.images:
+            for image in self.images:
+                base64_image = image_to_base64(image)
+                content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}})
+        return {"role": "user", "content": content}
+    
 # uses https://platform.openai.com/docs/guides/vision
 def calculate_image_tokens(image: Image.Image, detail: str = "auto") -> int:
     width, height = image.size
@@ -56,18 +67,5 @@ def image_to_base64(image: Image.Image) -> str:
     image.save(buffered, format="JPEG")
     return base64.b64encode(buffered.getvalue()).decode()
 
-def to_messages(chunks: List[Chunk]) -> List[Dict]:
-    # audio and video are not yet supported as they
-    # are not common in SOTA multimodel LLMs (June 2024)
-    messages = []
-    for chunk in chunks:
-        content = []
-        if chunk.texts:
-            for text in chunk.texts:
-                content.append({"type": "text", "text": {"content": text}})
-        if chunk.images:
-            for image in chunk.images:
-                base64_image = image_to_base64(image)
-                content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}})
-        messages.append({"role": "user", "content": content})
-    return messages
+def chunks_to_messsages(chunks: List[Chunk]) -> List[Dict]:
+    return [chunk.to_message() for chunk in chunks]

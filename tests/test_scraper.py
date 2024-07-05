@@ -20,7 +20,7 @@ class test_scraper(unittest.TestCase):
             os.rmdir(self.outputs_directory)
     
     def test_scrape_zip(self):
-        chunks = scraper.scrape_file(self.files_directory+"/example.zip", verbose=True)
+        chunks = scraper.scrape_file(self.files_directory+"/example.zip", verbose=True, local=True)
         # verify it scraped the zip file into chunks
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0)
@@ -31,7 +31,7 @@ class test_scraper(unittest.TestCase):
         self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
     
     def test_scrape_ipynb(self):
-        chunks = scraper.scrape_file(self.files_directory+"/example.ipynb", verbose=True)
+        chunks = scraper.scrape_file(self.files_directory+"/example.ipynb", verbose=True, local=True)
         # verify it scraped the ipynb file into chunks
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0)
@@ -42,7 +42,7 @@ class test_scraper(unittest.TestCase):
         self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
 
     def test_scrape_pdf_with_ai_extraction(self):
-        chunks = scraper.scrape_file("tests/files/example.pdf", ai_extraction=True, verbose=True)
+        chunks = scraper.scrape_file("tests/files/example.pdf", ai_extraction=True, verbose=True, local=True)
         # verify it scraped the pdf file into chunks
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0)
@@ -52,7 +52,7 @@ class test_scraper(unittest.TestCase):
             self.assertIsNotNone(chunk.texts or chunk.images)
     
     def test_scrape_docx(self):
-        chunks = scraper.scrape_file(self.files_directory+"/example.docx", verbose=True)
+        chunks = scraper.scrape_file(self.files_directory+"/example.docx", verbose=True, local=True)
         # verify it scraped the docx file into chunks
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0)
@@ -63,7 +63,7 @@ class test_scraper(unittest.TestCase):
         self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
     
     def test_extract_pdf_without_ai_extraction(self):
-        chunks = scraper.scrape_file(self.files_directory+"/example.pdf", ai_extraction=False, verbose=True)
+        chunks = scraper.scrape_file(self.files_directory+"/example.pdf", ai_extraction=False, verbose=True, local=True)
         # verify it scraped the pdf file into chunks
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0)
@@ -74,7 +74,7 @@ class test_scraper(unittest.TestCase):
         self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
 
     def test_scrape_audio(self):
-        chunks = scraper.scrape_file(self.files_directory+"/example.mp3", verbose=True)
+        chunks = scraper.scrape_file(self.files_directory+"/example.mp3", verbose=True, local=True)
         # verify it scraped the audio file into chunks
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0)
@@ -85,7 +85,7 @@ class test_scraper(unittest.TestCase):
         self.assertTrue(any('citizens' in chunk.texts[0].lower() for chunk in chunks if chunk.texts is not None))
 
     def test_scrape_video(self):
-        chunks = scraper.scrape_file(source=self.files_directory+"/example.mp4", verbose=True)
+        chunks = scraper.scrape_file(source=self.files_directory+"/example.mp4", verbose=True, local=True)
         # verify it scraped the video file into chunks
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0)
@@ -98,7 +98,7 @@ class test_scraper(unittest.TestCase):
         self.assertTrue(any('citizens' in chunk.texts[0].lower() for chunk in chunks if chunk.texts is not None))
     
     def test_scrape_pptx(self):
-        chunks = scraper.scrape_file(self.files_directory+"/example.pptx", verbose=True)
+        chunks = scraper.scrape_file(self.files_directory+"/example.pptx", verbose=True, local=True)
         # verify it scraped the pptx file into chunks
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0)
@@ -110,7 +110,7 @@ class test_scraper(unittest.TestCase):
 
     def test_scrape_tweet(self):
         tweet_url = "https://x.com/ylecun/status/1796734866156843480"
-        chunks = scraper.scrape_url(tweet_url)
+        chunks = scraper.scrape_url(tweet_url, local=True)
         # verify it returned chunks representing the tweet
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0)
@@ -120,7 +120,7 @@ class test_scraper(unittest.TestCase):
         self.assertTrue(len(chunks[0].images) > 0)
     
     def test_scrape_youtube(self):
-        chunks = scraper.scrape_url("https://www.youtube.com/watch?v=So7TNRhIYJ8")
+        chunks = scraper.scrape_url("https://www.youtube.com/watch?v=So7TNRhIYJ8", local=True)
         # verify it scraped the youtube video into chunks
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0)
@@ -134,7 +134,7 @@ class test_scraper(unittest.TestCase):
 
     def test_scrape_url(self):
         # verify web page scrape result
-        chunks = scraper.scrape_url('https://en.wikipedia.org/wiki/Piping')
+        chunks = scraper.scrape_url('https://en.wikipedia.org/wiki/Piping', local=True)
         for chunk in chunks:
             self.assertEqual(type(chunk), core.Chunk)
             self.assertEqual(chunk.path, 'https://en.wikipedia.org/wiki/Piping')
@@ -144,12 +144,12 @@ class test_scraper(unittest.TestCase):
         # verify if at least one image was scraped
         self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
         # verify file url scrape result
-        chunks = scraper.scrape_url('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf')
+        chunks = scraper.scrape_url('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', local=True)
         self.assertEqual(len(chunks), 1)
 
     @unittest.skipUnless(os.environ.get('GITHUB_TOKEN'), "requires GITHUB_TOKEN")
     def test_scrape_github(self):
-        chunks = scraper.scrape_url('https://github.com/emcf/thepipe')
+        chunks = scraper.scrape_url('https://github.com/emcf/thepipe', local=True)
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0) # should have some repo contents
     
