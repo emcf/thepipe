@@ -38,7 +38,6 @@ MAX_WHISPER_DURATION = 1200 # 20 minutes
 TWITTER_DOMAINS = ['https://twitter.com', 'https://www.twitter.com', 'https://x.com', 'https://www.x.com']
 YOUTUBE_DOMAINS = ['https://www.youtube.com', 'https://youtube.com']
 GITHUB_DOMAINS = ['https://github.com', 'https://www.github.com']
-API_URL_V2 = "https://localhost:5000/scrape"
 
 def detect_source_type(source: str) -> str:
     # otherwise, try to detect the file type by its extension
@@ -57,55 +56,42 @@ def detect_source_type(source: str) -> str:
     mimetype = result.output.mime_type
     return mimetype
 
-def scrape_file(source: str, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = False) -> List[Chunk]:
-    if local:
-        extraction = []
-        source_type = detect_source_type(source)
-        if source_type is None:
-            if verbose:
-                print(f"[thepipe] Unsupported source type: {source}")
-            return extraction
-        if verbose: 
-            print(f"[thepipe] Scraping {source_type}: {source}...")
-        if source_type == 'application/pdf':
-            extraction = scrape_pdf(file_path=source, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
-        elif source_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-            extraction = scrape_docx(file_path=source, verbose=verbose, text_only=text_only)
-        elif source_type == 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
-            extraction = scrape_pptx(file_path=source, verbose=verbose, text_only=text_only)
-        elif source_type.startswith('image/'):
-            extraction = scrape_image(file_path=source, text_only=text_only)
-        elif source_type.startswith('application/vnd.ms-excel') or source_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-            extraction = scrape_spreadsheet(file_path=source)
-        elif source_type == 'application/x-ipynb+json':
-            extraction = scrape_ipynb(file_path=source, verbose=verbose, text_only=text_only)
-        elif source_type == 'application/zip' or source_type == 'application/x-zip-compressed':
-            extraction = scrape_zip(file_path=source, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
-        elif source_type.startswith('video/'):
-            extraction = scrape_video(file_path=source, verbose=verbose, text_only=text_only)
-        elif source_type.startswith('audio/'):
-            extraction = scrape_audio(file_path=source, verbose=verbose)
-        elif source_type.startswith('text/'):
-            extraction = scrape_plaintext(file_path=source)
-        else:
-            try:
-                extraction = scrape_plaintext(file_path=source)
-            except Exception as e:
-                if verbose: 
-                    print(f"[thepipe] Error extracting from {source}: {e}")
+def scrape_file(source: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False,) -> List[Chunk]:
+    # returns chunks of scraped content from any source (file, URL, etc.)
+    extraction = []
+    source_type = detect_source_type(source)
+    if source_type is None:
+        if verbose:
+            print(f"[thepipe] Unsupported source type: {source}")
+        return extraction
+    if verbose: 
+        print(f"[thepipe] Scraping {source_type}: {source}...")
+    if source_type == 'application/pdf':
+        extraction = scrape_pdf(file_path=source, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
+    elif source_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+        extraction = scrape_docx(file_path=source, verbose=verbose, text_only=text_only)
+    elif source_type == 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+        extraction = scrape_pptx(file_path=source, verbose=verbose, text_only=text_only)
+    elif source_type.startswith('image/'):
+        extraction = scrape_image(file_path=source, text_only=text_only)
+    elif source_type.startswith('application/vnd.ms-excel') or source_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+        extraction = scrape_spreadsheet(file_path=source)
+    elif source_type == 'application/x-ipynb+json':
+        extraction = scrape_ipynb(file_path=source, verbose=verbose, text_only=text_only)
+    elif source_type == 'application/zip' or source_type == 'application/x-zip-compressed':
+        extraction = scrape_zip(file_path=source, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+    elif source_type.startswith('video/'):
+        extraction = scrape_video(file_path=source, verbose=verbose, text_only=text_only)
+    elif source_type.startswith('audio/'):
+        extraction = scrape_audio(file_path=source, verbose=verbose)
+    elif source_type.startswith('text/'):
+        extraction = scrape_plaintext(file_path=source)
     else:
-        with open(source, 'rb') as f:
-            response = requests.post(
-                url=API_URL_V2,
-                files={'file': (source, f)},
-                data={'text_only': text_only, 'ai_extraction': ai_extraction},
-                headers={"Authorization": f"Bearer {THEPIPE_API_KEY}"}
-            )
-        response_json = response.json()
-        if 'error' in response_json:
-            raise ValueError(f"{response_json['error']}")
-        chunks_json = response_json['chunks']
-        extraction = [Chunk.from_json(chunk_json) for chunk_json in chunks_json]
+        try:
+            extraction = scrape_plaintext(file_path=source)
+        except Exception as e:
+            if verbose: 
+                print(f"[thepipe] Error extracting from {source}: {e}")
     if verbose: 
         if extraction:
             print(f"[thepipe] Extracted from {source}")
@@ -124,7 +110,7 @@ def scrape_directory(dir_path: str, include_regex: Optional[str] = None, verbose
     if include_regex:
         all_files = [file for file in all_files if re.search(include_regex, file, re.IGNORECASE)]
     with ThreadPoolExecutor() as executor:
-        results = executor.map(lambda file_path: scrape_file(source=file_path, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only), all_files)
+        results = executor.map(lambda file_path: scrape_file(source=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose), all_files)
         for result in results:
             extraction += result
     return extraction
@@ -139,6 +125,7 @@ def scrape_zip(file_path: str, include_regex: Optional[str] = None, verbose: boo
 
 def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
     chunks = []
+
     if ai_extraction:
         # ai_extraction uses layout analysis AI to extract markdown, equations, tables, and images from the PDF
         MD_FOLDER = 'mdoutput'
@@ -149,14 +136,13 @@ def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = Fa
             os.makedirs(MD_FOLDER)
         os.system(f"marker_single {file_path} {MD_FOLDER} --batch_multiplier 4 --max_pages 1000 --langs English")
         # Find the .md file and read its content
-        markdown = None
         for output_file in glob.glob(f'{MD_FOLDER}/*/*', recursive=True):
             if output_file.endswith('.md'):
                 with open(output_file, 'r') as f:
                     markdown = f.read()
                     break
-        if markdown is None:
-            if verbose: print(f"[thepipe] No markdown file found in {MD_FOLDER}. (AI extraction likely crashed)")
+        if not markdown:
+            if verbose: print(f"[thepipe] No markdown extracted from {file_path} (AI extraction likely failed).")
             raise ValueError("AI extraction failed.")
         if text_only:
             chunks.append(Chunk(path=file_path, texts=[markdown]))
@@ -254,50 +240,90 @@ def scrape_spreadsheet(file_path: str) -> List[Chunk]:
         chunks.append(Chunk(path=file_path, texts=[item_json]))
     return chunks
 
-def extract_page_content(url: str, verbose: bool = False) -> Tuple[str, List[str]]:
+def extract_page_content(url: str, text_only: bool = False, verbose: bool = False) -> Tuple[str, List[str]]:
     from urllib.parse import urlparse
     import markdownify
     from bs4 import BeautifulSoup
     from playwright.sync_api import sync_playwright
+    import base64
+    import requests
+    
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        context = browser.new_context(user_agent=USER_AGENT_STRING)
+        context = browser.new_context(user_agent="USER_AGENT_STRING")
         page = context.new_page()
         page.goto(url, wait_until='domcontentloaded')
+        
         # Scroll to the bottom of the page to load dynamic content
         viewport_height = page.viewport_size['height']
         total_height = page.evaluate("document.body.scrollHeight")
         current_scroll_position = 0
-        scrolldowns, max_scrolldowns = 0, 10  # Finite to prevent infinite scroll
+        scrolldowns, max_scrolldowns = 0, 20  # Finite to prevent infinite scroll
+        
         while current_scroll_position < total_height and scrolldowns < max_scrolldowns:
             page.wait_for_timeout(100)  # Wait for dynamic content to load
             current_scroll_position += viewport_height
             page.evaluate(f"window.scrollTo(0, {current_scroll_position})")
             scrolldowns += 1
             total_height = page.evaluate("document.body.scrollHeight")
+        
         # Extract HTML content
         html_content = page.content()
+        
         # Convert HTML to Markdown
         soup = BeautifulSoup(html_content, 'html.parser')
         markdown_content = markdownify.markdownify(str(soup), heading_style="ATX")
-        # remove excessive newlines in the markdown
+        
+        # Remove excessive newlines in the markdown
         while '\n\n\n' in markdown_content:
             markdown_content = markdown_content.replace('\n\n\n', '\n\n')
-        # Extract images from the page
+        
+        if text_only:
+            browser.close()
+            return markdown_content, []
+
+        # Extract images from the page using heuristics
+        # to adaptively read image URLs
         images = []
         for img in page.query_selector_all('img'):
             img_path = img.get_attribute('src')
-            if img_path and not img_path.startswith('data:image'):
+            if not img_path:
+                continue
+            if img_path.startswith('data:image'):
+                # save base64 image to PIL Image
+                decoded_data = base64.b64decode(img_path.split(',')[1])
                 try:
-                    if 'https' not in img_path:
-                        base_url = urlparse(url).scheme + '://' + urlparse(url).netloc
-                        img_path = base_url + img_path
-                    images.append(img_path)
+                    image = Image.open(BytesIO(decoded_data))
+                    images.append(image)
                 except Exception as e:
                     if verbose: print(f"[thepipe] Ignoring error loading image {img_path}: {e}")
-                    continue # ignore incompatible image extractions
+                    continue  # Ignore incompatible image extractions
+            else:
+                try:
+                    image = Image.open(requests.get(img_path, stream=True).raw)
+                    images.append(image)
+                except:
+                    if 'https://' not in img_path and 'http://' not in img_path:
+                        try:
+                            while img_path.startswith('/'):
+                                img_path = img_path[1:]
+                            path_with_schema = urlparse(url).scheme + "://" + img_path
+                            image = Image.open(requests.get(path_with_schema, stream=True).raw)
+                            images.append(image)
+                        except:
+                            try:
+                                path_with_schema_and_netloc = urlparse(url).scheme + "://" + urlparse(url).netloc + "/" + img_path
+                                image = Image.open(requests.get(path_with_schema_and_netloc, stream=True).raw)
+                                images.append(image)
+                            except:
+                                if verbose: print(f"[thepipe] Ignoring error loading image {img_path}")
+                                continue  # Ignore incompatible image extractions
+                    else:
+                        if verbose: print(f"[thepipe] Ignoring error loading image {img_path}")
+                        continue  # Ignore incompatible image extractions
+                
         browser.close()
-
+    print("N_IMAGES", len(images))
     return markdown_content, images
 
 def parse_html_to_markdown(html_content):
@@ -322,52 +348,39 @@ def parse_html_to_markdown(html_content):
         traverse_and_extract(body)
     return ''.join(markdown_content)
 
-def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, local: bool = False) -> List[Chunk]:
-    if local:
-        if any(url.startswith(domain) for domain in TWITTER_DOMAINS):
-            extraction = scrape_tweet(url=url, text_only=text_only)
-            return extraction
-        elif any(url.startswith(domain) for domain in YOUTUBE_DOMAINS):
-            extraction = scrape_youtube(youtube_url=url, text_only=text_only)
-            return extraction
-        elif any(url.startswith(domain) for domain in GITHUB_DOMAINS):
-            extraction = scrape_github(github_url=url, text_only=text_only, ai_extraction=ai_extraction)
-            return extraction
-        _, extension = os.path.splitext(urlparse(url).path)
-        all_texts = []
-        all_images = []
-        if extension and extension not in {'.html', '.htm', '.php', '.asp', '.aspx'}:
-            # if url leads to a file, attempt to download it and scrape it
-            with tempfile.TemporaryDirectory() as temp_dir:
-                file_path = os.path.join(temp_dir, os.path.basename(url))
-                response = requests.get(url)
-                with open(file_path, 'wb') as file:
-                    file.write(response.content)
-                chunks = scrape_file(source=file_path, ai_extraction=ai_extraction, text_only=text_only, local=local)
-                for chunk in chunks:
-                    all_texts.extend(chunk.texts)
-                    all_images.extend(chunk.images)
-        else:
-            # if url leads to web content, scrape it directly
-            markdown_content, images = extract_page_content(url)
-            all_texts.append(markdown_content)
-            if not text_only:
-                all_images.extend(images)
-        if not all_texts and not all_images:
-            raise ValueError("No content extracted from URL.")
-        return [Chunk(path=url, texts=all_texts, images=all_images)]
+def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, verbose: bool = False) -> List[Chunk]:
+    if any(url.startswith(domain) for domain in TWITTER_DOMAINS):
+        extraction = scrape_tweet(url=url, text_only=text_only)
+        return extraction
+    elif any(url.startswith(domain) for domain in YOUTUBE_DOMAINS):
+        extraction = scrape_youtube(youtube_url=url, text_only=text_only, verbose=verbose)
+        return extraction
+    elif any(url.startswith(domain) for domain in GITHUB_DOMAINS):
+        extraction = scrape_github(github_url=url, text_only=text_only, ai_extraction=ai_extraction, verbose=verbose)
+        return extraction
+    _, extension = os.path.splitext(urlparse(url).path)
+    all_texts = []
+    all_images = []
+    if extension and extension not in {'.html', '.htm', '.php', '.asp', '.aspx'}:
+        # if url leads to a file, attempt to download it and scrape it
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file_path = os.path.join(temp_dir, os.path.basename(url))
+            response = requests.get(url)
+            with open(file_path, 'wb') as file:
+                file.write(response.content)
+            chunks = scrape_file(source=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
+            for chunk in chunks:
+                all_texts.extend(chunk.texts)
+                all_images.extend(chunk.images)
     else:
-        response = requests.post(
-            url=API_URL_V2,
-            data={'url': url, 'text_only': text_only, 'ai_extraction': ai_extraction},
-            headers={"Authorization": f"Bearer {THEPIPE_API_KEY}"}
-        )
-        response_json = response.json()
-        if 'error' in response_json:
-            raise ValueError(f"{response_json['error']}")
-        chunks_json = response_json['chunks']
-        chunks = [Chunk.from_json(chunk_json) for chunk_json in chunks_json]
-        return chunks
+        # if url leads to web content, scrape it directly
+        markdown_content, images = extract_page_content(url, text_only=text_only, verbose=verbose)
+        all_texts.append(markdown_content)
+        if not text_only:
+            all_images.extend(images)
+    if not all_texts and not all_images:
+        raise ValueError("No content extracted from URL.")
+    return [Chunk(path=url, texts=all_texts, images=all_images)]
 
 def format_timestamp(seconds, chunk_index, chunk_duration):
     # helper function to format the timestamp.
@@ -442,14 +455,14 @@ def scrape_audio(file_path: str, verbose: bool = False) -> List[Chunk]:
     model = whisper.load_model("base")
     result = model.transcribe(audio=file_path, verbose=verbose)
     # Format transcription with timestamps
-    formatted_transcription = []
+    transcript = []
     for segment in result['segments']:
         start = format_timestamp(segment['start'], 0, 0)
         end = format_timestamp(segment['end'], 0, 0)
-        formatted_transcription.append(f"[{start} --> {end}]  {segment['text']}")
+        if segment['text'].strip():
+            transcript.append(f"[{start} --> {end}]  {segment['text']}")
     # join the formatted transcription into a single string
-    transcription = '\n'.join(formatted_transcription)
-    return [Chunk(path=file_path, texts=[transcription])]
+    return [Chunk(path=file_path, texts=transcript)]
 
 def scrape_github(github_url: str, include_regex: Optional[str] = None, text_only: bool = False, ai_extraction: bool = False, branch: str = 'main', verbose: bool = False) -> List[Chunk]:
     files_contents = []
@@ -581,7 +594,6 @@ def scrape_ipynb(file_path: str, verbose: bool = False, text_only: bool = False)
     chunks = []
     # parse cells in the notebook
     for cell in notebook['cells']:
-        print('scraping cell')
         texts = []
         images = []
         # parse cell content based on type
