@@ -40,7 +40,7 @@ class test_core(unittest.TestCase):
 
     def test_chunks_to_messages(self):
         chunks = scraper.scrape_file(source=self.files_directory+"/example.md", local=True)
-        messages = core.chunks_to_messsages(chunks)
+        messages = core.chunks_to_messages(chunks)
         self.assertEqual(type(messages), list)
         for message in messages:
             self.assertEqual(type(message), dict)
