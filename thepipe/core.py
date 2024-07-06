@@ -1,8 +1,11 @@
+import argparse
 import base64
 from io import BytesIO
+import json
 import os
 import time
 from typing import Dict, List, Optional, Union
+from urllib import request
 from PIL import Image
 from llama_index.core.schema import Document, ImageDocument
 
@@ -32,7 +35,40 @@ class Chunk:
             image_url = make_image_url(image, host_images, max_resolution)
             message["content"].append({"type": "image_url", "image_url": image_url})
         return message
-
+    
+    def to_json(self) -> str:
+        data = {
+            'path': self.path,
+            'texts': self.texts,
+            'images': [self.image_to_base64(image) for image in self.images],
+            'audios': self.audios,
+            'videos': self.videos,
+        }
+        return json.dumps(data)
+    
+    @staticmethod
+    def from_json(json_str: str) -> 'Chunk':
+        data = json.loads(json_str)
+        images = []
+        for image_str in data['images']:
+            # Try to decode the image from base64
+            # if that fails, try to download it
+            try:
+                image_data = base64.b64decode(image_str)
+                image = Image.open(BytesIO(image_data))
+                images.append(image)
+            except:
+                response = request.get(image_str)
+                image = Image.open(BytesIO(response.content))
+                images.append(image)
+        return Chunk(
+            path=data['path'],
+            texts=data['texts'],
+            images=images,
+            audios=data['audios'],
+            videos=data['videos'],
+        )
+    
 def make_image_url(image: Image.Image, host_images: bool = False, max_resolution: Optional[int] = None) -> str:
     if max_resolution:
         width, height = image.size
@@ -87,3 +123,38 @@ def calculate_tokens(chunks: List[Chunk]) -> int:
 
 def chunks_to_messages(chunks: List[Chunk]) -> List[Dict]:
     return [chunk.to_message() for chunk in chunks]
+
+def save_outputs(chunks: List[Chunk], verbose: bool = False, text_only: bool = False) -> None:
+    if not os.path.exists('outputs'):
+        os.makedirs('outputs')
+    text = ""
+
+    # Save the text and images to the outputs directory
+    for i, chunk in enumerate(chunks):
+        if chunk is None:
+            continue
+        if chunk.path is not None:
+            text += f'{chunk.path}:\n'
+        if chunk.texts:
+            for chunk_text in chunk.texts:
+                text += f'```\n{chunk_text}\n```\n'
+        if chunk.images and not text_only:
+            for j, image in enumerate(chunk.images):
+                image.convert('RGB').save(f'outputs/{i}_{j}.jpg')
+
+    # Save the text
+    with open('outputs/prompt.txt', 'w', encoding='utf-8') as file:
+        file.write(text)
+    
+    if verbose:
+        print(f"[thepipe] {calculate_tokens(chunks)} tokens saved to outputs folder")
+
+def parse_arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description='Compress project files into a context prompt.')
+    parser.add_argument('source', type=str, help='The source file or directory to compress.')
+    parser.add_argument('--include_regex', type=str, default=None, help='Regex pattern to match in a directory.')
+    parser.add_argument('--ai_extraction', action='store_true', help='Use ai_extraction to extract text from images.')
+    parser.add_argument('--text_only', action='store_true', help='Extract only text from the source.')
+    parser.add_argument('--verbose', action='store_true', help='Print status messages.')
+    args = parser.parse_args()
+    return args

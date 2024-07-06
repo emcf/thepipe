@@ -7,12 +7,13 @@ from typing import Dict, List, Optional, Tuple
 import glob
 import os
 import tempfile
+from urllib import request
 from urllib.parse import urlparse
 import zipfile
 from PIL import Image
 import requests
 import json
-from .core import Chunk
+from .core import HOST_URL, Chunk
 import tempfile
 import mimetypes
 import dotenv
@@ -56,7 +57,19 @@ def detect_source_type(source: str) -> str:
     mimetype = result.output.mime_type
     return mimetype
 
-def scrape_file(source: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False,) -> List[Chunk]:
+def scrape_file(source: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False, local: bool = False) -> List[Chunk]:
+    if not local:
+        with open(source, 'rb') as f:
+            response = request.post(
+                url=f"{HOST_URL}/scrape",
+                files={'file': (source, f)},
+                data={'ai_extraction': ai_extraction, 'text_only': text_only}
+            )
+            response_json = response.json()
+            if 'error' in response_json:
+                raise ValueError(f"{response_json['error']}")
+            chunks = [Chunk.from_json(chunk_json) for chunk_json in response_json['chunks']]
+            return chunks
     # returns chunks of scraped content from any source (file, URL, etc.)
     extraction = []
     source_type = detect_source_type(source)
@@ -104,13 +117,13 @@ def scrape_plaintext(file_path: str) -> List[Chunk]:
         text = file.read()
     return [Chunk(path=file_path, texts=[text])]
 
-def scrape_directory(dir_path: str, include_regex: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False) -> List[Chunk]:
+def scrape_directory(dir_path: str, include_regex: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = False) -> List[Chunk]:
     extraction = []
     all_files = glob.glob(f'{dir_path}/**/*', recursive=True)
     if include_regex:
         all_files = [file for file in all_files if re.search(include_regex, file, re.IGNORECASE)]
     with ThreadPoolExecutor() as executor:
-        results = executor.map(lambda file_path: scrape_file(source=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose), all_files)
+        results = executor.map(lambda file_path: scrape_file(source=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=local), all_files)
         for result in results:
             extraction += result
     return extraction
@@ -348,7 +361,17 @@ def parse_html_to_markdown(html_content):
         traverse_and_extract(body)
     return ''.join(markdown_content)
 
-def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, verbose: bool = False) -> List[Chunk]:
+def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, verbose: bool = False, local: bool = False) -> List[Chunk]:
+    if not local:
+        response = requests.post(
+            url=f"{HOST_URL}/scrape",
+            data={'url': url, 'ai_extraction': ai_extraction, 'text_only': text_only}
+        )
+        response_json = response.json()
+        if 'error' in response_json:
+            raise ValueError(f"{response_json['error']}")
+        chunks = [Chunk.from_json(chunk_json) for chunk_json in response_json['chunks']]
+        return chunks
     if any(url.startswith(domain) for domain in TWITTER_DOMAINS):
         extraction = scrape_tweet(url=url, text_only=text_only)
         return extraction

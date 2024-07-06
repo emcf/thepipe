@@ -40,25 +40,22 @@ thepi.pe can read a wide range of filetypes and web sources, so it requires a fe
 ### Hosted API (Python)
 
 ```bash
-pip install thepipe_api
+pip install thepipe-api
 setx THEPIPE_API_KEY=your_api_key
 ```
 
 ```python
-import thepipe_api as tp
+import thepipe
 from openai import OpenAI
 
 # scrape markdown + images
-chunks = tp.scrape(
-  source="example.pdf",
-  ai_extraction=True
-)
+chunks = thepipe.scrape(source="example.pdf")
 
 # call LLM
 client = OpenAI()
 response = client.chat.completions.create(
     model="gpt-4o",
-    messages=tp.chunks_to_messages(chunks),
+    messages=thepipe.chunks_to_messages(chunks),
 )
 ```
 
@@ -66,19 +63,15 @@ response = client.chat.completions.create(
 
 
 ```bash
-pip install thepipe_api[local]
+pip install thepipe-api[local]
 ```
 
 ```python
-import thepipe_api as tp
+import thepipe
 from openai import OpenAI
 
 # scrape markdown + images
-chunks = tp.scrape_file(
-  source="example.pdf",
-  ai_extraction=True,
-  local=True
-)
+chunks = thepipe.scrape_file(source="example.pdf", local=True)
 ```
 
 You can also use The Pipe from the command line:

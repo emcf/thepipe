@@ -18,6 +18,21 @@ class test_scraper(unittest.TestCase):
             for file in os.listdir(self.outputs_directory):
                 os.remove(os.path.join(self.outputs_directory, file))
             os.rmdir(self.outputs_directory)
+
+    def test_chunk_json(self):
+        chunk = core.Chunk(path="example.md", texts=["Hello, World!"])
+        # convert to json
+        chunk_json = chunk.to_json()
+        # verify it is a dictionary with the expected items
+        self.assertEqual(type(chunk_json), dict)
+        self.assertIn('texts', chunk_json)
+        self.assertIn('path', chunk_json)
+        # convert back
+        chunk = core.Chunk.from_json(chunk_json)
+        # verify it is the correct Chunk object
+        self.assertEqual(type(chunk), core.Chunk)
+        self.assertEqual(chunk.path, "example.md")
+        self.assertEqual(chunk.texts, ["Hello, World!"])
     
     def test_scrape_zip(self):
         chunks = scraper.scrape_file(self.files_directory+"/example.zip", verbose=True, local=True)
@@ -155,7 +170,7 @@ class test_scraper(unittest.TestCase):
     
     def test_scrape_directory(self):
         # verify scraping entire example directory, bar the 'unknown' file
-        chunks = scraper.scrape_directory(dir_path=self.files_directory, include_regex='^(?!.*unknown).*')
+        chunks = scraper.scrape_directory(dir_path=self.files_directory, include_regex='^(?!.*unknown).*', local=True)
         self.assertEqual(type(chunks), list)
         for chunk in chunks:
             self.assertEqual(type(chunk), core.Chunk)
@@ -164,7 +179,7 @@ class test_scraper(unittest.TestCase):
             
     def test_scrape_directory_text_only(self):
         # verify scraping examples for all supported file type
-        chunks = scraper.scrape_directory(dir_path=self.files_directory, text_only=True, include_regex='^(?!.*unknown).*')
+        chunks = scraper.scrape_directory(dir_path=self.files_directory, text_only=True, include_regex='^(?!.*unknown).*', local=True)
         self.assertEqual(type(chunks), list)
         # ensure no images are scraped
         for chunk in chunks:

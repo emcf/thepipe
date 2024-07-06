@@ -4,8 +4,8 @@ import sys
 from typing import List
 # Assuming the Chunk class and chunking functions are in the same directory
 sys.path.append('..')
-from thepipe_api import chunker
-from thepipe_api.core import Chunk
+from thepipe import chunker
+from thepipe.core import Chunk
 
 class test_chunker(unittest.TestCase):
     def setUp(self):
@@ -49,6 +49,16 @@ class test_chunker(unittest.TestCase):
         for chunk in chunked_sections:
             self.assertIsInstance(chunk, Chunk)
             self.assertTrue(any(chunk.texts or chunk.images))
+
+    def test_chunk_by_document(self):
+        chunks = self.read_markdown_file(self.example_markdown_path)
+        chunked_documents = chunker.chunk_by_document(chunks)
+        self.assertIsInstance(chunked_documents, list)
+        self.assertEqual(len(chunked_documents), 1)
+        # Verify the output contains chunks with text or images
+        chunk = chunked_documents[0]
+        self.assertIsInstance(chunk[0], Chunk)
+        self.assertTrue(any(chunk[0].texts or chunk[0].images))
 
 if __name__ == '__main__':
     unittest.main()

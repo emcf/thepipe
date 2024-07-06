@@ -4,9 +4,9 @@ import unittest
 import os
 import sys
 sys.path.append('..')
-from thepipe_api import core
-from thepipe_api import scraper
-from thepipe_api import thepipe
+from thepipe import core
+from thepipe import scraper
+from thepipe import thepipe
 from PIL import Image
 from io import BytesIO
 
@@ -49,18 +49,18 @@ class test_core(unittest.TestCase):
 
     def test_save_outputs(self):
         chunks = scraper.scrape_plaintext(file_path=self.files_directory+"/example.txt")
-        thepipe.save_outputs(chunks)
+        core.save_outputs(chunks)
         self.assertTrue(os.path.exists(self.outputs_directory+"/prompt.txt"))
         with open(self.outputs_directory+"/prompt.txt", 'r', encoding='utf-8') as file:
             text = file.read()
         self.assertIn('Hello, World!', text)
         # verify with images
         chunks = scraper.scrape_file(source=self.files_directory+"/example.jpg", local=True)
-        thepipe.save_outputs(chunks)
+        core.save_outputs(chunks)
         self.assertTrue(any('.jpg' in f for f in os.listdir(self.outputs_directory)))
 
     def test_parse_arguments(self):
-        args = thepipe.parse_arguments()
+        args = core.parse_arguments()
         self.assertEqual(type(args), argparse.Namespace)
         self.assertIn('source', vars(args))
         self.assertIn('include_regex', vars(args))
