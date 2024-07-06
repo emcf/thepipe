@@ -49,6 +49,8 @@ class test_core(unittest.TestCase):
         self.assertTrue(any('.jpg' in f for f in os.listdir(self.outputs_directory)))
 
     def test_chunk_json(self):
+        example_image_path = os.path.join(self.files_directory, 'example.jpg')
+        image = Image.open(example_image_path)
         chunk = core.Chunk(path="example.md", texts=["Hello, World!"])
         # convert to json
         chunk_json = chunk.to_json()
@@ -77,5 +79,24 @@ class test_core(unittest.TestCase):
     def test_calculate_image_tokens(self):
         image = Image.open(os.path.join(self.files_directory, 'example.jpg'))
         image.load() # needed to close the file
-        tokens = core.calculate_image_tokens(image)
+        tokens = core.calculate_image_tokens(image, detail="auto")
         self.assertAlmostEqual(tokens, 85, places=0)
+        tokens = core.calculate_image_tokens(image, detail="low")
+        self.assertAlmostEqual(tokens, 85, places=0)
+        tokens = core.calculate_image_tokens(image, detail="high")
+        self.assertAlmostEqual(tokens, 595, places=0)
+
+    def test_make_image_url(self):
+        image = Image.open(os.path.join(self.files_directory, 'example.jpg'))
+        image.load() # needed to close the file
+        url = core.make_image_url(image, host_images=False)
+        # verify it is in the correct format
+        self.assertTrue(url.startswith('data:image/jpeg;base64,'))
+        # verify it decodes correctly
+        remove_prefix = url.replace("data:image/jpeg;base64,", "")
+        image_data = base64.b64decode(remove_prefix)
+        image = Image.open(BytesIO(image_data))
+        self.assertEqual(image.format, 'JPEG')
+        # verify it hosts the image correctly
+        url = core.make_image_url(image, host_images=True)
+        self.assertTrue(url.startswith(core.HOST_URL))

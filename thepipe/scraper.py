@@ -7,7 +7,6 @@ from typing import Dict, List, Optional, Tuple
 import glob
 import os
 import tempfile
-from urllib import request
 from urllib.parse import urlparse
 import zipfile
 from PIL import Image
@@ -17,18 +16,9 @@ from .core import HOST_URL, Chunk
 import tempfile
 import mimetypes
 import dotenv
-from datetime import datetime
-from json import JSONEncoder
-import csv
 import shutil
 from magika import Magika
 dotenv.load_dotenv()
-
-class JSONDateEncoder(JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        return JSONEncoder.default(self, obj)
 
 FOLDERS_TO_IGNORE = ['*node_modules.*', '.*venv.*', '.*\.git.*', '.*\.vscode.*', '.*pycache.*']
 FILES_TO_IGNORE = ['package-lock.json', '.gitignore', '.*\.bin', '.*\.pyc', '.*\.pyo', '.*\.exe', '.*\.dll', '.*\.ipynb_checkpoints']
