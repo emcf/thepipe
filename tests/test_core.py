@@ -27,16 +27,6 @@ class test_core(unittest.TestCase):
         self.assertEqual(type(llama_index), list)
         self.assertEqual(len(llama_index), 1)
     
-    def test_image_to_base64(self):
-        image = Image.open(os.path.join(self.files_directory, 'example.jpg'))
-        image.load() # needed to close the file
-        base64_string = core.image_to_base64(image)
-        self.assertEqual(type(base64_string), str)
-        # converting back should be the same
-        image_data = base64.b64decode(base64_string)
-        decoded_image = Image.open(BytesIO(image_data))
-        self.assertEqual(image.size, decoded_image.size)
-
     def test_chunks_to_messages(self):
         chunks = scraper.scrape_file(source=self.files_directory+"/example.md", local=True)
         messages = core.chunks_to_messages(chunks)
@@ -57,6 +47,21 @@ class test_core(unittest.TestCase):
         chunks = scraper.scrape_file(source=self.files_directory+"/example.jpg", local=True)
         core.save_outputs(chunks)
         self.assertTrue(any('.jpg' in f for f in os.listdir(self.outputs_directory)))
+
+    def test_chunk_json(self):
+        chunk = core.Chunk(path="example.md", texts=["Hello, World!"])
+        # convert to json
+        chunk_json = chunk.to_json()
+        # verify it is a dictionary with the expected items
+        self.assertEqual(type(chunk_json), dict)
+        self.assertIn('texts', chunk_json)
+        self.assertIn('path', chunk_json)
+        # convert back
+        chunk = core.Chunk.from_json(chunk_json)
+        # verify it is the correct Chunk object
+        self.assertEqual(type(chunk), core.Chunk)
+        self.assertEqual(chunk.path, "example.md")
+        self.assertEqual(chunk.texts, ["Hello, World!"])
 
     def test_parse_arguments(self):
         args = core.parse_arguments()

@@ -5,7 +5,7 @@ import json
 import os
 import time
 from typing import Dict, List, Optional, Union
-from urllib import request
+import requests
 from PIL import Image
 from llama_index.core.schema import Document, ImageDocument
 
@@ -36,30 +36,29 @@ class Chunk:
             message["content"].append({"type": "image_url", "image_url": image_url})
         return message
     
-    def to_json(self) -> str:
+    def to_json(self, host_images: bool = False) -> str:
         data = {
             'path': self.path,
             'texts': self.texts,
-            'images': [self.image_to_base64(image) for image in self.images],
+            'images': [make_image_url(image=image, host_images=host_images) for image in self.images],
             'audios': self.audios,
             'videos': self.videos,
         }
         return json.dumps(data)
     
     @staticmethod
-    def from_json(json_str: str) -> 'Chunk':
+    def from_json(json_str: str, host_images: bool = False) -> 'Chunk':
         data = json.loads(json_str)
         images = []
         for image_str in data['images']:
-            # Try to decode the image from base64
-            # if that fails, try to download it
-            try:
-                image_data = base64.b64decode(image_str)
+            if host_images:
+                image_data = requests.get(image_str).content
                 image = Image.open(BytesIO(image_data))
                 images.append(image)
-            except:
-                response = request.get(image_str)
-                image = Image.open(BytesIO(response.content))
+            else:
+                remove_prefix = image_str.replace("data:image/jpeg;base64,", "")
+                image_data = base64.b64decode(remove_prefix)
+                image = Image.open(BytesIO(image_data))
                 images.append(image)
         return Chunk(
             path=data['path'],

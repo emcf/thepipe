@@ -60,7 +60,7 @@ def detect_source_type(source: str) -> str:
 def scrape_file(source: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False, local: bool = False) -> List[Chunk]:
     if not local:
         with open(source, 'rb') as f:
-            response = request.post(
+            response = requests.post(
                 url=f"{HOST_URL}/scrape",
                 files={'file': (source, f)},
                 data={'ai_extraction': ai_extraction, 'text_only': text_only}

@@ -27,11 +27,11 @@ thepi.pe is an AI-native scraping engine that generates LLM-ready markdown and v
 
 ## Features 🌟
 
-- Extract markdown, tables, and images from any document or web page 📊
-- Output works out-of-the-box with all multimodal LLMs and RAG frameworks 🖼️📚
-- AI filetype detection for missing file extensions and unknown web data 💾
-- Quick-start integrations for Twitter, YouTube, GitHub, and more 🌐
-- GPU-accelerated ⚡️
+- Extract markdown, images, and structured data from any document or web page
+- Output works out-of-the-box with all multimodal LLMs and RAG frameworks
+- AI filetype detection for missing file extensions and unknown web data
+- Quick-start integrations for Twitter, YouTube, GitHub, and more
+- GPU-accelerated
 
 ## Get started in 5 minutes  🚀
 
