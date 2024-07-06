@@ -2,7 +2,6 @@ import unittest
 import os
 import sys
 from typing import List
-# Assuming the Chunk class and chunking functions are in the same directory
 sys.path.append('..')
 from thepipe import chunker
 from thepipe.core import Chunk
@@ -16,7 +15,7 @@ class test_chunker(unittest.TestCase):
     def read_markdown_file(self, file_path: str) -> List[Chunk]:
         with open(file_path, 'r') as f:
             text = f.read()
-        return [Chunk(texts=[text])]
+        return [Chunk(path=file_path, texts=[text])]
 
     def test_chunk_semantic(self):
         test_sentence = "Computational astrophysics. Numerical astronomy. Bananas."

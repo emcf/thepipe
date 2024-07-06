@@ -6,7 +6,6 @@ import sys
 sys.path.append('..')
 from thepipe import core
 from thepipe import scraper
-from thepipe import thepipe
 from PIL import Image
 from io import BytesIO
 

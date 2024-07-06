@@ -1,11 +1,9 @@
-import argparse
-import base64
 import unittest
 import os
 import sys
 sys.path.append('..')
-from thepipe_api import core
-from thepipe_api import scraper
+from thepipe import core
+from thepipe import scraper
 
 class test_scraper(unittest.TestCase):
     def setUp(self):
