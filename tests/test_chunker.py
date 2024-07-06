@@ -56,8 +56,8 @@ class test_chunker(unittest.TestCase):
         self.assertEqual(len(chunked_documents), 1)
         # Verify the output contains chunks with text or images
         chunk = chunked_documents[0]
-        self.assertIsInstance(chunk[0], Chunk)
-        self.assertTrue(any(chunk[0].texts or chunk[0].images))
+        self.assertIsInstance(chunk, Chunk)
+        self.assertTrue(any(chunk.texts or chunk.images))
 
 if __name__ == '__main__':
     unittest.main()

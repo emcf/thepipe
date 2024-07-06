@@ -36,7 +36,7 @@ class Chunk:
             message["content"].append({"type": "image_url", "image_url": image_url})
         return message
     
-    def to_json(self, host_images: bool = False) -> str:
+    def to_json(self, host_images: bool = False) -> Dict:
         data = {
             'path': self.path,
             'texts': self.texts,
@@ -44,11 +44,10 @@ class Chunk:
             'audios': self.audios,
             'videos': self.videos,
         }
-        return json.dumps(data)
+        return data
     
     @staticmethod
-    def from_json(json_str: str, host_images: bool = False) -> 'Chunk':
-        data = json.loads(json_str)
+    def from_json(data: Dict, host_images: bool = False) -> 'Chunk':
         images = []
         for image_str in data['images']:
             if host_images:

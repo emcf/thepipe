@@ -92,7 +92,7 @@ def scrape_file(source: str, ai_extraction: bool = False, text_only: bool = Fals
     elif source_type == 'application/x-ipynb+json':
         extraction = scrape_ipynb(file_path=source, verbose=verbose, text_only=text_only)
     elif source_type == 'application/zip' or source_type == 'application/x-zip-compressed':
-        extraction = scrape_zip(file_path=source, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+        extraction = scrape_zip(file_path=source, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local)
     elif source_type.startswith('video/'):
         extraction = scrape_video(file_path=source, verbose=verbose, text_only=text_only)
     elif source_type.startswith('audio/'):
@@ -128,17 +128,16 @@ def scrape_directory(dir_path: str, include_regex: Optional[str] = None, verbose
             extraction += result
     return extraction
 
-def scrape_zip(file_path: str, include_regex: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False) -> List[Chunk]:
+def scrape_zip(file_path: str, include_regex: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = False) -> List[Chunk]:
     chunks = []
     with tempfile.TemporaryDirectory() as temp_dir:
         with zipfile.ZipFile(file_path, 'r') as zip_ref:
             zip_ref.extractall(temp_dir)
-        chunks = scrape_directory(dir_path=temp_dir, include_regex=include_regex, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+        chunks = scrape_directory(dir_path=temp_dir, include_regex=include_regex, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local)
     return chunks
 
 def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
     chunks = []
-
     if ai_extraction:
         # ai_extraction uses layout analysis AI to extract markdown, equations, tables, and images from the PDF
         MD_FOLDER = 'mdoutput'
@@ -168,7 +167,7 @@ def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = Fa
                 # matched an image
                 if text_only:
                     continue
-                image_url = re.search(r'\((.*?)\)', content).group(1)
+                image_url = os.path.join(MD_FOLDER, re.search(r'\((.*?)\)', content).group(1))
                 try:
                     image = Image.open(image_url) # the image url is a local path
                     chunks.append(Chunk(path=file_path, images=[image]))
@@ -391,7 +390,7 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
             response = requests.get(url)
             with open(file_path, 'wb') as file:
                 file.write(response.content)
-            chunks = scrape_file(source=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
+            chunks = scrape_file(source=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=True)
             for chunk in chunks:
                 all_texts.extend(chunk.texts)
                 all_images.extend(chunk.images)
@@ -495,7 +494,7 @@ def scrape_github(github_url: str, include_regex: Optional[str] = None, text_onl
     with tempfile.TemporaryDirectory() as temp_dir:
         # requires git
         os.system(f"git clone {github_url} {temp_dir} --quiet")
-        files_contents = scrape_directory(dir_path=temp_dir, include_regex=include_regex, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only)
+        files_contents = scrape_directory(dir_path=temp_dir, include_regex=include_regex, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=True)
     return files_contents
 
 def scrape_docx(file_path: str, verbose: bool = False, text_only: bool = False) -> List[Chunk]:
