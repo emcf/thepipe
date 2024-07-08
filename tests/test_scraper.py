@@ -39,15 +39,16 @@ class test_scraper(unittest.TestCase):
         # verify it scraped image data
         self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
 
-    def test_scrape_pdf_with_ai_extraction(self):
-        chunks = scraper.scrape_file("tests/files/example.pdf", ai_extraction=True, verbose=True, local=True)
-        # verify it scraped the pdf file into chunks
-        self.assertEqual(type(chunks), list)
-        self.assertNotEqual(len(chunks), 0)
-        self.assertEqual(type(chunks[0]), core.Chunk)
-        # verify it scraped the data
-        for chunk in chunks:
-            self.assertIsNotNone(chunk.texts or chunk.images)
+    # requires modal token to run
+    #def test_scrape_pdf_with_ai_extraction(self):
+    #    chunks = scraper.scrape_file("tests/files/example.pdf", ai_extraction=True, verbose=True, local=True)
+    #    # verify it scraped the pdf file into chunks
+    #    self.assertEqual(type(chunks), list)
+    #    self.assertNotEqual(len(chunks), 0)
+    #    self.assertEqual(type(chunks[0]), core.Chunk)
+    #    # verify it scraped the data
+    #    for chunk in chunks:
+    #        self.assertIsNotNone(chunk.texts or chunk.images)
     
     def test_scrape_docx(self):
         chunks = scraper.scrape_file(self.files_directory+"/example.docx", verbose=True, local=True)
