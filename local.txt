@@ -28,3 +28,4 @@ markdownify
 jwt
 sentence-transformers
 marker-pdf
+modal
