@@ -1,6 +1,6 @@
 import re
-from typing import Dict, List, Optional, Tuple
-from .core import Chunk, calculate_tokens
+from typing import List
+from .core import Chunk
 from sklearn.metrics.pairwise import cosine_similarity
 
 def chunk_by_document(chunks: List[Chunk]) -> List[Chunk]:

@@ -20,18 +20,17 @@
   </a>
 </div>
 
+### Extract markdown and visuals from PDFs URLs, slides, videos, and more, ready for multimodal LLMs. ⚡
 
-### Extract markdown and visuals from PDFs URLs, docs, slides, videos, and more, ready for multimodal LLMs. ⚡
-
-thepi.pe is an AI-native scraping engine that generates LLM-ready markdown and visuals from any document, media, or web page. It is built for multimodal language models such as GPT-4o, and works out-of-the-box with any LLM or vector database. thepi.pe is available as a [hosted API](https://thepi.pe), or it can be self-hosted. 
+thepi.pe is an API that can scrape multimodal data via `thepipe.scrape` or extract structured data via `thepipe.extract` from a wide range of data. It is built to interface with LLMs such as GPT-4o, and works out-of-the-box with any LLM or vector databases. thepi.pe can be used right away with a [hosted GPU cloud](https://thepi.pe), or it can be self-hosted.
 
 ## Features 🌟
 
-- Extract clean markdown, tables, and images from any document or web page
-- Output works out-of-the-box with all multimodal LLMs and RAG frameworks
-- GPU-accelerated AI layout analysis, chunking, and structured data extraction
-- Quick-start integrations for web data like Twitter, YouTube, GitHub, and more
-- Self-hosted or hosted API options available
+- Extract markdown, tables, and images from any document or webpage
+- Extract complex structured data from any document or webpage
+- Works out-of-the-box with all LLMs and RAG frameworks
+- AI-native filetype detection, layout analysis, and structured data extraction
+- Multimodal scraping for video, audio, and image sources
 
 ## Get started in 5 minutes  🚀
 
@@ -39,19 +38,23 @@ thepi.pe can read a wide range of filetypes and web sources, so it requires a fe
 
 ### Hosted API (Python)
 
+> ⚠️ **Warning.**
+The docs and functionality in this repo differ significantly from the current working version on pip. To use a working version, please refer to the [API docs](https://thepi.pe/docs), and not these docs.
+
 ```bash
 pip install thepipe-api
 setx THEPIPE_API_KEY=your_api_key
+setx OPENAI_API_KEY=your_openai_key
 ```
 
 ```python
-import thepipe
+from thepipe.scraper import scrape_file
 from openai import OpenAI
 
-# scrape markdown + images
-chunks = thepipe.scrape(source="example.pdf")
+# scrape markdown, tables, visuals
+chunks = scrape_file(filepath="paper.pdf")
 
-# call LLM
+# call LLM with clean, comprehensive data
 client = OpenAI()
 response = client.chat.completions.create(
     model="gpt-4o",
@@ -59,19 +62,18 @@ response = client.chat.completions.create(
 )
 ```
 
-### Local Installation
+### Local Installation (Python)
 
+For a local installation, you can use the following command:
 
 ```bash
 pip install thepipe-api[local]
 ```
 
-```python
-import thepipe
-from openai import OpenAI
+And append `local=True` to your API calls:
 
-# scrape markdown + images
-chunks = thepipe.scrape_file(source="example.pdf", local=True)
+```python
+chunks = scrape_url(url="https://example.com", local=True)
 ```
 
 You can also use The Pipe from the command line:
@@ -79,13 +81,12 @@ You can also use The Pipe from the command line:
 thepipe path/to/folder --include_regex .*\.tsx
 ```
 
-
 ## Supported File Types 📚
 
 | Source Type              | Input types                                                    | Multimodal Scraping | Notes |
 |--------------------------|----------------------------------------------------------------|---------------------|----------------------|
-| Webpage                  | URLs starting with `http`, `https`, `ftp`                      | ✔️                  | Scrapes markdown, images, and tables from web pages |
-| PDF                      | `.pdf`                                                          | ✔️                  | Extracts page markdown and page images. Opt-in `ai_extraction` for advanced layout analysis (extracts markdown, LaTeX equations, tables, and figures) |
+| Webpage                  | URLs starting with `http`, `https`, `ftp`                      | ✔️                  | Scrapes markdown, images, and tables from web pages. `ai_extraction` available for AI layout analysis |
+| PDF                      | `.pdf`                                                          | ✔️                  | Extracts page markdown and page images. `ai_extraction` available for AI layout analysis |
 | Word Document  | `.docx`                                                         | ✔️                  | Extracts text, tables, and images |
 | PowerPoint     | `.pptx`                                                         | ✔️                  | Extracts text and images from slides |
 | Video                    | `.mp4`, `.mov`, `.wmv`                                          | ✔️                  | Uses Whisper for transcription and extracts frames |
@@ -102,7 +103,7 @@ thepipe path/to/folder --include_regex .*\.tsx
 
 ## How it works 🛠️
 
-thepi.pe uses computer vision models and heuristics to extract clean content from the source and process it for downstream use with [language models](https://en.wikipedia.org/wiki/Large_language_model), or [vision transformers](https://en.wikipedia.org/wiki/Vision_transformer). The output from thepi.pe is a prompt (a list of messages) containing all content from the source document. The messages returned should look like this:
+thepi.pe uses computer vision models and heuristics to extract clean content from the source and process it for downstream use with [language models](https://en.wikipedia.org/wiki/Large_language_model), or [vision transformers](https://en.wikipedia.org/wiki/Vision_transformer). The output from thepi.pe is a list of chunks containing all content within the source document. These chunks can easily be converted to a prompt format that is compatible with any LLM or multimodal model with `thepipe.chunks_to_messages`, which gives the following format:
 ```json
 [
   {
@@ -123,10 +124,10 @@ thepi.pe uses computer vision models and heuristics to extract clean content fro
 ]
 ```
 
-You can feed these messages directly into the model, or you can use `thepipe_api.chunk_by_page`, `thepipe_api.chunk_by_section`, `thepipe_api.chunk_semantic` to chunk these messages for a vector database such as ChromaDB or a RAG framework (a chunk can be converted to LlamaIndex Document/ImageDocument with `.to_llamaindex`).
+You can feed these messages directly into the model, or alternatively you can use `thepipe_api.chunk_by_document`, `thepipe_api.chunk_by_page`, `thepipe_api.chunk_by_section`, `thepipe_api.chunk_semantic` to chunk these messages for a vector database such as ChromaDB or a RAG framework. A chunk can be converted to LlamaIndex Document/ImageDocument with `.to_llamaindex`.
 
 > ⚠️ **It is important to be mindful of your model's token limit.**
-GPT-4o does not work with too many images in the prompt (see discussion [here](https://community.openai.com/t/gpt-4-vision-maximum-amount-of-images/573110/6)). Large documents should be extracted with `text_only=True` to avoid this issue, or alternatively they can be chunked and saved into a vector database or RAG framework.
+GPT-4o does not work with too many images in the prompt (see discussion [here](https://community.openai.com/t/gpt-4-vision-maximum-amount-of-images/573110/6)). To remedy this issue, either use an LLM with a larger context window, extract larger documents with `text_only=True`, or embed the chunks into vector database.
 
 # Sponsors
 

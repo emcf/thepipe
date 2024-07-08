@@ -1,8 +1,8 @@
 import argparse
 import base64
 from io import BytesIO
-import json
 import os
+import re
 import time
 from typing import Dict, List, Optional, Union
 import requests
@@ -26,20 +26,43 @@ class Chunk:
         else:
             return [Document(text=document_text)]
         
-    def to_message(self, host_images: bool = False, max_resolution : Optional[int] = None) -> Dict:
+    def to_message(self, host_images: bool = False, max_resolution: Optional[int] = None) -> Dict:
         message = {"role": "user", "content": []}
+        image_urls = [make_image_url(image, host_images, max_resolution) for image in self.images]
+        
         if self.texts:
-            prompt = "\n```\n" + '\n'.join(self.texts) + "\n```\n" 
-            message["content"].append({"type": "text", "text": prompt})
-        for image in self.images:
-            image_url = make_image_url(image, host_images, max_resolution)
+            message_text = "\n\n"
+            img_index = 0
+            
+            for text in self.texts:
+                if host_images:
+                    def replace_image(match):
+                        nonlocal img_index
+                        if img_index < len(image_urls):
+                            url = image_urls[img_index]
+                            img_index += 1
+                            return f"![image]({url})"
+                        return match.group(0)  # If we run out of images, leave the original text
+    
+                    # Replace markdown image references with hosted URLs
+                    text = re.sub(r'!\[([^\]]*)\]\([^\)]+\)', replace_image, text)
+                
+                message_text += text + "\n\n"
+
+            # clean up, add to message
+            message_text = re.sub(r'\n{3,}', '\n\n', message_text).strip()
+            message["content"].append({"type": "text", "text": message_text})
+        
+        # Add remaining images that weren't referenced in the text
+        for image_url in image_urls:
             message["content"].append({"type": "image_url", "image_url": image_url})
+        
         return message
     
     def to_json(self, host_images: bool = False) -> Dict:
         data = {
             'path': self.path,
-            'texts': self.texts,
+            'texts': [text.strip() for text in self.texts],
             'images': [make_image_url(image=image, host_images=host_images) for image in self.images],
             'audios': self.audios,
             'videos': self.videos,
@@ -61,7 +84,7 @@ class Chunk:
                 images.append(image)
         return Chunk(
             path=data['path'],
-            texts=data['texts'],
+            texts=[text.strip() for text in data['texts']],
             images=images,
             audios=data['audios'],
             videos=data['videos'],

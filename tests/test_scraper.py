@@ -2,8 +2,8 @@ import unittest
 import os
 import sys
 sys.path.append('..')
-from thepipe import core
-from thepipe import scraper
+import thepipe.core as core
+import thepipe.scraper as scraper
 
 class test_scraper(unittest.TestCase):
     def setUp(self):
@@ -83,7 +83,7 @@ class test_scraper(unittest.TestCase):
         self.assertTrue(any('citizens' in chunk.texts[0].lower() for chunk in chunks if chunk.texts is not None))
 
     def test_scrape_video(self):
-        chunks = scraper.scrape_file(source=self.files_directory+"/example.mp4", verbose=True, local=True)
+        chunks = scraper.scrape_file(self.files_directory+"/example.mp4", verbose=True, local=True)
         # verify it scraped the video file into chunks
         self.assertEqual(type(chunks), list)
         self.assertNotEqual(len(chunks), 0)

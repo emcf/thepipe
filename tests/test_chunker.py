@@ -3,7 +3,7 @@ import os
 import sys
 from typing import List
 sys.path.append('..')
-from thepipe import chunker
+import thepipe.chunker as chunker
 from thepipe.core import Chunk
 
 class test_chunker(unittest.TestCase):
