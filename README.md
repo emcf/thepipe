@@ -22,7 +22,7 @@
 
 ### Extract markdown and visuals from PDFs URLs, slides, videos, and more, ready for multimodal LLMs. ⚡
 
-thepi.pe is an API that can scrape multimodal data via `thepipe.scrape` or extract structured data via `thepipe.extract` from a wide range of data. It is built to interface with LLMs such as GPT-4o, and works out-of-the-box with any LLM or vector databases. thepi.pe can be used right away with a [hosted GPU cloud](https://thepi.pe), or it can be self-hosted.
+thepi.pe is an API that can scrape multimodal data via `thepipe.scrape` from a wide range of sources. It is built to interface with LLMs such as GPT-4o, and works out-of-the-box with any LLM or vector databases. thepi.pe can be used right away with a [hosted GPU cloud](https://thepi.pe), or it can be self-hosted.
 
 ## Features 🌟
 
@@ -83,7 +83,7 @@ thepipe path/to/folder --include_regex .*\.tsx
 
 ## Supported File Types 📚
 
-| Source Type              | Input types                                                    | Multimodal Scraping | Notes |
+| Source              | Input types                                                    | Multimodal | Notes |
 |--------------------------|----------------------------------------------------------------|---------------------|----------------------|
 | Webpage                  | URLs starting with `http`, `https`, `ftp`                      | ✔️                  | Scrapes markdown, images, and tables from web pages. `ai_extraction` available for AI layout analysis |
 | PDF                      | `.pdf`                                                          | ✔️                  | Extracts page markdown and page images. `ai_extraction` available for AI layout analysis |
