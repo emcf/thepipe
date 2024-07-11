@@ -4,7 +4,7 @@ from io import BytesIO
 import io
 import math
 import re
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 import glob
 import os
 import tempfile
@@ -22,7 +22,7 @@ from magika import Magika
 from .core import make_image_url, Chunk
 dotenv.load_dotenv()
 
-from typing import List, Optional
+from typing import List, Dict, Tuple, Optional
 
 FOLDERS_TO_IGNORE = ['*node_modules.*', '.*venv.*', '.*\.git.*', '.*\.vscode.*', '.*pycache.*']
 FILES_TO_IGNORE = ['package-lock.json', '.gitignore', '.*\.bin', '.*\.pyc', '.*\.pyo', '.*\.exe', '.*\.dll', '.*\.ipynb_checkpoints']
@@ -36,6 +36,7 @@ GITHUB_DOMAINS = ['https://github.com', 'https://www.github.com']
 EXTRACTION_PROMPT = """Output the entire extracted text from the document in detailed markdown format.
 Be sure to correctly format markdown for headers, paragraphs, lists, tables, menus, full text contents, etc.
 Always reply immediately with only markdown. Do not output anything else."""
+FILESIZE_LIMIT_MB = 50
 
 def detect_source_type(source: str) -> str:
     # otherwise, try to detect the file type by its extension
@@ -244,7 +245,7 @@ def scrape_spreadsheet(file_path: str, source_type: str) -> List[Chunk]:
         chunks.append(Chunk(path=file_path, texts=[item_json]))
     return chunks
 
-def ai_extract_page_content(url: str, text_only: bool = False, verbose: bool = False) -> Chunk:
+def ai_extract_webpage_content(url: str, text_only: bool = False, verbose: bool = False) -> Chunk:
     from playwright.sync_api import sync_playwright
     import modal
     from openai import OpenAI
@@ -454,6 +455,9 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
         with tempfile.TemporaryDirectory() as temp_dir:
             file_path = os.path.join(temp_dir, os.path.basename(url))
             response = requests.get(url)
+            # verify the ingress/egress with be within limits, if there are any set
+            if FILESIZE_LIMIT_MB and int(response.headers['Content-Length']) > FILESIZE_LIMIT_MB * 1024 * 1024:
+                raise ValueError(f"File size exceeds {FILESIZE_LIMIT_MB} MB limit.")
             with open(file_path, 'wb') as file:
                 file.write(response.content)
             chunks = scrape_file(filepath=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=True)
@@ -464,7 +468,7 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
     else:
         # if url leads to web content, scrape it directly
         if ai_extraction:
-            chunk = ai_extract_page_content(url=url, text_only=text_only, verbose=verbose)
+            chunk = ai_extract_webpage_content(url=url, text_only=text_only, verbose=verbose)
         else:
             chunk = extract_page_content(url=url, text_only=text_only, verbose=verbose)
         return [chunk]
