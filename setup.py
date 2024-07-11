@@ -2,7 +2,11 @@ from setuptools import setup, find_packages
 
 def read_requirements(file):
     with open(file, encoding='utf-8') as f:
-        return [line.strip() for line in f if line.strip() and not line.startswith('#')]
+        return [line.strip() for line in f if line.strip() and not line.startswith('#') and not line.startswith('git+')]
+
+def read_git_requirements(file):
+    with open(file, encoding='utf-8') as f:
+        return [line.strip() for line in f if line.strip().startswith('git+')]
 
 setup(
     name='thepipe_api',
@@ -29,5 +33,6 @@ setup(
     },
     extras_require={
         'local': read_requirements('local.txt'),
-    }
+    },
+    dependency_links=read_git_requirements('local.txt')
 )
