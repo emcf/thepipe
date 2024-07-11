@@ -1,5 +1,9 @@
 from setuptools import setup, find_packages
 
+def read_requirements(file):
+    with open(file, encoding='utf-8') as f:
+        return [line.strip() for line in f if line.strip() and not line.startswith('#')]
+
 setup(
     name='thepipe_api',
     version='1.0.2',
@@ -16,14 +20,14 @@ setup(
         'Operating System :: OS Independent',
     ],
     python_requires='>=3.10',
-    install_requires=open('requirements.txt').read().splitlines(),
+    install_requires=read_requirements('requirements.txt'),
     include_package_data=True,
     entry_points={
         'console_scripts': [
             'thepipe=thepipe.__init__:main',
         ],
     },
-    extras_require = {
-        'local': open('local.txt').read().splitlines(),
+    extras_require={
+        'local': read_requirements('local.txt'),
     }
 )
