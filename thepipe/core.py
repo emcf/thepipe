@@ -178,5 +178,6 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument('--ai_extraction', action='store_true', help='Use ai_extraction to extract text from images.')
     parser.add_argument('--text_only', action='store_true', help='Extract only text from the source.')
     parser.add_argument('--verbose', action='store_true', help='Print status messages.')
+    parser.add_argument('--local', action='store_true', help='Print status messages.')
     args = parser.parse_args()
     return args

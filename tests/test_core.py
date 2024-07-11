@@ -70,6 +70,10 @@ class test_core(unittest.TestCase):
         self.assertEqual(type(args), argparse.Namespace)
         self.assertIn('source', vars(args))
         self.assertIn('include_regex', vars(args))
+        self.assertIn('text_only', vars(args))
+        self.assertIn('ai_extraction', vars(args))
+        self.assertIn('verbose', vars(args))
+        self.assertIn('local', vars(args))
 
     def test_calculate_tokens(self):
         text = "Hello, World!"
