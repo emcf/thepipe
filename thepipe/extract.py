@@ -101,7 +101,7 @@ def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: st
     
     return response_dict, tokens_used
 
-def extract(chunks: List[Chunk], schema: str, ai_model: str, multiple_extractions: bool, extraction_prompt: str, host_images: bool) -> Tuple[List[Dict], int]:
+def extract(chunks: List[Chunk], schema: str, ai_model: str = 'google/gemma-2-9b-it', multiple_extractions: bool = False, extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT, host_images: bool = False) -> Tuple[List[Dict], int]:
     results = []
     total_tokens_used = 0
 

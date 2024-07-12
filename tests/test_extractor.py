@@ -18,12 +18,12 @@ Tax (8%): $1.08 USD
 Total: $14.57 USD
 """
 
-        self.schema = json.dumps({
+        self.schema = {
             "store_name": "string",
             "subtotal_usd": "float",
             "tax_usd": "float",
             "total_usd": "float",
-        })
+        }
 
         self.chunks = [Chunk(path="receipt.md", texts=[self.example_receipt])]
 
@@ -31,7 +31,6 @@ Total: $14.57 USD
         results, total_tokens_used = extract(
             chunks=self.chunks,
             schema=self.schema,
-            ai_model='google/gemma-2-9b-it',
         )
 
         # Check if we got a result
