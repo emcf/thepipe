@@ -1,9 +1,13 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import re
-from typing import List, Dict, Optional, Tuple
-from .core import Chunk, calculate_tokens
+from typing import List, Dict, Union, Optional, Tuple, Callable
+from thepipe.core import HOST_URL, THEPIPE_API_KEY, Chunk, calculate_tokens
+from thepipe.scraper import scrape_url, scrape_file
+from thepipe.chunker import chunk_by_document
+import requests
 import os
+from openai import OpenAI
 
 DEFAULT_EXTRACTION_PROMPT = "Extract structured information from the above document according to the following schema: {schema}. Immediately return valid JSON formatted data. If there is missing data, you may use null, but use your reasoning to always fill in every column as best you can. Always immediately return valid JSON."
 
@@ -12,7 +16,6 @@ def extract_json_from_response(llm_response: str) -> Optional[Dict]:
         return llm_response.encode('utf-8', 'ignore').decode('utf-8')
     
     llm_response = llm_response.strip()
-    # Extract JSON from code block
     code_block_pattern = r'^```(?:json)?\s*([\s\S]*?)\s*```$'
     match = re.match(code_block_pattern, llm_response, re.MULTILINE | re.DOTALL)
     if match:
@@ -21,24 +24,21 @@ def extract_json_from_response(llm_response: str) -> Optional[Dict]:
     try:
         parsed_json = json.loads(llm_response)
         return parsed_json
-    except json.JSONDecodeError as e:
-        # Try to extract JSON by matching syntax
+    except json.JSONDecodeError:
         json_pattern = r'(\[[\s\S]*\]|\{[\s\S]*\})'
         match = re.search(json_pattern, llm_response)
         if match:
             try:
                 parsed_json = json.loads(match.group(1))
                 return parsed_json
-            except json.JSONDecodeError as e:
+            except json.JSONDecodeError:
                 pass
 
-    # Additional fallback: Try to extract individual JSON objects
     objects = re.findall(r'\{[^{}]*\}', llm_response)
     if objects:
         valid_objects = []
         for obj in objects:
             try:
-                # Replace escaped backslashes and quotes
                 obj = obj.replace('\\', '').replace('\\"', '"')
                 valid_objects.append(json.loads(obj))
             except json.JSONDecodeError:
@@ -50,8 +50,6 @@ def extract_json_from_response(llm_response: str) -> Optional[Dict]:
     return None
 
 def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: str, source: str, multiple_extractions: bool, extraction_prompt: str, host_images: bool) -> Tuple[Dict, int]:
-    from openai import OpenAI # only import if needed
-    
     response_dict = {"chunk_index": chunk_index, "source": source}
     tokens_used = 0
     try:
@@ -103,7 +101,7 @@ def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: st
     
     return response_dict, tokens_used
 
-def extract(chunks: List[Chunk], schema: str, ai_model: str = 'google/gemma-2-9b-it', multiple_extractions: bool = False, extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT, host_images: bool = False) -> Tuple[List[Dict], int]:
+def extract(chunks: List[Chunk], schema: str, ai_model: str, multiple_extractions: bool, extraction_prompt: str, host_images: bool) -> Tuple[List[Dict], int]:
     results = []
     total_tokens_used = 0
 
@@ -134,7 +132,134 @@ def extract(chunks: List[Chunk], schema: str, ai_model: str = 'google/gemma-2-9b
                     "error": str(e)
                 })
 
-    # Sort results by chunk_index to maintain original order
     results.sort(key=lambda x: x["chunk_index"])
-
     return results, total_tokens_used
+
+def extract_from_url(
+    url: str, 
+    schema: Union[str, Dict], 
+    ai_model: str = 'google/gemma-2-9b-it', 
+    multiple_extractions: bool = False, 
+    extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT, 
+    host_images: bool = False, 
+    text_only: bool = False, 
+    ai_extraction: bool = False, 
+    verbose: bool = False,
+    chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_document,
+    local: bool = False
+) -> List[Dict]: #Tuple[List[Dict], int]:
+    if isinstance(schema, dict):
+        schema = json.dumps(schema)
+    if local:
+        chunks = scrape_url(url, text_only=text_only, ai_extraction=ai_extraction, verbose=verbose, local=local)
+        chunked_content = chunking_method(chunks)
+        return extract(chunked_content, schema, ai_model, multiple_extractions, extraction_prompt, host_images)
+    else:
+        headers = {
+            "Authorization": f"Bearer {THEPIPE_API_KEY}"
+        }
+        data = {
+            'urls': [url],
+            'schema': schema,
+            'ai_model': ai_model,
+            'multiple_extractions': str(multiple_extractions).lower(),
+            'extraction_prompt': extraction_prompt,
+            'host_images': str(host_images).lower(),
+            'text_only': str(text_only).lower(),
+            'ai_extraction': str(ai_extraction).lower(),
+            'chunking_method': chunking_method.__name__
+        }
+        response = requests.post(f"{HOST_URL}/extract", headers=headers, data=data)
+        if response.status_code != 200:
+            raise Exception(f"API request failed with status code {response.status_code}: {response.text}")
+        
+        results = []
+        total_tokens_used = 0
+        for line in response.iter_lines(decode_unicode=True):
+            if line:
+                data = json.loads(line)
+                result = data['result']
+                if 'error' in result:
+                    results.append(result)
+                else:
+                    extracted_data = {
+                        'chunk_index': result['chunk_index'],
+                        'source': result['source']
+                    }
+                    if multiple_extractions:
+                        extracted_data['extraction'] = result.get('extraction', [])
+                    else:
+                        extracted_data.update(result)
+                        schema_keys = json.loads(schema).keys()
+                        for key in schema_keys:
+                            if key not in extracted_data:
+                                extracted_data[key] = None
+                    results.append(extracted_data)
+                total_tokens_used += data['tokens_used']
+        
+        return results#, total_tokens_used
+
+def extract_from_file(
+    file_path: str, 
+    schema: Union[str, Dict], 
+    ai_model: str = 'google/gemma-2-9b-it', 
+    multiple_extractions: bool = False, 
+    extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT, 
+    host_images: bool = False, 
+    text_only: bool = False, 
+    ai_extraction: bool = False, 
+    verbose: bool = False,
+    chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_document,
+    local: bool = False
+) -> List[Dict]:#Tuple[List[Dict], int]:
+    if isinstance(schema, dict):
+        schema = json.dumps(schema)
+    if local:
+        chunks = scrape_file(file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
+        chunked_content = chunking_method(chunks)
+        return extract(chunked_content, schema, ai_model, multiple_extractions, extraction_prompt, host_images)
+    else:
+        headers = {
+            "Authorization": f"Bearer {THEPIPE_API_KEY}"
+        }
+        data = {
+            'schema': schema,
+            'ai_model': ai_model,
+            'multiple_extractions': str(multiple_extractions).lower(),
+            'extraction_prompt': extraction_prompt,
+            'host_images': str(host_images).lower(),
+            'text_only': str(text_only).lower(),
+            'ai_extraction': str(ai_extraction).lower(),
+            'chunking_method': chunking_method.__name__
+        }
+        files = {'files': (os.path.basename(file_path), open(file_path, 'rb'))}
+        
+        response = requests.post(f"{HOST_URL}/extract", headers=headers, data=data, files=files)
+        if response.status_code != 200:
+            raise Exception(f"API request failed with status code {response.status_code}: {response.text}")
+        
+        results = []
+        total_tokens_used = 0
+        for line in response.iter_lines(decode_unicode=True):
+            if line:
+                data = json.loads(line)
+                result = data['result']
+                if 'error' in result:
+                    results.append(result)
+                else:
+                    extracted_data = {
+                        'chunk_index': result['chunk_index'],
+                        'source': result['source']
+                    }
+                    if multiple_extractions:
+                        extracted_data['extraction'] = result.get('extraction', [])
+                    else:
+                        extracted_data.update(result)
+                        schema_keys = json.loads(schema).keys()
+                        for key in schema_keys:
+                            if key not in extracted_data:
+                                extracted_data[key] = None
+                    results.append(extracted_data)
+                total_tokens_used += data['tokens_used']
+        
+        return results#, total_tokens_used

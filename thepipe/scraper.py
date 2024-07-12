@@ -13,13 +13,12 @@ import zipfile
 from PIL import Image
 import requests
 import json
-from .core import HOST_URL, Chunk
+from .core import HOST_URL, THEPIPE_API_KEY, HOST_IMAGES, Chunk, make_image_url
 import tempfile
 import mimetypes
 import dotenv
 import shutil
 from magika import Magika
-from .core import make_image_url, Chunk
 dotenv.load_dotenv()
 
 from typing import List, Dict, Tuple, Optional
@@ -27,7 +26,6 @@ from typing import List, Dict, Tuple, Optional
 FOLDERS_TO_IGNORE = ['*node_modules.*', '.*venv.*', '.*\.git.*', '.*\.vscode.*', '.*pycache.*']
 FILES_TO_IGNORE = ['package-lock.json', '.gitignore', '.*\.bin', '.*\.pyc', '.*\.pyo', '.*\.exe', '.*\.dll', '.*\.ipynb_checkpoints']
 GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", None)
-THEPIPE_API_KEY: str = os.getenv("THEPIPE_API_KEY", None)
 USER_AGENT_STRING: str = os.getenv("USER_AGENT_STRING", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")
 MAX_WHISPER_DURATION = 1200 # 20 minutes
 TWITTER_DOMAINS = ['https://twitter.com', 'https://www.twitter.com', 'https://x.com', 'https://www.x.com']
@@ -60,14 +58,28 @@ def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = Fa
         with open(filepath, 'rb') as f:
             response = requests.post(
                 url=f"{HOST_URL}/scrape",
-                files={'file': (filepath, f)},
-                data={'ai_extraction': ai_extraction, 'text_only': text_only}
+                headers={"Authorization": f"Bearer {THEPIPE_API_KEY}"},
+                files={'files': (os.path.basename(filepath), f)},
+                data={
+                    'text_only': str(text_only).lower(),
+                    'ai_extraction': str(ai_extraction).lower(),
+                    'chunking_method': 'chunk_by_document'
+                }
             )
-            response_json = response.json()
-            if 'error' in response_json:
-                raise ValueError(f"{response_json['error']}")
-            chunks = [Chunk.from_json(chunk_json) for chunk_json in response_json['chunks']]
-            return chunks
+        chunks = []
+        for line in response.iter_lines():
+            if line:
+                data = json.loads(line)
+                if 'result' in data:
+                    chunk = Chunk(
+                        path=data['result']['source'],
+                        texts=[content['text'] for content in data['result']['content'] if content['type'] == 'text'],
+                        images=[Image.open(BytesIO(base64.b64decode(content['image_url'].split(',')[1]))) 
+                                for content in data['result']['content'] if content['type'] == 'image_url']
+                    )
+                    chunks.append(chunk)
+        return chunks
+
     # returns chunks of scraped content from any source (file, URL, etc.)
     extraction = []
     source_type = detect_source_type(filepath)
@@ -302,7 +314,7 @@ def ai_extract_webpage_content(url: str, text_only: bool = False, verbose: bool 
             {
                 "role": "user",
                 "content": [
-                    {"type": "image_url", "image_url": make_image_url(stacked_image)},
+                    {"type": "image_url", "image_url": make_image_url(stacked_image, host_images=HOST_IMAGES)},
                     {"type": "text", "text": EXTRACTION_PROMPT},
                 ]
             },
@@ -427,17 +439,49 @@ def parse_html_to_markdown(html_content):
         traverse_and_extract(body)
     return ''.join(markdown_content)
 
+# TODO: deprecate this in favor of Chunk.from_json or Chunk.from_message
+def create_chunk_from_data(result: Dict, host_images: bool) -> Chunk:
+    texts = [content['text'] for content in result['content'] if content['type'] == 'text']
+    
+    images = []
+    for content in result['content']:
+        if content['type'] == 'image_url':
+            if host_images:
+                # If images are hosted, we keep the URL as is
+                images.append(content['image_url'])
+            else:
+                # If images are not hosted, we decode the base64 string
+                image_data = content['image_url'].split(',')[1]
+                image = Image.open(BytesIO(base64.b64decode(image_data)))
+                images.append(image)
+    
+    return Chunk(
+        path=result['source'],
+        texts=texts,
+        images=images
+    )
+
 def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, verbose: bool = False, local: bool = False) -> List[Chunk]:
     if not local:
         response = requests.post(
             url=f"{HOST_URL}/scrape",
-            data={'url': url, 'ai_extraction': ai_extraction, 'text_only': text_only}
+            headers={"Authorization": f"Bearer {THEPIPE_API_KEY}"},
+            data={
+                'urls': [url],
+                'text_only': str(text_only).lower(),
+                'ai_extraction': str(ai_extraction).lower(),
+                'chunking_method': 'chunk_by_document'
+            }
         )
-        response_json = response.json()
-        if 'error' in response_json:
-            raise ValueError(f"{response_json['error']}")
-        chunks = [Chunk.from_json(chunk_json) for chunk_json in response_json['chunks']]
+        chunks = []
+        for line in response.iter_lines():
+            if line:
+                data = json.loads(line)
+                if 'result' in data:
+                    chunk = create_chunk_from_data(data['result'], host_images=HOST_IMAGES)
+                    chunks.append(chunk)
         return chunks
+    
     if any(url.startswith(domain) for domain in TWITTER_DOMAINS):
         extraction = scrape_tweet(url=url, text_only=text_only)
         return extraction
@@ -472,7 +516,7 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
         else:
             chunk = extract_page_content(url=url, text_only=text_only, verbose=verbose)
         return [chunk]
-    
+
 def format_timestamp(seconds, chunk_index, chunk_duration):
     # helper function to format the timestamp.
     total_seconds = chunk_index * chunk_duration + seconds

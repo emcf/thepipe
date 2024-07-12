@@ -49,6 +49,7 @@ jobs:
     - name: Test with unittest and generate coverage report
       env:
         THEPIPE_API_KEY: ${{ secrets.THEPIPE_API_KEY }}
+        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       run: |
         coverage run -m unittest discover
         coverage xml -i
