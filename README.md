@@ -38,14 +38,7 @@ thepi.pe can read a wide range of filetypes and web sources, so it requires a fe
 
 ### Hosted API (Python)
 
-> ⚠️ **Warning.**
-The docs and functionality in this repo differ significantly from the current working version on pip. To use a working version, please refer to the [API docs](https://thepi.pe/docs), and not these docs.
-
-```bash
-pip install thepipe-api
-setx THEPIPE_API_KEY=your_api_key
-setx OPENAI_API_KEY=your_openai_key
-```
+Please refer to the [API docs](https://thepi.pe/docs-platform) for setup instructions.
 
 ```python
 from thepipe.scraper import scrape_file
