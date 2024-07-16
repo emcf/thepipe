@@ -91,7 +91,7 @@ def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: st
             raise ValueError(f"Invalid JSON structure in LLM response: {llm_response}")
         
         if not multiple_extractions:
-            schema_keys = json.loads(schema).keys()
+            schema_keys = json.loads(schema).keys() if isinstance(schema, str) else schema.keys()
             for key in schema_keys:
                 if key not in response_dict:
                     response_dict[key] = None
@@ -161,7 +161,7 @@ def extract_from_url(
         }
         data = {
             'urls': [url],
-            'schema': schema,
+            'schema': json.dumps(schema),
             'ai_model': ai_model,
             'multiple_extractions': str(multiple_extractions).lower(),
             'extraction_prompt': extraction_prompt,
@@ -191,7 +191,7 @@ def extract_from_url(
                         extracted_data['extraction'] = result.get('extraction', [])
                     else:
                         extracted_data.update(result)
-                        schema_keys = json.loads(schema).keys()
+                        schema_keys = json.loads(schema).keys() if isinstance(schema, str) else schema.keys()
                         for key in schema_keys:
                             if key not in extracted_data:
                                 extracted_data[key] = None
@@ -222,7 +222,7 @@ def extract_from_file(
             "Authorization": f"Bearer {THEPIPE_API_KEY}"
         }
         data = {
-            'schema': schema,
+            'schema': json.dumps(schema),
             'ai_model': ai_model,
             'multiple_extractions': str(multiple_extractions).lower(),
             'extraction_prompt': extraction_prompt,
@@ -254,7 +254,7 @@ def extract_from_file(
                         extracted_data['extraction'] = result.get('extraction', [])
                     else:
                         extracted_data.update(result)
-                        schema_keys = json.loads(schema).keys()
+                        schema_keys = json.loads(schema).keys() if isinstance(schema, str) else schema.keys()
                         for key in schema_keys:
                             if key not in extracted_data:
                                 extracted_data[key] = None
