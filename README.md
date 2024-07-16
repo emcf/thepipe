@@ -42,6 +42,7 @@ For setup instructions, view the [docs](https://thepi.pe/docs-platform).
 
 ```python
 from thepipe.scraper import scrape_file
+from thepipe.core import chunks_to_messages
 from openai import OpenAI
 
 # scrape markdown, tables, visuals
@@ -51,7 +52,7 @@ chunks = scrape_file(filepath="paper.pdf")
 client = OpenAI()
 response = client.chat.completions.create(
     model="gpt-4o",
-    messages=thepipe.chunks_to_messages(chunks),
+    messages=chunks_to_messages(chunks),
 )
 ```
 
