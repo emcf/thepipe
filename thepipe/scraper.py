@@ -463,25 +463,25 @@ def create_chunk_from_data(result: Dict, host_images: bool) -> Chunk:
 
 def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, verbose: bool = False, local: bool = False) -> List[Chunk]:
     if not local:
-        response = requests.post(
-            url=f"{HOST_URL}/scrape",
-            headers={"Authorization": f"Bearer {THEPIPE_API_KEY}"},
-            data={
-                'urls': [url],
-                'text_only': str(text_only).lower(),
-                'ai_extraction': str(ai_extraction).lower(),
-                'chunking_method': 'chunk_by_document'
-            }
-        )
-        chunks = []
+        endpoint = f"{HOST_URL}/scrape"
+        headers = {
+            "Authorization": f"Bearer {THEPIPE_API_KEY}"
+        }
+        data = {
+            "text_only": str(text_only).lower(),
+            "ai_extraction": str(ai_extraction).lower(),
+            "chunking_method": "chunk_by_document"
+        }
+        data["urls"] = url
+        response = requests.post(endpoint, headers=headers, data=data, stream=True)
+        response.raise_for_status()
+        results = []
         for line in response.iter_lines():
             if line:
-                data = json.loads(line)
-                if 'result' in data:
-                    chunk = create_chunk_from_data(data['result'], host_images=HOST_IMAGES)
-                    chunks.append(chunk)
-        return chunks
-    
+                chunk_data = json.loads(line)
+                results.append(chunk_data['result'])
+        return results
+    # otherwise, visit the URL on local machine
     if any(url.startswith(domain) for domain in TWITTER_DOMAINS):
         extraction = scrape_tweet(url=url, text_only=text_only)
         return extraction

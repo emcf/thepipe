@@ -12,11 +12,11 @@
   <a href="https://raw.githubusercontent.com/emcf/thepipe/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license">
   </a>
-  <a href="https://thepi.pe/">
-    <img src="https://img.shields.io/website?url=https%3A%2F%2Fthepipe.up.railway.app%2F&label=API%20status" alt="Website">
+  <a href="https://www.pepy.tech/projects/thepipe-api">
+    <img src="https://static.pepy.tech/badge/thepipe-api" alt="PyPI">
   </a>
   <a href="https://thepi.pe/">
-    <img src="https://img.shields.io/badge/API-access-blue" alt="get API">
+    <img src="https://img.shields.io/website?url=https%3A%2F%2Fthepipe.up.railway.app%2F&label=API%20status" alt="Website">
   </a>
 </div>
 
