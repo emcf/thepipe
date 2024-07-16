@@ -36,9 +36,9 @@ thepi.pe is an API that can scrape multimodal data via `thepipe.scrape` or extra
 
 thepi.pe can read a wide range of filetypes and web sources, so it requires a few dependencies. It also requires a strong machine (16GB+ VRAM for optimal PDF & video response times) for AI extraction features. For these reasons, we host a REST API that works out-of-the-box at [thepi.pe](https://thepi.pe).
 
-### Hosted API (Python)
+For setup instructions, view the [docs](https://thepi.pe/docs-platform).
 
-Please refer to the [API docs](https://thepi.pe/docs-platform) for setup instructions.
+### Hosted API (Python)
 
 ```python
 from thepipe.scraper import scrape_file
@@ -60,7 +60,7 @@ response = client.chat.completions.create(
 For a local installation, you can use the following command:
 
 ```bash
-pip install thepipe-api[local]
+pip install -r https://raw.githubusercontent.com/emcf/thepipe/main/local.txt
 ```
 
 And append `local=True` to your API calls:
@@ -96,7 +96,7 @@ thepipe path/to/folder --include_regex .*\.tsx
 
 ## How it works 🛠️
 
-thepi.pe uses computer vision models and heuristics to extract clean content from the source and process it for downstream use with [language models](https://en.wikipedia.org/wiki/Large_language_model), or [vision transformers](https://en.wikipedia.org/wiki/Vision_transformer). The output from thepi.pe is a list of chunks containing all content within the source document. These chunks can easily be converted to a prompt format that is compatible with any LLM or multimodal model with `thepipe.chunks_to_messages`, which gives the following format:
+thepi.pe uses computer vision models and heuristics to extract clean content from the source and process it for downstream use with [language models](https://en.wikipedia.org/wiki/Large_language_model), or [vision transformers](https://en.wikipedia.org/wiki/Vision_transformer). The output from thepi.pe is a list of chunks containing all content within the source document. These chunks can easily be converted to a prompt format that is compatible with any LLM or multimodal model with `thepipe.core.chunks_to_messages`, which gives the following format:
 ```json
 [
   {
@@ -117,7 +117,7 @@ thepi.pe uses computer vision models and heuristics to extract clean content fro
 ]
 ```
 
-You can feed these messages directly into the model, or alternatively you can use `thepipe_api.chunk_by_document`, `thepipe_api.chunk_by_page`, `thepipe_api.chunk_by_section`, `thepipe_api.chunk_semantic` to chunk these messages for a vector database such as ChromaDB or a RAG framework. A chunk can be converted to LlamaIndex Document/ImageDocument with `.to_llamaindex`.
+You can feed these messages directly into the model, or alternatively you can use `chunker.chunk_by_document`, `chunker.chunk_by_page`, `chunker.chunk_by_section`, `chunker.chunk_semantic` to chunk these messages for a vector database such as ChromaDB or a RAG framework. A chunk can be converted to LlamaIndex Document/ImageDocument with `.to_llamaindex`.
 
 > ⚠️ **It is important to be mindful of your model's token limit.**
 GPT-4o does not work with too many images in the prompt (see discussion [here](https://community.openai.com/t/gpt-4-vision-maximum-amount-of-images/573110/6)). To remedy this issue, either use an LLM with a larger context window, extract larger documents with `text_only=True`, or embed the chunks into vector database.
