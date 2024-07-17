@@ -10,7 +10,7 @@ def read_git_requirements(file):
 
 setup(
     name='thepipe_api',
-    version='1.0.2',
+    version='1.1.0',
     author='Emmett McFarlane',
     author_email='emmett@thepi.pe',
     description='AI-native scraper for multimodal LLMs.',
@@ -23,7 +23,7 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
     ],
-    python_requires='>=3.10',
+    python_requires='>=3.9',
     install_requires=read_requirements('requirements.txt'),
     include_package_data=True,
     entry_points={

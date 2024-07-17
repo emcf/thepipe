@@ -45,8 +45,7 @@ def extract_json_from_response(llm_response: str) -> Optional[Dict]:
                 continue
         if valid_objects:
             return valid_objects if len(valid_objects) > 1 else valid_objects[0]
-    
-    print("Failed to extract valid JSON.")
+    print(f"[thepipe] Failed to extract valid JSON from LLM response: {llm_response}")
     return None
 
 def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: str, source: str, multiple_extractions: bool, extraction_prompt: str, host_images: bool) -> Tuple[Dict, int]:
@@ -127,7 +126,6 @@ def extract(chunks: List[Chunk], schema: Union[str, Dict], ai_model: str = 'goog
                 total_tokens_used += tokens_used
             except Exception as e:
                 chunk_index = future_to_chunk[future]
-                print(f"Chunk {chunk_index} generated an exception: {e}")
                 results.append({
                     "chunk_index": chunk_index,
                     "source": chunks[chunk_index].path,
@@ -153,7 +151,7 @@ def extract_from_url(
     if local:
         chunks = scrape_url(url, text_only=text_only, ai_extraction=ai_extraction, verbose=verbose, local=local)
         chunked_content = chunking_method(chunks)
-        return extract(chunked_content, schema, ai_model, multiple_extractions, extraction_prompt, host_images)
+        return extract(chunks=chunked_content, schema=schema, ai_model=ai_model, multiple_extractions=multiple_extractions, extraction_prompt=extraction_prompt, host_images=host_images)
     else:
         headers = {
             "Authorization": f"Bearer {THEPIPE_API_KEY}"
@@ -215,7 +213,7 @@ def extract_from_file(
     if local:
         chunks = scrape_file(file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
         chunked_content = chunking_method(chunks)
-        return extract(chunked_content, schema, ai_model, multiple_extractions, extraction_prompt, host_images)
+        return extract(chunks=chunked_content, schema=schema, ai_model=ai_model, multiple_extractions=multiple_extractions, extraction_prompt=extraction_prompt, host_images=host_images)
     else:
         headers = {
             "Authorization": f"Bearer {THEPIPE_API_KEY}"
