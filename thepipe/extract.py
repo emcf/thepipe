@@ -74,31 +74,30 @@ def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: st
         input_tokens = calculate_tokens([chunk])
         output_tokens = calculate_tokens([Chunk(texts=[llm_response])])
         tokens_used += input_tokens + output_tokens
-        
-        llm_response_dict = extract_json_from_response(llm_response)
-        if llm_response_dict:
-            if multiple_extractions:
-                if isinstance(llm_response_dict, dict) and "extraction" in llm_response_dict:
-                    response_dict["extraction"] = llm_response_dict["extraction"]
+        try:
+            llm_response_dict = extract_json_from_response(llm_response)
+            if llm_response_dict:
+                if multiple_extractions:
+                    if isinstance(llm_response_dict, dict) and "extraction" in llm_response_dict:
+                        response_dict["extraction"] = llm_response_dict["extraction"]
+                    else:
+                        response_dict["extraction"] = [llm_response_dict]
                 else:
-                    response_dict["extraction"] = [llm_response_dict]
+                    if isinstance(llm_response_dict, dict):
+                        response_dict.update(llm_response_dict)
+                    else:
+                        response_dict["error"] = f"Invalid JSON structure in LLM response: {llm_response_dict}"
             else:
-                if isinstance(llm_response_dict, dict):
-                    response_dict.update(llm_response_dict)
-                else:
-                    raise ValueError(f"Invalid JSON type in LLM response: {llm_response_dict}")
-        else:
-            raise ValueError(f"Invalid JSON structure in LLM response: {llm_response}")
-        
+                response_dict["error"] = f"Failed to extract valid JSON from LLM response: {llm_response}"
+        except Exception as e:
+            response_dict["error"] = f"Error processing LLM response: {e}"
         if not multiple_extractions:
             schema_keys = json.loads(schema).keys() if isinstance(schema, str) else schema.keys()
             for key in schema_keys:
                 if key not in response_dict:
                     response_dict[key] = None
     except Exception as e:
-        print(f"Error extracting from chunk {chunk_index}: {e}")
-        response_dict["error"] = str(e)
-    
+        response_dict = {"chunk_index": chunk_index, "source": source, "error": str(e)}
     return response_dict, tokens_used
 
 def extract(chunks: List[Chunk], schema: Union[str, Dict], ai_model: str = 'google/gemma-2-9b-it', multiple_extractions: bool = False, extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT, host_images: bool = False) -> Tuple[List[Dict], int]:

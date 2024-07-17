@@ -262,9 +262,9 @@ def ai_extract_webpage_content(url: str, text_only: bool = False, verbose: bool 
     import modal
     from openai import OpenAI
 
-    app_name = "scrape-ui"
-    function_name = "get_ui_layout_preds"
-    fn = modal.Function.lookup(app_name, function_name)
+    #app_name = "scrape-ui"
+    #function_name = "get_ui_layout_preds"
+    #fn = modal.Function.lookup(app_name, function_name)
     
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -302,7 +302,7 @@ def ai_extract_webpage_content(url: str, text_only: bool = False, verbose: bool 
             y_offset += img.height
 
         # Process the stacked image with the UI model
-        figures = fn.remote(stacked_image)
+        #figures = fn.remote(stacked_image)
 
         # Process the stacked image with VLM
         openrouter_client = OpenAI(
@@ -325,7 +325,7 @@ def ai_extract_webpage_content(url: str, text_only: bool = False, verbose: bool 
             temperature=0.2
         )
         llm_response = response.choices[0].message.content
-        chunk = Chunk(path=url, texts=[llm_response], images=figures)
+        chunk = Chunk(path=url, texts=[llm_response], images=[stacked_image])
     else:
         raise ValueError("Model received 0 images from webpage")
 
