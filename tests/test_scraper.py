@@ -118,18 +118,20 @@ class test_scraper(unittest.TestCase):
         self.assertTrue(len(chunks[0].texts) > 0)
         self.assertTrue(len(chunks[0].images) > 0)
     
-    def test_scrape_youtube(self):
-        chunks = scraper.scrape_url("https://www.youtube.com/watch?v=So7TNRhIYJ8", local=True)
-        # verify it scraped the youtube video into chunks
-        self.assertEqual(type(chunks), list)
-        self.assertNotEqual(len(chunks), 0)
-        self.assertEqual(type(chunks[0]), core.Chunk)
-        # verify it scraped visual data
-        self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
-        # verify it scraped text data
-        self.assertTrue(any(len(chunk.texts) > 0 for chunk in chunks))
-        # verify it transcribed the audio correctly, i.e., 'citizens' is in the scraped text
-        self.assertTrue(any('graphics card' in chunk.texts[0].lower() for chunk in chunks if chunk.texts is not None))
+    # unable to run on github actions due to https://github.com/pytube/pytube/issues/399
+    # uncomment with corresponding header fixes to run locally
+    #def test_scrape_youtube(self):
+    #    chunks = scraper.scrape_url("https://www.youtube.com/watch?v=So7TNRhIYJ8", local=True)
+    #    # verify it scraped the youtube video into chunks
+    #    self.assertEqual(type(chunks), list)
+    #    self.assertNotEqual(len(chunks), 0)
+    #    self.assertEqual(type(chunks[0]), core.Chunk)
+    #    # verify it scraped visual data
+    #    self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
+    #    # verify it scraped text data
+    #    self.assertTrue(any(len(chunk.texts) > 0 for chunk in chunks))
+    #    # verify it transcribed the audio correctly, i.e., 'citizens' is in the scraped text
+    #    self.assertTrue(any('graphics card' in chunk.texts[0].lower() for chunk in chunks if chunk.texts is not None))
 
     def test_scrape_url(self):
         # verify web page scrape result
