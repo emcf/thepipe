@@ -91,7 +91,7 @@ thepipe path/to/folder --include_regex .*\.tsx
 | Image                    | `.jpg`, `.jpeg`, `.png`                                    | ✔️                  | Uses pytesseract for OCR in text-only mode |
 | ZIP File                 | `.zip`                                                          | ✔️                  | Extracts and processes contained files |
 | Directory                | any `path/to/folder`                                            | ✔️                  | Recursively processes all files in directory |
-| YouTube Video            | YouTube video URLs starting with `https://youtube.com` or `https://www.youtube.com`.  | ✔️   | Uses pytube for video download and Whisper for transcription. For consistent extraction, you may need to modify your `pytube` installation to send a valid user agent header (see [this issue](https://github.com/pytube/pytube/issues/399)). |
+| YouTube Video (known issues)    | YouTube video URLs starting with `https://youtube.com` or `https://www.youtube.com`.  | ✔️   | Uses pytube for video download and Whisper for transcription. For consistent extraction, you may need to modify your `pytube` installation to send a valid user agent header (see [this issue](https://github.com/pytube/pytube/issues/399)). |
 | Tweet                    | URLs starting with `https://twitter.com` or `https://x.com`    | ✔️                  | Uses unofficial API, may break unexpectedly |
 | GitHub Repository        | GitHub repo URLs starting with `https://github.com` or `https://www.github.com` | ✔️       | Requires GITHUB_TOKEN environment variable |
 
