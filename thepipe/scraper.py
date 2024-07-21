@@ -149,7 +149,7 @@ def scrape_zip(file_path: str, include_regex: Optional[str] = None, verbose: boo
 def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
     chunks = []
     BATCH_SIZE = 16
-    MAX_PAGES = 100
+    MAX_PAGES = 128
 
     if ai_extraction:
         # if using AI extraction, for each page, generate markdown and cropped figures
