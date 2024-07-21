@@ -65,7 +65,7 @@ response = client.chat.completions.create(
 For a local installation, you can use the following command:
 
 ```bash
-pip install -r thepipe-api[local]
+pip install thepipe-api[local]
 ```
 
 And append `local=True` to your API calls:
