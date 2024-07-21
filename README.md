@@ -36,7 +36,11 @@ thepi.pe is an API that can scrape multimodal data via `thepipe.scrape` or extra
 
 thepi.pe can read a wide range of filetypes and web sources, so it requires a few dependencies. It also requires a strong machine (16GB+ VRAM for optimal PDF & video response times) for AI extraction features. For these reasons, we host a REST API that works out-of-the-box at [thepi.pe](https://thepi.pe).
 
-For setup instructions, view the [docs](https://thepi.pe/docs-platform).
+For detailed setup instructions, view the [docs](https://thepi.pe/docs-platform).
+
+```bash
+pip install thepipe-api
+```
 
 ### Hosted API (Python)
 
@@ -61,7 +65,7 @@ response = client.chat.completions.create(
 For a local installation, you can use the following command:
 
 ```bash
-pip install -r https://raw.githubusercontent.com/emcf/thepipe/main/local.txt
+pip install -r thepipe-api[local]
 ```
 
 And append `local=True` to your API calls:

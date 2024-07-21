@@ -27,13 +27,14 @@ FOLDERS_TO_IGNORE = ['*node_modules.*', '.*venv.*', '.*\.git.*', '.*\.vscode.*',
 FILES_TO_IGNORE = ['package-lock.json', '.gitignore', '.*\.bin', '.*\.pyc', '.*\.pyo', '.*\.exe', '.*\.dll', '.*\.ipynb_checkpoints']
 GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", None)
 USER_AGENT_STRING: str = os.getenv("USER_AGENT_STRING", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")
-MAX_WHISPER_DURATION = 1200 # 20 minutes
+MAX_WHISPER_DURATION = 600 # 10 minutes
 TWITTER_DOMAINS = ['https://twitter.com', 'https://www.twitter.com', 'https://x.com', 'https://www.x.com']
 YOUTUBE_DOMAINS = ['https://www.youtube.com', 'https://youtube.com']
 GITHUB_DOMAINS = ['https://github.com', 'https://www.github.com']
-EXTRACTION_PROMPT = """Output the entire extracted text from the document in detailed markdown format.
-Be sure to correctly format markdown for headers, paragraphs, lists, tables, menus, full text contents, etc.
+EXTRACTION_PROMPT = """An open source document is given. Output the entire extracted contents from the document in detailed markdown format.
+Be sure to correctly format markdown for headers, paragraphs, lists, tables, menus, equations, full text contents, etc.
 Always reply immediately with only markdown. Do not output anything else."""
+DEFAULT_VLM = "openai/gpt-4o-mini"
 FILESIZE_LIMIT_MB = 50
 
 def detect_source_type(source: str) -> str:
@@ -146,17 +147,15 @@ def scrape_zip(file_path: str, include_regex: Optional[str] = None, verbose: boo
         chunks = scrape_directory(dir_path=temp_dir, include_regex=include_regex, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local)
     return chunks
 
-def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
+def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False) -> List[Chunk]:    
     chunks = []
-    BATCH_SIZE = 16
     MAX_PAGES = 128
 
     if ai_extraction:
-        # if using AI extraction, for each page, generate markdown and cropped figures
-        import fitz
-        import modal
+        from collections import OrderedDict
         import concurrent.futures
-        import math
+        import fitz
+        from openai import OpenAI
 
         with open(file_path, "rb") as f:
             pdf_bytes = f.read()
@@ -164,49 +163,55 @@ def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = Fa
             num_pages = len(doc)
 
             if num_pages > MAX_PAGES:
-                return f"Error: PDF has {num_pages} pages (max is {MAX_PAGES} for AI extaction)."
+                return f"Error: PDF has {num_pages} pages (max is {MAX_PAGES} for AI extraction)."
 
-            images = []
-            for page_num in range(num_pages):
+            openrouter_client = OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=os.environ["OPENROUTER_API_KEY"],
+            )
+
+            def process_page(page_num):
                 page = doc[page_num]
+                text = page.get_text()
                 pix = page.get_pixmap()
                 image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                img_byte_arr = io.BytesIO()
-                image.save(img_byte_arr, format='PNG')
-                images.append(img_byte_arr.getvalue())
 
-            app_name = "scrape-pdf"
-            function_name = "get_nougat_and_layout_preds_per_page"
-            fn = modal.Function.lookup(app_name, function_name)
-
-            chunks = []
-            num_batches = math.ceil(len(images) / BATCH_SIZE)
+                messages = [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image_url", "image_url": make_image_url(image, host_images=HOST_IMAGES)},
+                            {"type": "text", "text": f"```{text}```\n{EXTRACTION_PROMPT}"},
+                        ]
+                    },
+                ]
+                response = openrouter_client.chat.completions.create(
+                    model=DEFAULT_VLM,
+                    messages=messages,
+                    temperature=0.2
+                )
+                try:
+                    llm_response = response.choices[0].message.content
+                    markdown_match = re.search(r"```markdown(.*?)```", llm_response, re.DOTALL)
+                    if markdown_match:
+                        llm_response = markdown_match.group(1).strip()
+                    return page_num, llm_response, image
+                except Exception as e:
+                    raise ValueError(f"{e} (unable to read LLM response: {response})")
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                futures = []
-                for batch_idx in range(num_batches):
-                    start_idx = batch_idx * BATCH_SIZE
-                    end_idx = min((batch_idx + 1) * BATCH_SIZE, len(images))
-                    batch_images = images[start_idx:end_idx]
-                    future = executor.submit(fn.remote, batch_images)
-                    futures.append(future)
+                futures = [executor.submit(process_page, page_num) for page_num in range(num_pages)]
+                page_results = OrderedDict()
+                for future in concurrent.futures.as_completed(futures):
+                    page_num, llm_response, image = future.result()
+                    page_results[page_num] = (llm_response, image)
 
-                for batch_idx, future in enumerate(concurrent.futures.as_completed(futures)):
-                    start_idx = batch_idx * BATCH_SIZE
-                    end_idx = min((batch_idx + 1) * BATCH_SIZE, len(images))
-                    results = future.result()
+            chunks = []
+            for page_num in sorted(page_results.keys()):
+                llm_response, image = page_results[page_num]
+                chunks.append(Chunk(path=file_path, texts=[llm_response], images=[image]))
 
-                    for i, result in enumerate(results):
-                        texts = result['texts']
-                        # nougat often outputs many newlines
-                        for text in texts:
-                            # remove excessive newlines
-                            text = re.sub(r'\n{3,}', '\n\n', text)
-                            text = text.strip()
-                        figures = result['figures']
-                        chunks.append(Chunk(path=file_path, texts=texts, images=figures))
-
-        return chunks
+            return chunks
     else:
         # if not using AI extraction, for each page, extract markdown and (optionally) full page images
         import fitz
@@ -345,7 +350,7 @@ def ai_extract_webpage_content(url: str, text_only: bool = False, verbose: bool 
             },
         ]
         response = openrouter_client.chat.completions.create(
-            model="google/gemini-flash-1.5",
+            model=DEFAULT_VLM,
             messages=messages,
             temperature=0.2
         )
