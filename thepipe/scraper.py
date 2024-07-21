@@ -148,39 +148,64 @@ def scrape_zip(file_path: str, include_regex: Optional[str] = None, verbose: boo
 
 def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
     chunks = []
+    BATCH_SIZE = 16
+    MAX_PAGES = 100
+
     if ai_extraction:
         # if using AI extraction, for each page, generate markdown and cropped figures
         import fitz
         import modal
+        import concurrent.futures
+        import math
+
         with open(file_path, "rb") as f:
             pdf_bytes = f.read()
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            num_pages = len(doc)
+
+            if num_pages > MAX_PAGES:
+                return f"Error: PDF has {num_pages} pages (max is {MAX_PAGES} for AI extaction)."
+
             images = []
-    
-            for page_num in range(len(doc)):
+            for page_num in range(num_pages):
                 page = doc[page_num]
                 pix = page.get_pixmap()
                 image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                 img_byte_arr = io.BytesIO()
                 image.save(img_byte_arr, format='PNG')
                 images.append(img_byte_arr.getvalue())
-    
+
             app_name = "scrape-pdf"
             function_name = "get_nougat_and_layout_preds_per_page"
             fn = modal.Function.lookup(app_name, function_name)
-            results = fn.remote(images)
-            
+
             chunks = []
-            for i, result in enumerate(results):
-                texts = result['texts']
-                # nougat often outputs many newlines
-                for text in texts:
-                    # remove excessive newlines
-                    text = re.sub(r'\n{3,}', '\n\n', text)
-                    text = text.strip()
-                figures = result['figures']
-                chunks.append(Chunk(path=file_path, texts=texts, images=figures))
-        
+            num_batches = math.ceil(len(images) / BATCH_SIZE)
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = []
+                for batch_idx in range(num_batches):
+                    start_idx = batch_idx * BATCH_SIZE
+                    end_idx = min((batch_idx + 1) * BATCH_SIZE, len(images))
+                    batch_images = images[start_idx:end_idx]
+                    future = executor.submit(fn.remote, batch_images)
+                    futures.append(future)
+
+                for batch_idx, future in enumerate(concurrent.futures.as_completed(futures)):
+                    start_idx = batch_idx * BATCH_SIZE
+                    end_idx = min((batch_idx + 1) * BATCH_SIZE, len(images))
+                    results = future.result()
+
+                    for i, result in enumerate(results):
+                        texts = result['texts']
+                        # nougat often outputs many newlines
+                        for text in texts:
+                            # remove excessive newlines
+                            text = re.sub(r'\n{3,}', '\n\n', text)
+                            text = text.strip()
+                        figures = result['figures']
+                        chunks.append(Chunk(path=file_path, texts=texts, images=figures))
+
         return chunks
     else:
         # if not using AI extraction, for each page, extract markdown and (optionally) full page images
