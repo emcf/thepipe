@@ -209,7 +209,7 @@ def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = Fa
             chunks = []
             for page_num in sorted(page_results.keys()):
                 llm_response, image = page_results[page_num]
-                chunks.append(Chunk(path=file_path, texts=[llm_response], images=[image]))
+                chunks.append(Chunk(path=file_path, texts=[llm_response], images=[] if text_only else [image]))
 
             return chunks
     else:
