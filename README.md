@@ -22,7 +22,7 @@
 
 ### Extract markdown and visuals from PDFs URLs, slides, videos, and more, ready for multimodal LLMs. ⚡
 
-thepi.pe is an API that can scrape multimodal data via `thepipe.scrape` or extract structured data via `thepipe.extract` from a wide range of sources. It is built to interface with vision-language models such as GPT-4o, and works out-of-the-box with any LLM or vector database. It can be used right away with a [hosted GPU cloud](https://thepi.pe), or it can be self-hosted.
+thepi.pe is an API that can scrape multimodal data via `thepipe.scrape` or extract structured data via `thepipe.extract` from a wide range of sources. It is built to interface with vision-language models such as GPT-4o, and works out-of-the-box with any LLM or vector database. It can be used right away with a [hosted cloud](https://thepi.pe), or it can be run locally.
 
 ## Features 🌟
 
@@ -34,9 +34,9 @@ thepi.pe is an API that can scrape multimodal data via `thepipe.scrape` or extra
 
 ## Get started in 5 minutes  🚀
 
-thepi.pe can read a wide range of filetypes and web sources, so it requires a few dependencies. It also requires a strong machine (16GB+ VRAM for optimal PDF & video response times) for AI extraction features. For these reasons, we host a REST API that works out-of-the-box at [thepi.pe](https://thepi.pe).
+thepi.pe can read a wide range of filetypes and web sources, so it requires a few dependencies. It also requires vision-language model inference for AI extraction features. For these reasons, we host an API that works out-of-the-box at [thepi.pe](https://thepi.pe).
 
-For detailed setup instructions, view the [docs](https://thepi.pe/docs-platform).
+For more detailed setup instructions, view the [docs](https://thepi.pe/docs-platform).
 
 ```bash
 pip install thepipe-api
