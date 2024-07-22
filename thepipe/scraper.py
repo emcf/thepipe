@@ -34,7 +34,7 @@ GITHUB_DOMAINS = ['https://github.com', 'https://www.github.com']
 EXTRACTION_PROMPT = """An open source document is given. Output the entire extracted contents from the document in detailed markdown format.
 Be sure to correctly format markdown for headers, paragraphs, lists, tables, menus, equations, full text contents, etc.
 Always reply immediately with only markdown. Do not output anything else."""
-DEFAULT_VLM = "openai/gpt-4o-mini"
+DEFAULT_VLM = "openai/gpt-4o-mini" # environment variable will override this
 FILESIZE_LIMIT_MB = 50
 
 def detect_source_type(source: str) -> str:
@@ -166,7 +166,7 @@ def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = Fa
                 return f"Error: PDF has {num_pages} pages (max is {MAX_PAGES} for AI extraction)."
 
             openrouter_client = OpenAI(
-                base_url="https://openrouter.ai/api/v1",
+                base_url=os.environ.get("OPENROUTER_BASE_URL", "https://api.openai.com/v1/"),
                 api_key=os.environ["OPENROUTER_API_KEY"],
             )
 
@@ -186,7 +186,7 @@ def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = Fa
                     },
                 ]
                 response = openrouter_client.chat.completions.create(
-                    model=DEFAULT_VLM,
+                    model=os.environ.get("DEFAULT_VLM", DEFAULT_VLM),
                     messages=messages,
                     temperature=0.2
                 )
@@ -336,7 +336,7 @@ def ai_extract_webpage_content(url: str, text_only: bool = False, verbose: bool 
 
         # Process the stacked image with VLM
         openrouter_client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
+            base_url=os.environ["OPENROUTER_BASE_URL"],
             api_key=os.environ["OPENROUTER_API_KEY"],
         )
 
@@ -350,7 +350,7 @@ def ai_extract_webpage_content(url: str, text_only: bool = False, verbose: bool 
             },
         ]
         response = openrouter_client.chat.completions.create(
-            model=DEFAULT_VLM,
+            model=os.environ.get("DEFAULT_VLM", DEFAULT_VLM),
             messages=messages,
             temperature=0.2
         )

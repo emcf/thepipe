@@ -16,7 +16,7 @@
     <img src="https://static.pepy.tech/badge/thepipe-api" alt="PyPI">
   </a>
   <a href="https://thepi.pe/">
-    <img src="https://img.shields.io/website?url=https%3A%2F%2Fthepipe.up.railway.app%2F&label=API%20status" alt="Website">
+    <img src="https://img.shields.io/website?url=https%3A%2F%2Fthepipe-api.up.railway.app%2F&label=API%20status" alt="Website">
   </a>
 </div>
 
@@ -68,22 +68,31 @@ For a local installation, you can use the following command:
 pip install thepipe-api[local]
 ```
 
-And append `local=True` to your API calls:
+You must have a local LLM server setup and running for AI extraction features. You can use [LiteLLM](https://github.com/BerriAI/litellm) to run your local LLM server. Then, set the `OPENROUTER_BASE_URL` environment variable to your LLM server's endpoint URL and set `OPENROUTER_API_KEY` to the API key for your LLM of choice. the `DEFAULT_VLM` environment variable can be set to the model name of your LLM, such as `openai/gpt-4o-mini` if you are using OpenRouter or `gpt-4o-mini` if using the OpenAI API. 
+
+For full functionality with media-rich sources, you will need to install the following dependencies:
+
+```bash
+apt-get update && apt-get install -y git ffmpeg tesseract-ocr
+python -m playwright install --with-deps chromium
+```
+
+When using thepi.pe, be sure to append `local=True` to your function calls:
 
 ```python
 chunks = scrape_url(url="https://example.com", local=True)
 ```
 
-You can also use The Pipe from the command line:
+You can also use thepi.pe from the command line:
 ```bash
-thepipe path/to/folder --include_regex .*\.tsx
+thepipe path/to/folder --include_regex .*\.tsx --local
 ```
 
 ## Supported File Types 📚
 
 | Source              | Input types                                                    | Multimodal | Notes |
 |--------------------------|----------------------------------------------------------------|---------------------|----------------------|
-| Webpage                  | URLs starting with `http`, `https`, `ftp`                      | ✔️                  | Scrapes markdown, images, and tables from web pages. `ai_extraction` available for AI layout analysis |
+| Webpage                  | URLs starting with `http`, `https`, `ftp`                      | ✔️                  | Scrapes markdown, images, and tables from web pages. `ai_extraction` available for AI content extraction from the webpage's screenshot |
 | PDF                      | `.pdf`                                                          | ✔️                  | Extracts page markdown and page images. `ai_extraction` available for AI layout analysis |
 | Word Document  | `.docx`                                                         | ✔️                  | Extracts text, tables, and images |
 | PowerPoint     | `.pptx`                                                         | ✔️                  | Extracts text and images from slides |
