@@ -31,11 +31,11 @@ MAX_WHISPER_DURATION = 600 # 10 minutes
 TWITTER_DOMAINS = ['https://twitter.com', 'https://www.twitter.com', 'https://x.com', 'https://www.x.com']
 YOUTUBE_DOMAINS = ['https://www.youtube.com', 'https://youtube.com']
 GITHUB_DOMAINS = ['https://github.com', 'https://www.github.com']
-EXTRACTION_PROMPT = """An open source document is given. Output the entire extracted contents from the document in detailed markdown format.
+EXTRACTION_PROMPT = os.getenv("EXTRACTION_PROMPT", """An open source document is given. Output the entire extracted contents from the document in detailed markdown format.
 Be sure to correctly format markdown for headers, paragraphs, lists, tables, menus, equations, full text contents, etc.
-Always reply immediately with only markdown. Do not output anything else."""
-DEFAULT_VLM = "openai/gpt-4o-mini" # environment variable will override this
-FILESIZE_LIMIT_MB = 50
+Always reply immediately with only markdown. Do not output anything else.""")
+DEFAULT_VLM = os.getenv("DEFAULT_VLM", "gpt-4o-mini")
+FILESIZE_LIMIT_MB = os.getenv("FILESIZE_LIMIT_MB", 50)
 
 def detect_source_type(source: str) -> str:
     # otherwise, try to detect the file type by its extension
@@ -186,7 +186,7 @@ def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = Fa
                     },
                 ]
                 response = openrouter_client.chat.completions.create(
-                    model=os.environ.get("DEFAULT_VLM", DEFAULT_VLM),
+                    model=DEFAULT_VLM,
                     messages=messages,
                     temperature=0.2
                 )
@@ -350,7 +350,7 @@ def ai_extract_webpage_content(url: str, text_only: bool = False, verbose: bool 
             },
         ]
         response = openrouter_client.chat.completions.create(
-            model=os.environ.get("DEFAULT_VLM", DEFAULT_VLM),
+            model=DEFAULT_VLM,
             messages=messages,
             temperature=0.2
         )
