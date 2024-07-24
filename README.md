@@ -28,7 +28,7 @@ thepi.pe is an API that can scrape multimodal data via `thepipe.scrape` or extra
 
 - Extract markdown, tables, and images from any document or webpage
 - Extract complex structured data from any document or webpage
-- Works out-of-the-box with all LLMs and RAG frameworks
+- Works out-of-the-box with LLMs, vector databases, and RAG frameworks
 - AI-native filetype detection, layout analysis, and structured data extraction
 - Multimodal scraping for video, audio, and image sources
 
@@ -68,7 +68,7 @@ For a local installation, you can use the following command:
 pip install thepipe-api[local]
 ```
 
-You must have a local LLM server setup and running for AI extraction features. You can use [LiteLLM](https://github.com/BerriAI/litellm) to run your local LLM server. Then, set the `OPENROUTER_BASE_URL` environment variable to your LLM server's endpoint URL and set `OPENROUTER_API_KEY` to the API key for your LLM of choice. the `DEFAULT_VLM` environment variable can be set to the model name of your LLM, such as `openai/gpt-4o-mini` if you are using OpenRouter or `gpt-4o-mini` if using the OpenAI API. 
+You must have a local LLM server setup and running for AI extraction features. You can use [LiteLLM](https://github.com/BerriAI/litellm) to run your local LLM server. Then, set the `LLM_SERVER_BASE_URL` environment variable to your LLM server's endpoint URL and set `LLM_SERVER_API_KEY` to the API key for your LLM of choice. the `DEFAULT_VLM` environment variable can be set to the model name of your LLM, such as `openai/gpt-4o-mini` if you are using OpenRouter or `gpt-4o-mini` if using the OpenAI API. 
 
 For full functionality with media-rich sources, you will need to install the following dependencies:
 
@@ -140,4 +140,4 @@ GPT-4o does not work with too many images in the prompt (see discussion [here](h
 
 <a href="https://cal.com/emmett-mcf/30min"><img alt="Book us with Cal.com" src="https://cal.com/book-with-cal-dark.svg" /></a>
 
-Thank you to [Cal.com](https://cal.com/) for sponsoring this project. Contact emmett@thepi.pe for sponsorship information.
+Thank you to [Cal.com](https://cal.com/) for sponsoring this project.

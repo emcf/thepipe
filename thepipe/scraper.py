@@ -166,8 +166,8 @@ def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = Fa
                 return f"Error: PDF has {num_pages} pages (max is {MAX_PAGES} for AI extraction)."
 
             openrouter_client = OpenAI(
-                base_url=os.environ.get("OPENROUTER_BASE_URL", "https://api.openai.com/v1/"),
-                api_key=os.environ["OPENROUTER_API_KEY"],
+                base_url=os.environ.get("LLM_SERVER_BASE_URL"),
+                api_key=os.environ["LLM_SERVER_API_KEY"],
             )
 
             def process_page(page_num):
@@ -336,8 +336,8 @@ def ai_extract_webpage_content(url: str, text_only: bool = False, verbose: bool 
 
         # Process the stacked image with VLM
         openrouter_client = OpenAI(
-            base_url=os.environ["OPENROUTER_BASE_URL"],
-            api_key=os.environ["OPENROUTER_API_KEY"],
+            base_url=os.environ["LLM_SERVER_BASE_URL"],
+            api_key=os.environ["LLM_SERVER_API_KEY"],
         )
 
         messages = [

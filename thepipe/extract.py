@@ -53,8 +53,8 @@ def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: st
     tokens_used = 0
     try:
         openrouter_client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=os.environ["OPENROUTER_API_KEY"],
+            base_url=os.environ["LLM_SERVER_BASE_URL"],
+            api_key=os.environ["LLM_SERVER_API_KEY"],
         )
         messages = [
             chunk.to_message(host_images=host_images),
