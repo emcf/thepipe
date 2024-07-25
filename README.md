@@ -68,7 +68,7 @@ For a local installation, you can use the following command:
 pip install thepipe-api[local]
 ```
 
-You must have a local LLM server setup and running for AI extraction features. You can use [LiteLLM](https://github.com/BerriAI/litellm) to run your local LLM server. Then, set the `LLM_SERVER_BASE_URL` environment variable to your LLM server's endpoint URL and set `LLM_SERVER_API_KEY` to the API key for your LLM of choice. the `DEFAULT_VLM` environment variable can be set to the model name of your LLM, such as `openai/gpt-4o-mini` if you are using OpenRouter or `gpt-4o-mini` if using the OpenAI API. 
+You must have a local LLM server setup and running for AI extraction features. You can use any local LLM server that follows OpenAI format (such as [LiteLLM](https://github.com/BerriAI/litellm) or [OpenRouter](https://openrouter.ai/)). Next, set the `LLM_SERVER_BASE_URL` environment variable to your LLM server's endpoint URL and set `LLM_SERVER_API_KEY` to the API key for your LLM of choice. the `DEFAULT_VLM` environment variable can be set to the model name of your LLM. For example, you may use `openai/gpt-4o-mini` if using OpenRouter or `gpt-4o-mini` if using OpenAI. 
 
 For full functionality with media-rich sources, you will need to install the following dependencies:
 
