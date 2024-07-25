@@ -13,7 +13,7 @@ setup(
     version='1.1.9',
     author='Emmett McFarlane',
     author_email='emmett@thepi.pe',
-    description='AI-native scraper for multimodal LLMs.',
+    description='AI-native extractor, powered by multimodal LLMs.',
     long_description=open('README.md', encoding='utf-8').read(),
     long_description_content_type='text/markdown',
     url='https://github.com/emcf/thepipe',
