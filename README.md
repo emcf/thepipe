@@ -50,7 +50,7 @@ from thepipe.core import chunks_to_messages
 from openai import OpenAI
 
 # scrape markdown, tables, visuals
-chunks = scrape_file(filepath="paper.pdf")
+chunks = scrape_file(filepath="paper.pdf", ai_extraction=True)
 
 # call LLM with clean, comprehensive data
 client = OpenAI()
