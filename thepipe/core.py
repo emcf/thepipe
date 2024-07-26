@@ -30,6 +30,8 @@ class Chunk:
             return [Document(text=document_text)]
         
     def to_message(self, host_images: bool = False, max_resolution: Optional[int] = None) -> Dict:
+        message_text = ""
+
         message = {"role": "user", "content": []}
         image_urls = [make_image_url(image, host_images, max_resolution) for image in self.images]
         
