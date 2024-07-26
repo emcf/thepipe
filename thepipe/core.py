@@ -34,7 +34,6 @@ class Chunk:
         image_urls = [make_image_url(image, host_images, max_resolution) for image in self.images]
         
         if self.texts:
-            message_text = "\n\n"
             img_index = 0
             
             for text in self.texts:
@@ -54,6 +53,10 @@ class Chunk:
 
             # clean up, add to message
             message_text = re.sub(r'\n{3,}', '\n\n', message_text).strip()
+
+            # Wrap the text in a path html block if it exists
+            if self.path:
+                message_text = f'<Document path="{self.path}">\n{message_text}\n</Document>'
             message["content"].append({"type": "text", "text": message_text})
         
         # Add remaining images that weren't referenced in the text
