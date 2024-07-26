@@ -4,7 +4,7 @@ from io import BytesIO
 import io
 import math
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 import glob
 import os
 import tempfile
@@ -14,6 +14,7 @@ from PIL import Image
 import requests
 import json
 from .core import HOST_URL, THEPIPE_API_KEY, HOST_IMAGES, Chunk, make_image_url
+from .chunker import chunk_by_page
 import tempfile
 import mimetypes
 import dotenv
@@ -54,7 +55,7 @@ def detect_source_type(source: str) -> str:
     mimetype = result.output.mime_type
     return mimetype
 
-def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False, local: bool = False) -> List[Chunk]:
+def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False, local: bool = False, chunking_method: Optional[Callable] = chunk_by_page) -> List[Chunk]:
     if not local:
         with open(filepath, 'rb') as f:
             response = requests.post(
@@ -64,7 +65,7 @@ def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = Fa
                 data={
                     'text_only': str(text_only).lower(),
                     'ai_extraction': str(ai_extraction).lower(),
-                    'chunking_method': 'chunk_by_document'
+                    'chunking_method': chunking_method.__name__
                 }
             )
         chunks = []
@@ -82,46 +83,47 @@ def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = Fa
         return chunks
 
     # returns chunks of scraped content from any source (file, URL, etc.)
-    extraction = []
+    scraped_chunks = []
     source_type = detect_source_type(filepath)
     if source_type is None:
         if verbose:
             print(f"[thepipe] Unsupported source type: {filepath}")
-        return extraction
+        return scraped_chunks
     if verbose: 
         print(f"[thepipe] Scraping {source_type}: {filepath}...")
     if source_type == 'application/pdf':
-        extraction = scrape_pdf(file_path=filepath, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
+        scraped_chunks = scrape_pdf(file_path=filepath, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
     elif source_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-        extraction = scrape_docx(file_path=filepath, verbose=verbose, text_only=text_only)
+        scraped_chunks = scrape_docx(file_path=filepath, verbose=verbose, text_only=text_only)
     elif source_type == 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
-        extraction = scrape_pptx(file_path=filepath, verbose=verbose, text_only=text_only)
+        scraped_chunks = scrape_pptx(file_path=filepath, verbose=verbose, text_only=text_only)
     elif source_type.startswith('image/'):
-        extraction = scrape_image(file_path=filepath, text_only=text_only)
+        scraped_chunks = scrape_image(file_path=filepath, text_only=text_only)
     elif source_type.startswith('application/vnd.ms-excel') or source_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-        extraction = scrape_spreadsheet(file_path=filepath, source_type=source_type)
+        scraped_chunks = scrape_spreadsheet(file_path=filepath, source_type=source_type)
     elif source_type == 'application/x-ipynb+json':
-        extraction = scrape_ipynb(file_path=filepath, verbose=verbose, text_only=text_only)
+        scraped_chunks = scrape_ipynb(file_path=filepath, verbose=verbose, text_only=text_only)
     elif source_type == 'application/zip' or source_type == 'application/x-zip-compressed':
-        extraction = scrape_zip(file_path=filepath, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local)
+        scraped_chunks = scrape_zip(file_path=filepath, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local)
     elif source_type.startswith('video/'):
-        extraction = scrape_video(file_path=filepath, verbose=verbose, text_only=text_only)
+        scraped_chunks = scrape_video(file_path=filepath, verbose=verbose, text_only=text_only)
     elif source_type.startswith('audio/'):
-        extraction = scrape_audio(file_path=filepath, verbose=verbose)
+        scraped_chunks = scrape_audio(file_path=filepath, verbose=verbose)
     elif source_type.startswith('text/'):
-        extraction = scrape_plaintext(file_path=filepath)
+        scraped_chunks = scrape_plaintext(file_path=filepath)
     else:
         try:
-            extraction = scrape_plaintext(file_path=filepath)
+            scraped_chunks = scrape_plaintext(file_path=filepath)
         except Exception as e:
             if verbose: 
                 print(f"[thepipe] Error extracting from {filepath}: {e}")
     if verbose: 
-        if extraction:
+        if scraped_chunks:
             print(f"[thepipe] Extracted from {filepath}")
         else:
             print(f"[thepipe] No content extracted from {filepath}")
-    return extraction
+    scraped_chunks = chunking_method(scraped_chunks)
+    return scraped_chunks
 
 def scrape_plaintext(file_path: str) -> List[Chunk]:
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -491,7 +493,7 @@ def create_chunk_from_data(result: Dict, host_images: bool) -> Chunk:
         images=images
     )
 
-def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, verbose: bool = False, local: bool = False) -> List[Chunk]:
+def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, verbose: bool = False, local: bool = False, chunking_method: Callable = chunk_by_page) -> List[Chunk]:
     if not local:
         endpoint = f"{HOST_URL}/scrape"
         headers = {
@@ -500,7 +502,7 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
         data = {
             "text_only": str(text_only).lower(),
             "ai_extraction": str(ai_extraction).lower(),
-            "chunking_method": "chunk_by_document"
+            "chunking_method": chunking_method.__name__
         }
         data["urls"] = url
         response = requests.post(endpoint, headers=headers, data=data, stream=True)
@@ -534,18 +536,16 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
                 raise ValueError(f"File size exceeds {FILESIZE_LIMIT_MB} MB limit.")
             with open(file_path, 'wb') as file:
                 file.write(response.content)
-            chunks = scrape_file(filepath=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=True)
-            for chunk in chunks:
-                all_texts.extend(chunk.texts)
-                all_images.extend(chunk.images)
-        return [Chunk(path=url, texts=all_texts, images=all_images)]
+            chunks = scrape_file(filepath=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=local, chunking_method=chunking_method)
+        return chunks
     else:
         # if url leads to web content, scrape it directly
         if ai_extraction:
             chunk = ai_extract_webpage_content(url=url, text_only=text_only, verbose=verbose)
         else:
             chunk = extract_page_content(url=url, text_only=text_only, verbose=verbose)
-        return [chunk]
+        chunks = chunking_method([chunk])
+        return chunks
 
 def format_timestamp(seconds, chunk_index, chunk_duration):
     # helper function to format the timestamp.

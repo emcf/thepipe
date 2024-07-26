@@ -145,7 +145,7 @@ def extract_from_url(
     text_only: bool = False, 
     ai_extraction: bool = False, 
     verbose: bool = False,
-    chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_document,
+    chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_document,
     local: bool = False
 ) -> List[Dict]: #Tuple[List[Dict], int]:
     if local:
@@ -207,7 +207,7 @@ def extract_from_file(
     text_only: bool = False, 
     ai_extraction: bool = False, 
     verbose: bool = False,
-    chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_document,
+    chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_document,
     local: bool = False
 ) -> List[Dict]:#Tuple[List[Dict], int]:
     if local:
