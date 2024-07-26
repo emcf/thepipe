@@ -35,7 +35,7 @@ class test_core(unittest.TestCase):
             self.assertEqual(type(message), dict)
             self.assertIn('role', message)
             self.assertIn('content', message)
-            self.assertIn('example.md', message['content'])
+            self.assertIn('example.md', message['content'][0]['text'])
 
     def test_save_outputs(self):
         chunks = scraper.scrape_plaintext(file_path=self.files_directory+"/example.txt")
