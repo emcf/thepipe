@@ -37,6 +37,8 @@ Total: $14.57 USD
         self.assertEqual(len(results), 1)
         result = results[0]
 
+        print("test_extract result:", json.dumps(result, indent=2))
+
         # Check if all expected fields are present
         expected_fields = ["store_name", "subtotal_usd", "tax_usd", "total_usd"]
         for field in expected_fields:

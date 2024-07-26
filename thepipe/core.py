@@ -31,13 +31,10 @@ class Chunk:
         
     def to_message(self, host_images: bool = False, max_resolution: Optional[int] = None) -> Dict:
         message_text = ""
-
         message = {"role": "user", "content": []}
         image_urls = [make_image_url(image, host_images, max_resolution) for image in self.images]
-        
         if self.texts:
             img_index = 0
-            
             for text in self.texts:
                 if host_images:
                     def replace_image(match):
@@ -47,20 +44,15 @@ class Chunk:
                             img_index += 1
                             return f"![image]({url})"
                         return match.group(0)  # If we run out of images, leave the original text
-    
                     # Replace markdown image references with hosted URLs
-                    text = re.sub(r'!\[([^\]]*)\]\([^\)]+\)', replace_image, text)
-                
+                    text = re.sub(r'!\[([^\]]*)\]\([^\)]+\)', replace_image, text)  
                 message_text += text + "\n\n"
-
             # clean up, add to message
             message_text = re.sub(r'\n{3,}', '\n\n', message_text).strip()
-
             # Wrap the text in a path html block if it exists
             if self.path:
-                message_text = f'<Document path="{self.path}">\n{message_text}\n</Document>'
+                message_text = f'<Document path="{self.path}">\n{message_text}\n</Document>' 
             message["content"].append({"type": "text", "text": message_text})
-        
         # Add remaining images that weren't referenced in the text
         for image_url in image_urls:
             message["content"].append({"type": "image_url", "image_url": image_url})
