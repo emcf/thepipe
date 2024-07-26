@@ -4,7 +4,7 @@ import re
 from typing import List, Dict, Union, Optional, Tuple, Callable
 from thepipe.core import HOST_URL, THEPIPE_API_KEY, Chunk, calculate_tokens
 from thepipe.scraper import scrape_url, scrape_file
-from thepipe.chunker import chunk_by_document
+from thepipe.chunker import chunk_by_page
 import requests
 import os
 from openai import OpenAI
@@ -145,13 +145,12 @@ def extract_from_url(
     text_only: bool = False, 
     ai_extraction: bool = False, 
     verbose: bool = False,
-    chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_document,
+    chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
     local: bool = False
 ) -> List[Dict]: #Tuple[List[Dict], int]:
     if local:
-        chunks = scrape_url(url, text_only=text_only, ai_extraction=ai_extraction, verbose=verbose, local=local)
-        chunked_content = chunking_method(chunks)
-        return extract(chunks=chunked_content, schema=schema, ai_model=ai_model, multiple_extractions=multiple_extractions, extraction_prompt=extraction_prompt, host_images=host_images)
+        chunks = scrape_url(url, text_only=text_only, ai_extraction=ai_extraction, verbose=verbose, local=local, chunking_method=chunking_method)
+        return extract(chunks=chunks, schema=schema, ai_model=ai_model, multiple_extractions=multiple_extractions, extraction_prompt=extraction_prompt, host_images=host_images)
     else:
         headers = {
             "Authorization": f"Bearer {THEPIPE_API_KEY}"
@@ -207,13 +206,12 @@ def extract_from_file(
     text_only: bool = False, 
     ai_extraction: bool = False, 
     verbose: bool = False,
-    chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_document,
+    chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
     local: bool = False
-) -> List[Dict]:#Tuple[List[Dict], int]:
+) -> List[Dict]: #Tuple[List[Dict], int]:
     if local:
-        chunks = scrape_file(file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
-        chunked_content = chunking_method(chunks)
-        return extract(chunks=chunked_content, schema=schema, ai_model=ai_model, multiple_extractions=multiple_extractions, extraction_prompt=extraction_prompt, host_images=host_images)
+        chunks = scrape_file(file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=local, chunking_method=chunking_method)
+        return extract(chunks=chunks, schema=schema, ai_model=ai_model, multiple_extractions=multiple_extractions, extraction_prompt=extraction_prompt, host_images=host_images)
     else:
         headers = {
             "Authorization": f"Bearer {THEPIPE_API_KEY}"
