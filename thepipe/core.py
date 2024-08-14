@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Union
 import requests
 from PIL import Image
 from llama_index.core.schema import Document, ImageDocument
+import weakref
 
 HOST_IMAGES = os.getenv("HOST_IMAGES", "false").lower() == "true"
 HOST_URL = os.getenv("THEPIPE_API_URL", "https://thepipe-api.up.railway.app")
@@ -18,9 +19,17 @@ class Chunk:
     def __init__(self, path: Optional[str] = None, texts: Optional[List[str]] = [], images: Optional[List[Image.Image]] = [], audios: Optional[List] = [], videos: Optional[List] = []):
         self.path = path
         self.texts = texts
-        self.images = images
+        self.images = []
+        for img in (images or []):
+            if isinstance(img, weakref.ReferenceType):
+                self.images.append(img)
+            else:
+                self.images.append(weakref.ref(img))
         self.audios = audios
         self.videos = videos
+
+    def get_valid_images(self):
+        return [img() for img in self.images if img() is not None]
 
     def to_llamaindex(self) -> List[Union[Document, ImageDocument]]:
         document_text = "\n".join(self.texts)
@@ -90,6 +99,9 @@ class Chunk:
             videos=data['videos'],
         )
     
+    def __repr__(self):
+        return f"Chunk(path={self.path}, texts={len(self.texts)} items, images={len(self.images)} items)"
+
 def make_image_url(image: Image.Image, host_images: bool = False, max_resolution: Optional[int] = None) -> str:
     if max_resolution:
         width, height = image.size
@@ -137,9 +149,14 @@ def calculate_tokens(chunks: List[Chunk]) -> int:
     n_tokens = 0
     for chunk in chunks:
         for text in chunk.texts:
-            n_tokens += len(text) / 4
-        for image in chunk.images:
-            n_tokens += calculate_image_tokens(image)
+            n_tokens += len(text) // 4  # Rough estimate: 1 token ≈ 4 characters
+        for image in chunk.get_valid_images():
+            try:
+                n_tokens += calculate_image_tokens(image)
+            except Exception as e:
+                print(f"[thepipe] Error calculating tokens for an image: {str(e)}")
+                # Add a default token count for failed images
+                n_tokens += 85  # Minimum token count for an image
     return int(n_tokens)
 
 def chunks_to_messages(chunks: List[Chunk]) -> List[Dict]:
@@ -160,23 +177,42 @@ def save_outputs(chunks: List[Chunk], verbose: bool = False, text_only: bool = F
             for chunk_text in chunk.texts:
                 text += f'```\n{chunk_text}\n```\n'
         if chunk.images and not text_only:
-            for j, image in enumerate(chunk.images):
-                image.convert('RGB').save(f'outputs/{i}_{j}.jpg')
+            for j, image in enumerate(chunk.get_valid_images()):
+                try:
+                    image.convert('RGB').save(f'outputs/{i}_{j}.jpg')
+                except Exception as e:
+                    if verbose:
+                        print(f"[thepipe] Error saving image at index {j} in chunk {i}: {str(e)}")
 
     # Save the text
     with open('outputs/prompt.txt', 'w', encoding='utf-8') as file:
         file.write(text)
     
     if verbose:
-        print(f"[thepipe] {calculate_tokens(chunks)} tokens saved to outputs folder")
+        try:
+            # Attempt to calculate tokens using the original method
+            token_count = calculate_tokens(chunks)
+            print(f"[thepipe] Approximately {token_count} tokens saved to outputs folder")
+        except Exception as e:
+            # If the original method fails, fall back to a simpler estimation
+            total_chars = sum(len(chunk_text) for chunk in chunks for chunk_text in chunk.texts)
+            estimated_tokens = total_chars // 4  # Rough estimate: 1 token ≈ 4 characters
+            print(f"[thepipe] Error calculating exact tokens: {str(e)}")
+            print(f"[thepipe] Estimated {estimated_tokens} tokens saved to outputs folder (based on character count)")
+
+        print(f"[thepipe] Outputs saved to 'outputs' folder")
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Compress project files into a context prompt.')
     parser.add_argument('source', type=str, help='The source file or directory to compress.')
-    parser.add_argument('--include_regex', type=str, default=None, help='Regex pattern to match in a directory.')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--include_regex', type=str, nargs='?', const='.*', default=None, 
+                       help='Regex pattern to match in a directory. Use quotes for patterns with special characters.')
+    group.add_argument('--include_pattern', type=str, nargs='?', const='*', default=None, 
+                       help='Glob pattern to match files in a directory (e.g., "*.tsx"). Use quotes for patterns with special characters.')    
     parser.add_argument('--ai_extraction', action='store_true', help='Use ai_extraction to extract text from images.')
     parser.add_argument('--text_only', action='store_true', help='Extract only text from the source.')
     parser.add_argument('--verbose', action='store_true', help='Print status messages.')
-    parser.add_argument('--local', action='store_true', help='Print status messages.')
+    parser.add_argument('--local', action='store_true', help='Use local processing instead of API.')
     args = parser.parse_args()
     return args

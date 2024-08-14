@@ -130,15 +130,48 @@ def scrape_plaintext(file_path: str) -> List[Chunk]:
         text = file.read()
     return [Chunk(path=file_path, texts=[text])]
 
-def scrape_directory(dir_path: str, include_regex: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = False) -> List[Chunk]:
+def scrape_directory(dir_path: str, include_regex: Optional[str] = None, include_pattern: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = False) -> List[Chunk]:
     extraction = []
-    all_files = glob.glob(f'{dir_path}/**/*', recursive=True)
-    if include_regex:
-        all_files = [file for file in all_files if re.search(include_regex, file, re.IGNORECASE)]
+    
+    if include_pattern is not None:
+        # Use glob pattern
+        pattern = os.path.join(dir_path, '**', include_pattern)
+        all_files = glob.glob(pattern, recursive=True)
+    elif include_regex is not None:
+        # Use regex
+        all_files = []
+        for root, _, files in os.walk(dir_path):
+            for file in files:
+                file_path = os.path.join(root, file)
+                if re.search(include_regex, file_path, re.IGNORECASE):
+                    all_files.append(file_path)
+    else:
+        # Neither pattern nor regex specified, include all files
+        all_files = []
+        for root, _, files in os.walk(dir_path):
+            for file in files:
+                all_files.append(os.path.join(root, file))
+    
+    # Ensure we're only dealing with files
+    all_files = [f for f in all_files if os.path.isfile(f)]
+    
+    if verbose:
+        print(f"[thepipe] Found {len(all_files)} files to process in {dir_path}")
+    
     with ThreadPoolExecutor() as executor:
-        results = executor.map(lambda file_path: scrape_file(filepath=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=local), all_files)
+        results = executor.map(
+            lambda file_path: scrape_file(
+                filepath=file_path, 
+                ai_extraction=ai_extraction, 
+                text_only=text_only, 
+                verbose=verbose, 
+                local=local
+            ), 
+            all_files
+        )
         for result in results:
-            extraction += result
+            extraction.extend(result)
+    
     return extraction
 
 def scrape_zip(file_path: str, include_regex: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = False) -> List[Chunk]:
@@ -146,7 +179,7 @@ def scrape_zip(file_path: str, include_regex: Optional[str] = None, verbose: boo
     with tempfile.TemporaryDirectory() as temp_dir:
         with zipfile.ZipFile(file_path, 'r') as zip_ref:
             zip_ref.extractall(temp_dir)
-        chunks = scrape_directory(dir_path=temp_dir, include_regex=include_regex, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local)
+        chunks =scrape_directory(dir_path=temp_dir, include_regex=include_regex, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local)
     return chunks
 
 def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False) -> List[Chunk]:    
@@ -648,6 +681,7 @@ def scrape_docx(file_path: str, verbose: bool = False, text_only: bool = False) 
     from docx.text.paragraph import Paragraph
     import csv
     import io
+    import weakref
 
     # helper function to iterate through blocks in the document
     def iter_block_items(parent):
@@ -675,8 +709,6 @@ def scrape_docx(file_path: str, verbose: bool = False, text_only: bool = False) 
 
     # read the document
     document = Document(file_path)
-    chunks = []
-    image_counter = 0
 
     # Define namespaces
     nsmap = {
@@ -684,14 +716,15 @@ def scrape_docx(file_path: str, verbose: bool = False, text_only: bool = False) 
         'pic': 'http://schemas.openxmlformats.org/drawingml/2006/picture',
         'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
     }
+    chunks = []
+    image_counter = 0
 
     try:
         # scrape each block in the document to create chunks
-        # A block can be a paragraph, table, or image
         for block in iter_block_items(document):
             block_texts = []
             block_images = []
-            if block.__class__.__name__ == 'Paragraph':
+            if isinstance(block, Paragraph):
                 block_texts.append(block.text)
                 if not text_only:
                     # "runs" are the smallest units in a paragraph
@@ -710,9 +743,9 @@ def scrape_docx(file_path: str, verbose: bool = False, text_only: bool = False) 
                                         image_data = io.BytesIO(image_part._blob)
                                         image = Image.open(image_data)
                                         image.load()
-                                        block_images.append(image)
+                                        block_images.append(image)  # Append the image directly, not a weak reference
                                         image_counter += 1
-            elif block.__class__.__name__ == 'Table':
+            elif isinstance(block, Table):
                 table_text = read_docx_tables(block)
                 block_texts.append(table_text)
             if block_texts or block_images:
@@ -721,8 +754,14 @@ def scrape_docx(file_path: str, verbose: bool = False, text_only: bool = False) 
     finally:
         # Close any open image files
         for chunk in chunks:
-            for image in chunk.images:
-                image.close()
+            for img_ref in chunk.images:
+                img = img_ref() if isinstance(img_ref, weakref.ReferenceType) else img_ref
+                if img is not None:
+                    try:
+                        img.close()
+                    except Exception as e:
+                        if verbose:
+                            print(f"[thepipe] Error closing image: {str(e)}")
 
     return chunks
 
