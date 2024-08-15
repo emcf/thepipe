@@ -55,6 +55,50 @@ def detect_source_type(source: str) -> str:
     mimetype = result.output.mime_type
     return mimetype
 
+def is_primarily_video_platform(extractor_key: str) -> bool:
+    # List of known video platforms
+    video_platforms = {
+        "youtube", "youtu", "netflix", "amazon", "hulu", "disneyplus", "vimeo", 
+        "twitch", "tiktok", "facebook", "instagram", "dailymotion", "vevo", 
+        "crunchyroll", "peacocktv", "hbomax", "apple", "roku", "pluto", 
+        "tubitv", "iqiyi", "v.qq", "youku", "bilibili", "flicknexs", 
+        "brightcove", "wistia", "jwplayer", "kaltura", "panopto", "vidyard", 
+        "vk", "rutube", "metacafe", "veoh", "ustream", "livestream", "periscope", 
+        "mixer", "younow", "smashcast", "niconico", "vlive", "afreecatv", 
+        "kakao", "naver", "line", "iflix", "hooq", "viu", "mubi"
+    }
+    return any(platform in extractor_key.lower() for platform in video_platforms)
+
+def detect_url_type(url: str) -> str:
+    from yt_dlp import YoutubeDL
+    from yt_dlp.utils import DownloadError
+    parsed_url = urlparse(url)
+    
+    # Check if it's a supported video site
+    try:
+        with YoutubeDL({'quiet': True}) as ydl:
+            info = ydl.extract_info(url, download=False)
+            extractor_key = info.get('extractor_key', '').lower()
+            
+            if is_primarily_video_platform(extractor_key):
+                if info.get('_type') == 'playlist':
+                    return 'video_playlist'
+                elif info.get('_type') in ['video', None]:  # Some extractors don't set _type for single videos
+                    return 'video'
+            else:
+                # It's a website that happens to have embeddable/downloadable content
+                return 'website_with_media'
+    except DownloadError:
+        pass  # Not a supported video site, continue to other checks
+    
+    # Check for specific file types
+    file_extension = parsed_url.path.split('.')[-1].lower()
+    if file_extension in ['pdf', 'docx', 'txt', 'csv', 'xlsx']:
+        return f'file_{file_extension}'
+    
+    # If none of the above, assume it's a general website
+    return 'website'
+
 def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False, local: bool = False, chunking_method: Optional[Callable] = chunk_by_page) -> List[Chunk]:
     if not local:
         with open(filepath, 'rb') as f:
@@ -546,20 +590,28 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
                 chunk_data = json.loads(line)
                 results.append(chunk_data['result'])
         return results
-    # otherwise, visit the URL on local machine
+
+    # For local processing
+    url_type = detect_url_type(url)
+    
+    if verbose:
+        print(f"[thepipe] Detected URL type: {url_type}")
+    
     if any(url.startswith(domain) for domain in TWITTER_DOMAINS):
-        extraction = scrape_tweet(url=url, text_only=text_only)
+        extraction = scrape_tweet(url=url, text_only=text_only, verbose=verbose)
         return extraction
-    elif any(url.startswith(domain) for domain in YOUTUBE_DOMAINS):
-        extraction = scrape_youtube(youtube_url=url, text_only=text_only, verbose=verbose)
+    elif url_type in ['video', 'video_playlist']:
+        extraction = scrape_youtube(url, text_only=text_only, verbose=verbose)
         return extraction
     elif any(url.startswith(domain) for domain in GITHUB_DOMAINS):
         extraction = scrape_github(github_url=url, text_only=text_only, ai_extraction=ai_extraction, verbose=verbose)
         return extraction
-    _, extension = os.path.splitext(urlparse(url).path)
-    all_texts = []
-    all_images = []
-    if extension and extension not in {'.html', '.htm', '.php', '.asp', '.aspx'}:
+    elif url_type == 'website_with_media':
+        if verbose:
+            print("[thepipe] Website contains downloadable media. Scraping entire website.")
+        extraction =  extract_page_content(url=url, text_only=text_only, verbose=verbose)
+        return extraction
+    elif url_type.startswith('file_'):
         # if url leads to a file, attempt to download it and scrape it
         with tempfile.TemporaryDirectory() as temp_dir:
             file_path = os.path.join(temp_dir, os.path.basename(url))
@@ -569,10 +621,8 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
                 raise ValueError(f"File size exceeds {FILESIZE_LIMIT_MB} MB limit.")
             with open(file_path, 'wb') as file:
                 file.write(response.content)
-            chunks = scrape_file(filepath=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=local, chunking_method=chunking_method)
-        return chunks
-    else:
-        # if url leads to web content, scrape it directly
+            return scrape_file(filepath=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=local, chunking_method=chunking_method)
+    else:  # website
         if ai_extraction:
             chunk = ai_extract_webpage_content(url=url, text_only=text_only, verbose=verbose)
         else:
@@ -634,20 +684,64 @@ def scrape_video(file_path: str, verbose: bool = False, text_only: bool = False)
         video.close()
     return chunks
 
-def scrape_youtube(youtube_url: str, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
-    from pytube import YouTube
+def scrape_youtube(url: str, text_only: bool = False, verbose: bool = False, include_metadata: bool = True) -> List[Chunk]:
+    import yt_dlp
+    ydl_opts = {
+        'format': 'bestaudio/best' if text_only else 'bestvideo+bestaudio/best',
+        'outtmpl': {'default': '%(title)s.%(ext)s'},
+        'quiet': not verbose,
+    }
+    
     with tempfile.TemporaryDirectory() as temp_dir:
-        filename = "temp_video.mp4"
-        yt = YouTube(youtube_url)
-        stream = yt.streams.filter(progressive=True, file_extension='mp4').first()
-        stream.download(temp_dir, filename=filename)
-        video_path = os.path.join(temp_dir, filename)
-        # check if within max file size
-        if os.path.getsize(video_path) > 10**8: # 100 MB
-            raise ValueError("Video file is too large to process.")
-        chunks = scrape_video(file_path=video_path, verbose=verbose, text_only=text_only)
-    return chunks
-
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if 'entries' in info:
+                # It's a playlist or a channel, but we'll just take the first video
+                video = info['entries'][0]
+            else:
+                video = info
+            
+            # Extract metadata
+            metadata = {
+                'title': video.get('title', 'Untitled'),
+                'description': video.get('description', ''),
+                'upload_date': video.get('upload_date', ''),
+                'uploader': video.get('uploader', ''),
+                'view_count': video.get('view_count', ''),
+                'like_count': video.get('like_count', ''),
+                'duration': video.get('duration', ''),
+                'tags': video.get('tags', []),
+            }
+            
+            if text_only:
+                # For text-only, we just need the audio for transcription
+                ydl_opts['postprocessors'] = [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'wav',
+                }]
+            
+            ydl_opts['outtmpl']['default'] = os.path.join(temp_dir, '%(title)s.%(ext)s')
+            ydl.params.update(ydl_opts)
+            ydl.download([url])
+            
+            file_path = os.path.join(temp_dir, os.listdir(temp_dir)[0])
+            
+            if text_only:
+                chunks = scrape_audio(file_path=file_path, verbose=verbose)
+            else:
+                chunks = scrape_video(file_path=file_path, verbose=verbose, text_only=False)
+            
+            # Add metadata to the first chunk
+            if chunks and include_metadata:
+                metadata_text = "Video Metadata:\n\n"
+                for key, value in metadata.items():
+                    if isinstance(value, list):
+                        value = ', '.join(value)
+                    metadata_text += f"{key.capitalize()}: {value}\n"
+                chunks[0].texts.insert(0, metadata_text)
+            
+            return chunks
+        
 def scrape_audio(file_path: str, verbose: bool = False) -> List[Chunk]:
     import whisper
     model = whisper.load_model("base")
@@ -830,7 +924,7 @@ def scrape_ipynb(file_path: str, verbose: bool = False, text_only: bool = False)
             chunks.append(Chunk(path=file_path, texts=texts, images=images))
     return chunks
 
-def scrape_tweet(url: str, text_only: bool = False) -> List[Chunk]:
+def scrape_tweet(url: str, text_only: bool = False, verbose: bool = False) -> List[Chunk]:
     # magic function from https://github.com/vercel/react-tweet/blob/main/packages/react-tweet/src/api/fetch-tweet.ts
     # unofficial, could break at any time
     def get_token(id: str) -> str:
@@ -843,6 +937,7 @@ def scrape_tweet(url: str, text_only: bool = False) -> List[Chunk]:
             result = (result - remainder) // (6 ** 2)
         base_36_result = re.sub(r'(0+|\.)', '', base_36_result)
         return base_36_result
+
     tweet_id = url.split('status/')[-1].split('?')[0]
     token = get_token(tweet_id)
     tweet_api_url = "https://cdn.syndication.twimg.com/tweet-result"
@@ -855,18 +950,31 @@ def scrape_tweet(url: str, text_only: bool = False) -> List[Chunk]:
     if response.status_code != 200:
         raise ValueError(f"Failed to fetch tweet. Status code: {response.status_code}")
     tweet_data = response.json()
+
     # Extract tweet text
     tweet_text = tweet_data.get("text", "")
-    # Extract images from tweet
+    
+    chunks = []
+    main_chunk = Chunk(path=url, texts=[tweet_text])
+    chunks.append(main_chunk)
+
     if not text_only:
+        # Extract images from tweet
         images = []
         if "mediaDetails" in tweet_data:
             for media in tweet_data["mediaDetails"]:
-                image_url = media.get("media_url_https")
-                if image_url:
-                    image_response = requests.get(image_url)
-                    img = Image.open(BytesIO(image_response.content))
-                    images.append(img)
-    # Create chunks for text and images
-    chunk = Chunk(path=url, texts=[tweet_text], images=images)
-    return [chunk]
+                if media.get("type") == "photo":
+                    image_url = media.get("media_url_https")
+                    if image_url:
+                        image_response = requests.get(image_url)
+                        img = Image.open(BytesIO(image_response.content))
+                        images.append(img)
+                elif media.get("type") == "video":
+                    video_url = media.get("video_info", {}).get("variants", [{}])[0].get("url")
+                    if video_url:
+                        video_chunks = scrape_youtube(video_url, text_only=text_only, verbose=verbose)
+                        chunks.extend(video_chunks)
+
+        main_chunk.images = images
+
+    return chunks
