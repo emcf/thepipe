@@ -21,6 +21,7 @@ import dotenv
 import shutil
 from magika import Magika
 dotenv.load_dotenv()
+from enum import Enum, auto
 
 from typing import List, Dict, Tuple, Optional
 
@@ -37,6 +38,27 @@ Be sure to correctly format markdown for headers, paragraphs, lists, tables, men
 Always reply immediately with only markdown. Do not output anything else.""")
 DEFAULT_VLM = os.getenv("DEFAULT_VLM", "gpt-4o-mini")
 FILESIZE_LIMIT_MB = os.getenv("FILESIZE_LIMIT_MB", 50)
+
+class YouTubeMetadata(Enum):
+    TITLE = auto()
+    DESCRIPTION = auto()
+    UPLOAD_DATE = auto()
+    UPLOADER = auto()
+    VIEW_COUNT = auto()
+    LIKE_COUNT = auto()
+    DURATION = auto()
+    TAGS = auto()
+    CATEGORY = auto()
+    THUMBNAIL_URL = auto()
+
+DEFAULT_METADATA = [
+    YouTubeMetadata.TITLE,
+    YouTubeMetadata.DESCRIPTION,
+    YouTubeMetadata.UPLOAD_DATE,
+    YouTubeMetadata.UPLOADER,
+    YouTubeMetadata.VIEW_COUNT,
+    YouTubeMetadata.DURATION
+]
 
 def detect_source_type(source: str) -> str:
     # otherwise, try to detect the file type by its extension
@@ -59,8 +81,8 @@ def is_primarily_video_platform(extractor_key: str) -> bool:
     # List of known video platforms
     video_platforms = {
         "youtube", "youtu", "netflix", "amazon", "hulu", "disneyplus", "vimeo", 
-        "twitch", "tiktok", "facebook", "instagram", "dailymotion", "vevo", 
-        "crunchyroll", "peacocktv", "hbomax", "apple", "roku", "pluto", 
+        "twitch", "tiktok", "dailymotion", "vevo", "kick",
+        "crunchyroll", "peacocktv", "hbomax", "roku", "pluto", 
         "tubitv", "iqiyi", "v.qq", "youku", "bilibili", "flicknexs", 
         "brightcove", "wistia", "jwplayer", "kaltura", "panopto", "vidyard", 
         "vk", "rutube", "metacafe", "veoh", "ustream", "livestream", "periscope", 
@@ -621,8 +643,10 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
                 raise ValueError(f"File size exceeds {FILESIZE_LIMIT_MB} MB limit.")
             with open(file_path, 'wb') as file:
                 file.write(response.content)
-            return scrape_file(filepath=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=local, chunking_method=chunking_method)
-    else:  # website
+            chunks = scrape_file(filepath=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=local, chunking_method=chunking_method)
+        return chunks
+    else:
+        # if url leads to web content, scrape it directly
         if ai_extraction:
             chunk = ai_extract_webpage_content(url=url, text_only=text_only, verbose=verbose)
         else:
@@ -684,7 +708,7 @@ def scrape_video(file_path: str, verbose: bool = False, text_only: bool = False)
         video.close()
     return chunks
 
-def scrape_youtube(url: str, text_only: bool = False, verbose: bool = False, include_metadata: bool = True) -> List[Chunk]:
+def scrape_youtube(url: str, text_only: bool = False, verbose: bool = False, metadata_fields: Optional[List[YouTubeMetadata]] = DEFAULT_METADATA) -> List[Chunk]:
     import yt_dlp
     ydl_opts = {
         'format': 'bestaudio/best' if text_only else 'bestvideo+bestaudio/best',
@@ -693,55 +717,84 @@ def scrape_youtube(url: str, text_only: bool = False, verbose: bool = False, inc
     }
     
     with tempfile.TemporaryDirectory() as temp_dir:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            if 'entries' in info:
-                # It's a playlist or a channel, but we'll just take the first video
-                video = info['entries'][0]
-            else:
-                video = info
-            
-            # Extract metadata
-            metadata = {
-                'title': video.get('title', 'Untitled'),
-                'description': video.get('description', ''),
-                'upload_date': video.get('upload_date', ''),
-                'uploader': video.get('uploader', ''),
-                'view_count': video.get('view_count', ''),
-                'like_count': video.get('like_count', ''),
-                'duration': video.get('duration', ''),
-                'tags': video.get('tags', []),
-            }
-            
-            if text_only:
-                # For text-only, we just need the audio for transcription
-                ydl_opts['postprocessors'] = [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'wav',
-                }]
-            
-            ydl_opts['outtmpl']['default'] = os.path.join(temp_dir, '%(title)s.%(ext)s')
-            ydl.params.update(ydl_opts)
-            ydl.download([url])
-            
-            file_path = os.path.join(temp_dir, os.listdir(temp_dir)[0])
-            
-            if text_only:
-                chunks = scrape_audio(file_path=file_path, verbose=verbose)
-            else:
-                chunks = scrape_video(file_path=file_path, verbose=verbose, text_only=False)
-            
-            # Add metadata to the first chunk
-            if chunks and include_metadata:
-                metadata_text = "Video Metadata:\n\n"
-                for key, value in metadata.items():
-                    if isinstance(value, list):
-                        value = ', '.join(value)
-                    metadata_text += f"{key.capitalize()}: {value}\n"
-                chunks[0].texts.insert(0, metadata_text)
-            
-            return chunks
-        
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if 'entries' in info:
+                    # It's a playlist or a channel, but we'll just take the first video
+                    video = info['entries'][0]
+                else:
+                    video = info
+                
+                # Extract specified metadata
+                metadata = {}
+                if metadata_fields is not None:
+                    for field in metadata_fields:
+                        try:
+                            if field == YouTubeMetadata.TITLE:
+                                metadata['title'] = video.get('title', 'Untitled')
+                            elif field == YouTubeMetadata.DESCRIPTION:
+                                metadata['description'] = video.get('description', '')
+                            elif field == YouTubeMetadata.UPLOAD_DATE:
+                                metadata['upload_date'] = video.get('upload_date', '')
+                            elif field == YouTubeMetadata.UPLOADER:
+                                metadata['uploader'] = video.get('uploader', '')
+                            elif field == YouTubeMetadata.VIEW_COUNT:
+                                metadata['view_count'] = str(video.get('view_count', 'N/A'))
+                            elif field == YouTubeMetadata.LIKE_COUNT:
+                                metadata['like_count'] = str(video.get('like_count', 'N/A'))
+                            elif field == YouTubeMetadata.DURATION:
+                                metadata['duration'] = str(video.get('duration', 'N/A'))
+                            elif field == YouTubeMetadata.TAGS:
+                                metadata['tags'] = video.get('tags', [])
+                            elif field == YouTubeMetadata.CATEGORY:
+                                metadata['category'] = video.get('categories', ['N/A'])[0] if video.get('categories') else 'N/A'
+                            elif field == YouTubeMetadata.THUMBNAIL_URL:
+                                metadata['thumbnail_url'] = video.get('thumbnail', 'N/A')
+                        except Exception as e:
+                            if verbose:
+                                print(f"[thepipe] Error extracting {field.name} metadata: {str(e)}")
+                            metadata[field.name.lower()] = 'N/A'
+                
+                if text_only:
+                    # For text-only, we just need the audio for transcription
+                    ydl_opts['postprocessors'] = [{
+                        'key': 'FFmpegExtractAudio',
+                        'preferredcodec': 'wav',
+                    }]
+                
+                ydl_opts['outtmpl']['default'] = os.path.join(temp_dir, '%(title)s.%(ext)s')
+                ydl.params.update(ydl_opts)
+                ydl.download([url])
+                
+                file_path = os.path.join(temp_dir, os.listdir(temp_dir)[0])
+                
+                if text_only:
+                    chunks = scrape_audio(file_path=file_path, verbose=verbose)
+                else:
+                    chunks = scrape_video(file_path=file_path, verbose=verbose, text_only=False)
+                
+                # Add metadata to the first chunk
+                if chunks and metadata:
+                    metadata_text = "Video Metadata:\n\n"
+                    for key, value in metadata.items():
+                        if isinstance(value, list):
+                            value = ', '.join(map(str, value))
+                        elif not isinstance(value, str):
+                            value = str(value)
+                        metadata_text += f"{key.capitalize()}: {value}\n"
+                    chunks[0].texts.insert(0, metadata_text)
+                
+                return chunks
+        except yt_dlp.utils.DownloadError as e:
+            if verbose:
+                print(f"[thepipe] Error downloading video: {str(e)}")
+            return [Chunk(path=url, texts=[f"Error: Unable to download video. {str(e)}"])]
+        except Exception as e:
+            if verbose:
+                print(f"[thepipe] Unexpected error: {str(e)}")
+            return [Chunk(path=url, texts=[f"Error: An unexpected error occurred. {str(e)}"])]
+              
 def scrape_audio(file_path: str, verbose: bool = False) -> List[Chunk]:
     import whisper
     model = whisper.load_model("base")
@@ -937,7 +990,6 @@ def scrape_tweet(url: str, text_only: bool = False, verbose: bool = False) -> Li
             result = (result - remainder) // (6 ** 2)
         base_36_result = re.sub(r'(0+|\.)', '', base_36_result)
         return base_36_result
-
     tweet_id = url.split('status/')[-1].split('?')[0]
     token = get_token(tweet_id)
     tweet_api_url = "https://cdn.syndication.twimg.com/tweet-result"
@@ -950,7 +1002,6 @@ def scrape_tweet(url: str, text_only: bool = False, verbose: bool = False) -> Li
     if response.status_code != 200:
         raise ValueError(f"Failed to fetch tweet. Status code: {response.status_code}")
     tweet_data = response.json()
-
     # Extract tweet text
     tweet_text = tweet_data.get("text", "")
     
