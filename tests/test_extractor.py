@@ -11,7 +11,7 @@ from thepipe.core import Chunk
 class TestExtractor(unittest.TestCase):
     def setUp(self):
         self.example_receipt = """# Receipt
-Store: GroceryMart
+Store Name: Grocery Mart
 ## Total
 Subtotal: $13.49 USD
 Tax (8%): $1.08 USD
@@ -45,7 +45,7 @@ Total: $14.57 USD
             self.assertIn(field, result)
 
         # Check some specific values
-        self.assertEqual(result["store_name"], "GroceryMart")
+        self.assertEqual(result["store_name"], "Grocery Mart")
         self.assertEqual(result["subtotal_usd"], 13.49)
         self.assertEqual(result["tax_usd"], 1.08)
         self.assertEqual(result["total_usd"], 14.57)
