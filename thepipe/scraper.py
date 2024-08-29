@@ -201,7 +201,7 @@ def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = Fa
                 except Exception as e:
                     raise ValueError(f"{e} (unable to read LLM response: {response})")
 
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
                 futures = [executor.submit(process_page, page_num) for page_num in range(num_pages)]
                 page_results = OrderedDict()
                 for future in concurrent.futures.as_completed(futures):
