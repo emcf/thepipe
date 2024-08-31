@@ -29,7 +29,7 @@ class Chunk:
         else:
             return [Document(text=document_text)]
         
-    def to_message(self, host_images: bool = False, max_resolution: Optional[int] = None) -> Dict:
+    def to_message(self, host_images: bool = False, max_resolution: Optional[int] = None, include_paths: Optional[bool] = False) -> Dict:
         message_text = ""
         message = {"role": "user", "content": []}
         image_urls = [make_image_url(image, host_images, max_resolution) for image in self.images]
@@ -50,7 +50,7 @@ class Chunk:
             # clean up, add to message
             message_text = re.sub(r'\n{3,}', '\n\n', message_text).strip()
             # Wrap the text in a path html block if it exists
-            if self.path:
+            if include_paths and self.path:
                 message_text = f'<Document path="{self.path}">\n{message_text}\n</Document>' 
             message["content"].append({"type": "text", "text": message_text})
         # Add remaining images that weren't referenced in the text
@@ -142,8 +142,8 @@ def calculate_tokens(chunks: List[Chunk]) -> int:
             n_tokens += calculate_image_tokens(image)
     return int(n_tokens)
 
-def chunks_to_messages(chunks: List[Chunk]) -> List[Dict]:
-    return [chunk.to_message() for chunk in chunks]
+def chunks_to_messages(chunks: List[Chunk], host_images: bool = False, max_resolution: Optional[int] = None, include_paths: Optional[bool] = False) -> List[Dict]:
+    return [chunk.to_message(host_images=host_images, max_resolution=max_resolution, include_paths=include_paths) for chunk in chunks]
 
 def save_outputs(chunks: List[Chunk], verbose: bool = False, text_only: bool = False) -> None:
     if not os.path.exists('outputs'):
