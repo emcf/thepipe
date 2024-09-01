@@ -10,8 +10,9 @@ import os
 from openai import OpenAI
 
 DEFAULT_EXTRACTION_PROMPT = "Extract structured information from the above document according to the following schema: {schema}. Immediately return valid JSON formatted data. If there is missing data, you may use null, but use your reasoning to always fill in every column as best you can. Always immediately return valid JSON."
+DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o-mini")
 
-def extract_json_from_response(llm_response: str) -> Optional[Dict]:
+def extract_json_from_response(llm_response: str) -> Union[Dict, List[Dict], None]:
     def clean_response_text(llm_response: str) -> str:
         return llm_response.encode('utf-8', 'ignore').decode('utf-8')
     
@@ -99,7 +100,7 @@ def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: st
         response_dict = {"chunk_index": chunk_index, "source": source, "error": str(e)}
     return response_dict, tokens_used
 
-def extract(chunks: List[Chunk], schema: Union[str, Dict], ai_model: str = 'google/gemma-2-9b-it', multiple_extractions: bool = False, extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT, host_images: bool = False) -> Tuple[List[Dict], int]:
+def extract(chunks: List[Chunk], schema: Union[str, Dict], ai_model: Optional[str] = 'google/gemma-2-9b-it', multiple_extractions: Optional[bool] = False, extraction_prompt: Optional[str] = DEFAULT_EXTRACTION_PROMPT, host_images: Optional[bool] = False) -> Tuple[List[Dict], int]:
     if isinstance(schema, dict):
         schema = json.dumps(schema)
 

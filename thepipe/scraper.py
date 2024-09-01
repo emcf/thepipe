@@ -35,7 +35,7 @@ GITHUB_DOMAINS = ['https://github.com', 'https://www.github.com']
 EXTRACTION_PROMPT = os.getenv("EXTRACTION_PROMPT", """An open source document is given. Output the entire extracted contents from the document in detailed markdown format.
 Be sure to correctly format markdown for headers, paragraphs, lists, tables, menus, equations, full text contents, etc.
 Always reply immediately with only markdown. Do not output anything else.""")
-DEFAULT_VLM = os.getenv("DEFAULT_VLM", "gpt-4o-mini")
+DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o-mini")
 FILESIZE_LIMIT_MB = os.getenv("FILESIZE_LIMIT_MB", 50)
 
 def detect_source_type(source: str) -> str:
@@ -55,7 +55,7 @@ def detect_source_type(source: str) -> str:
     mimetype = result.output.mime_type
     return mimetype
 
-def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False, local: bool = False, chunking_method: Optional[Callable] = chunk_by_page) -> List[Chunk]:
+def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False, local: bool = False, chunking_method: Optional[Callable] = chunk_by_page, ai_model: Optional[str] = DEFAULT_AI_MODEL) -> List[Chunk]:
     if not local:
         with open(filepath, 'rb') as f:
             response = requests.post(
@@ -92,7 +92,7 @@ def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = Fa
     if verbose: 
         print(f"[thepipe] Scraping {source_type}: {filepath}...")
     if source_type == 'application/pdf':
-        scraped_chunks = scrape_pdf(file_path=filepath, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
+        scraped_chunks = scrape_pdf(file_path=filepath, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, ai_model=ai_model)
     elif source_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
         scraped_chunks = scrape_docx(file_path=filepath, verbose=verbose, text_only=text_only)
     elif source_type == 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
@@ -149,7 +149,7 @@ def scrape_zip(file_path: str, include_regex: Optional[str] = None, verbose: boo
         chunks = scrape_directory(dir_path=temp_dir, include_regex=include_regex, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local)
     return chunks
 
-def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False) -> List[Chunk]:    
+def scrape_pdf(file_path: str, ai_extraction: Optional[bool] = False, text_only: Optional[bool] = False, ai_model: Optional[str] = DEFAULT_AI_MODEL, verbose: Optional[bool] = False) -> List[Chunk]:    
     chunks = []
     MAX_PAGES = 128
 
@@ -188,7 +188,7 @@ def scrape_pdf(file_path: str, ai_extraction: bool = False, text_only: bool = Fa
                     },
                 ]
                 response = openrouter_client.chat.completions.create(
-                    model=DEFAULT_VLM,
+                    model=ai_model,
                     messages=messages,
                     temperature=0.2
                 )
@@ -289,7 +289,7 @@ def scrape_spreadsheet(file_path: str, source_type: str) -> List[Chunk]:
         chunks.append(Chunk(path=file_path, texts=[item_json]))
     return chunks
 
-def ai_extract_webpage_content(url: str, text_only: bool = False, verbose: bool = False) -> Chunk:
+def ai_extract_webpage_content(url: str, text_only: Optional[bool] = False, verbose: Optional[bool] = False, ai_model: Optional[str] = DEFAULT_AI_MODEL) -> Chunk:
     from playwright.sync_api import sync_playwright
     import modal
     from openai import OpenAI
@@ -352,7 +352,7 @@ def ai_extract_webpage_content(url: str, text_only: bool = False, verbose: bool 
             },
         ]
         response = openrouter_client.chat.completions.create(
-            model=DEFAULT_VLM,
+            model=ai_model,
             messages=messages,
             temperature=0.2
         )

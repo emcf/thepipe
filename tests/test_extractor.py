@@ -5,7 +5,7 @@ import sys
 import os
 import json
 sys.path.append('..')
-from thepipe.extract import extract
+from thepipe.extract import extract, extract_json_from_response
 from thepipe.core import Chunk
 
 class TestExtractor(unittest.TestCase):
@@ -26,6 +26,37 @@ Total: $14.57 USD
         }
 
         self.chunks = [Chunk(path="receipt.md", texts=[self.example_receipt])]
+
+    def test_extract_json_from_response(self):
+        # List of test cases with expected results
+        test_cases = [
+            # Case 1: JSON enclosed in triple backticks
+            {
+                "input": "```json\n{\"key1\": \"value1\", \"key2\": 2}\n```",
+                "expected": {"key1": "value1", "key2": 2}
+            },
+            # Case 2: JSON directly in the response
+            {
+                "input": "{\"key1\": \"value1\", \"key2\": 2}",
+                "expected": {"key1": "value1", "key2": 2}
+            },
+            # Case 3: Response contains multiple JSON objects
+            {
+                "input": "Random text {\"key1\": \"value1\"} and another {\"key2\": 2}",
+                "expected": [{"key1": "value1"}, {"key2": 2}]
+            },
+            # Case 4: Response contains incomplete JSON
+            {
+                "input": "Random text {\"key1\": \"value1\"} and another {\"key2\": 2",
+                "expected": {"key1": "value1"}
+            }
+
+        ]
+
+        for i, case in enumerate(test_cases):
+            with self.subTest(i=i):
+                result = extract_json_from_response(case["input"])
+                self.assertEqual(result, case["expected"])
 
     def test_extract(self):
         results, total_tokens_used = extract(
