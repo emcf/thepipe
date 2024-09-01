@@ -34,9 +34,7 @@ thepi.pe is an API that can scrape multimodal data via `thepipe.scrape` or extra
 
 ## Get started in 5 minutes  🚀
 
-thepi.pe can read a wide range of filetypes and web sources, so it requires a few dependencies. It also requires vision-language model inference for AI extraction features. For these reasons, we host an API that works out-of-the-box at [thepi.pe](https://thepi.pe).
-
-For more detailed setup instructions, view the [docs](https://thepi.pe/docs-platform).
+thepi.pe can read a wide range of filetypes and web sources, so it requires a few dependencies. It also requires vision-language model inference for AI extraction features. For these reasons, we host an API that works out-of-the-box. For more detailed setup instructions, view the [docs](https://thepi.pe/docs-platform).
 
 ```bash
 pip install thepipe-api
