@@ -44,15 +44,17 @@ pip install thepipe-api
 
 ### Hosted API (Python)
 
+You can get an API key by signing up for a free account at [thepi.pe](https://thepi.pe). The, simply set the `THEPIPE_API_KEY` environment variable to your API key.
+
 ```python
 from thepipe.scraper import scrape_file
 from thepipe.core import chunks_to_messages
 from openai import OpenAI
 
-# scrape markdown, tables, visuals
-chunks = scrape_file(filepath="paper.pdf", ai_extraction=True)
+# scrape clean markdown
+chunks = scrape_file(filepath="paper.pdf", ai_extraction=False)
 
-# call LLM with clean, comprehensive data
+# call LLM with scraped chunks
 client = OpenAI()
 response = client.chat.completions.create(
     model="gpt-4o",
