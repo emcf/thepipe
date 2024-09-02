@@ -32,7 +32,7 @@ MAX_WHISPER_DURATION = 600 # 10 minutes
 TWITTER_DOMAINS = ['https://twitter.com', 'https://www.twitter.com', 'https://x.com', 'https://www.x.com']
 YOUTUBE_DOMAINS = ['https://www.youtube.com', 'https://youtube.com']
 GITHUB_DOMAINS = ['https://github.com', 'https://www.github.com']
-EXTRACTION_PROMPT = os.getenv("EXTRACTION_PROMPT", """An open source document is given. Output the entire extracted contents from the document in detailed markdown format.
+SCRAPING_PROMPT = os.getenv("EXTRACTION_PROMPT", """An open source document is given. Output the entire extracted contents from the document in detailed markdown format.
 Be sure to correctly format markdown for headers, paragraphs, lists, tables, menus, equations, full text contents, etc.
 Always reply immediately with only markdown. Do not output anything else.""")
 DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o-mini")
@@ -183,7 +183,7 @@ def scrape_pdf(file_path: str, ai_extraction: Optional[bool] = False, text_only:
                         "role": "user",
                         "content": [
                             {"type": "image_url", "image_url": make_image_url(image, host_images=HOST_IMAGES)},
-                            {"type": "text", "text": f"```{text}```\n{EXTRACTION_PROMPT}"},
+                            {"type": "text", "text": f"```{text}```\n{SCRAPING_PROMPT}"},
                         ]
                     },
                 ]
@@ -193,10 +193,17 @@ def scrape_pdf(file_path: str, ai_extraction: Optional[bool] = False, text_only:
                     temperature=0.2
                 )
                 try:
-                    llm_response = response.choices[0].message.content
-                    markdown_match = re.search(r"```markdown(.*?)```", llm_response, re.DOTALL)
-                    if markdown_match:
-                        llm_response = markdown_match.group(1).strip()
+                    llm_response = response.choices[0].message.content.strip()
+                    
+                    # remove markdown codeboxes if they are present
+                    if llm_response.startswith("```markdown"):
+                        llm_response = llm_response[len("```markdown"):]
+                    elif llm_response.startswith("```"):
+                        llm_response = llm_response[len("```"):]
+                    if llm_response.endswith("```"):
+                        llm_response = llm_response[:-len("```")]
+                    llm_response = llm_response.strip()
+
                     return page_num, llm_response, image
                 except Exception as e:
                     raise ValueError(f"{e} (unable to read LLM response: {response})")
@@ -291,9 +298,9 @@ def scrape_spreadsheet(file_path: str, source_type: str) -> List[Chunk]:
 
 def ai_extract_webpage_content(url: str, text_only: Optional[bool] = False, verbose: Optional[bool] = False, ai_model: Optional[str] = DEFAULT_AI_MODEL) -> Chunk:
     from playwright.sync_api import sync_playwright
-    import modal
     from openai import OpenAI
 
+    #import modal
     #app_name = "scrape-ui"
     #function_name = "get_ui_layout_preds"
     #fn = modal.Function.lookup(app_name, function_name)
@@ -347,7 +354,7 @@ def ai_extract_webpage_content(url: str, text_only: Optional[bool] = False, verb
                 "role": "user",
                 "content": [
                     {"type": "image_url", "image_url": make_image_url(stacked_image, host_images=HOST_IMAGES)},
-                    {"type": "text", "text": EXTRACTION_PROMPT},
+                    {"type": "text", "text": SCRAPING_PROMPT},
                 ]
             },
         ]
