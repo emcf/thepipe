@@ -190,7 +190,7 @@ def scrape_pdf(file_path: str, ai_extraction: Optional[bool] = False, text_only:
                 response = openrouter_client.chat.completions.create(
                     model=ai_model,
                     messages=messages,
-                    temperature=0.2
+                    temperature=0.1
                 )
                 try:
                     llm_response = response.choices[0].message.content.strip()
@@ -361,7 +361,7 @@ def ai_extract_webpage_content(url: str, text_only: Optional[bool] = False, verb
         response = openrouter_client.chat.completions.create(
             model=ai_model,
             messages=messages,
-            temperature=0.2
+            temperature=0.1
         )
         llm_response = response.choices[0].message.content
         chunk = Chunk(path=url, texts=[llm_response], images=[stacked_image])
