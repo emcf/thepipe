@@ -80,11 +80,15 @@ def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: st
                 if multiple_extractions:
                     if isinstance(llm_response_dict, dict) and "extraction" in llm_response_dict:
                         response_dict["extraction"] = llm_response_dict["extraction"]
+                    elif isinstance(llm_response_dict, list):
+                        response_dict["extraction"] = llm_response_dict
                     else:
                         response_dict["extraction"] = [llm_response_dict]
                 else:
                     if isinstance(llm_response_dict, dict):
                         response_dict.update(llm_response_dict)
+                    elif isinstance(llm_response_dict, list):
+                        response_dict["error"] = f"Expected a single JSON object but received a list: {llm_response_dict}"
                     else:
                         response_dict["error"] = f"Invalid JSON structure in LLM response: {llm_response_dict}"
             else:

@@ -10,7 +10,7 @@ def read_git_requirements(file):
 
 setup(
     name='thepipe_api',
-    version='1.2.3',
+    version='1.2.5',
     author='Emmett McFarlane',
     author_email='emmett@thepi.pe',
     description='AI-native extractor, powered by multimodal LLMs.',
