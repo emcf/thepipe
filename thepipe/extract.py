@@ -23,11 +23,6 @@ def extract_json_from_response(llm_response: str) -> Union[Dict, List[Dict], Non
         llm_response = match.group(1)
     llm_response = clean_response_text(llm_response)
 
-    # try to remove code block formatting if still present
-    if llm_response.startswith("```json") and llm_response.endswith("```"):
-        llm_response = llm_response[len("```json"):-len("```")]
-    llm_response = clean_response_text(llm_response)
-
     # parse json by matching curly braces
     try:
         parsed_json = json.loads(llm_response)
