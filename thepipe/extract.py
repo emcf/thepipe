@@ -14,14 +14,21 @@ DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o-mini")
 
 def extract_json_from_response(llm_response: str) -> Union[Dict, List[Dict], None]:
     def clean_response_text(llm_response: str) -> str:
-        return llm_response.encode('utf-8', 'ignore').decode('utf-8')
+        return llm_response.encode('utf-8', 'ignore').decode('utf-8').strip()
     
-    llm_response = llm_response.strip()
+    # try to match inside of code block
     code_block_pattern = r'^```(?:json)?\s*([\s\S]*?)\s*```$'
     match = re.match(code_block_pattern, llm_response, re.MULTILINE | re.DOTALL)
     if match:
-        llm_response = match.group(1).strip()
+        llm_response = match.group(1)
     llm_response = clean_response_text(llm_response)
+
+    # try to remove code block formatting if still present
+    if llm_response.startswith("```json") and llm_response.endswith("```"):
+        llm_response = llm_response[len("```json"):-len("```")]
+    llm_response = clean_response_text(llm_response)
+
+    # parse json by matching curly braces
     try:
         parsed_json = json.loads(llm_response)
         return parsed_json

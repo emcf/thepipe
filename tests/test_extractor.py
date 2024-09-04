@@ -60,7 +60,7 @@ Total: $14.57 USD
 
     def test_extract(self):
         results, total_tokens_used = extract(
-            chunks=self.chunks,
+            chunks=self.chunks, # receipt
             schema=self.schema,
         )
 
