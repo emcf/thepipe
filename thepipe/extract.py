@@ -106,7 +106,7 @@ def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: st
         response_dict = {"chunk_index": chunk_index, "source": source, "error": str(e)}
     return response_dict, tokens_used
 
-def extract(chunks: List[Chunk], schema: Union[str, Dict], ai_model: Optional[str] = 'google/gemma-2-9b-it', multiple_extractions: Optional[bool] = False, extraction_prompt: Optional[str] = DEFAULT_EXTRACTION_PROMPT, host_images: Optional[bool] = False) -> Tuple[List[Dict], int]:
+def extract(chunks: List[Chunk], schema: Union[str, Dict], ai_model: Optional[str] = 'openai/gpt-4o-mini', multiple_extractions: Optional[bool] = False, extraction_prompt: Optional[str] = DEFAULT_EXTRACTION_PROMPT, host_images: Optional[bool] = False) -> Tuple[List[Dict], int]:
     if isinstance(schema, dict):
         schema = json.dumps(schema)
 
