@@ -20,6 +20,7 @@ import mimetypes
 import dotenv
 import shutil
 from magika import Magika
+import markdownify
 dotenv.load_dotenv()
 
 from typing import List, Dict, Tuple, Optional
@@ -130,7 +131,7 @@ def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = Fa
 def scrape_html(file_path: str, verbose: bool = False, text_only: bool = False) -> List[Chunk]:
     with open(file_path, 'r', encoding='utf-8', errors='ignore') as file:
         html_content = file.read()
-    markdown_content = parse_html_to_markdown(html_content)
+    markdown_content = markdownify.markdownify(html_content, heading_style="ATX")
     if text_only:
         return [Chunk(path=file_path, texts=[markdown_content])]
     images = get_images_from_markdown(html_content)
@@ -383,7 +384,6 @@ def ai_extract_webpage_content(url: str, text_only: Optional[bool] = False, verb
 
 def extract_page_content(url: str, text_only: bool = False, verbose: bool = False) -> Chunk:
     from urllib.parse import urlparse
-    import markdownify
     from bs4 import BeautifulSoup
     from playwright.sync_api import sync_playwright
     import base64
@@ -466,76 +466,6 @@ def extract_page_content(url: str, text_only: bool = False, verbose: bool = Fals
         browser.close()
     
     return Chunk(path=url, texts=texts, images=images)
-
-def parse_html_to_markdown(html_content):
-    from bs4 import BeautifulSoup, NavigableString, Tag
-    import re
-
-    soup = BeautifulSoup(html_content, 'html.parser')
-
-    # Remove script and style elements
-    for script in soup(["script", "style"]):
-        script.decompose()
-
-    markdown_content = []
-
-    def traverse_and_extract(element, header_level=0):
-        if isinstance(element, NavigableString):
-            text = str(element).strip()
-            if text:
-                markdown_content.append(text)
-        elif isinstance(element, Tag):
-            if element.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
-                header_level = int(element.name[1])
-                markdown_content.append(f"\n{'#' * header_level} {element.get_text().strip()}\n")
-            elif element.name == 'a' and 'href' in element.attrs:
-                link_text = element.get_text().strip()
-                link_url = element['href']
-                markdown_content.append(f'[{link_text}]({link_url})')
-            elif element.name == 'img' and 'src' in element.attrs:
-                alt_text = element.get('alt', '')
-                img_url = element['src']
-                markdown_content.append(f'![{alt_text}]({img_url})')
-            elif element.name in ['ul', 'ol']:
-                markdown_content.append("\n")
-                for i, li in enumerate(element.find_all('li', recursive=False), 1):
-                    prefix = '*' if element.name == 'ul' else f"{i}."
-                    markdown_content.append(f"{prefix} {li.get_text().strip()}\n")
-            elif element.name in ['p', 'div']:
-                markdown_content.append(f"\n{element.get_text().strip()}\n")
-            elif element.name == 'br':
-                markdown_content.append("\n")
-            elif element.name == 'strong' or element.name == 'b':
-                markdown_content.append(f"**{element.get_text().strip()}**")
-            elif element.name == 'em' or element.name == 'i':
-                markdown_content.append(f"*{element.get_text().strip()}*")
-            elif element.name == 'code':
-                markdown_content.append(f"`{element.get_text().strip()}`")
-            elif element.name == 'pre':
-                markdown_content.append(f"\n```\n{element.get_text().strip()}\n```\n")
-            elif element.name == 'blockquote':
-                lines = element.get_text().strip().split('\n')
-                markdown_content.append('\n' + '\n'.join(f'> {line}' for line in lines) + '\n')
-            elif element.name == 'table':
-                markdown_content.append('\n')
-                for row in element.find_all('tr'):
-                    markdown_content.append('| ' + ' | '.join(cell.get_text().strip() for cell in row.find_all(['th', 'td'])) + ' |\n')
-                    if row.find('th'):
-                        markdown_content.append('| ' + ' | '.join(['---'] * len(row.find_all('th'))) + ' |\n')
-            else:
-                for child in element.children:
-                    traverse_and_extract(child, header_level)
-
-    # Extract content from the body tag
-    body = soup.body
-    if body:
-        traverse_and_extract(body)
-
-    # Join all parts and clean up excessive newlines
-    markdown = ' '.join(markdown_content)
-    markdown = re.sub(r'\n{3,}', '\n\n', markdown)
-    return markdown.strip()
-
 
 # TODO: deprecate this in favor of Chunk.from_json or Chunk.from_message
 def create_chunk_from_data(result: Dict, host_images: bool) -> Chunk:
@@ -897,7 +827,3 @@ def scrape_tweet(url: str, text_only: bool = False) -> List[Chunk]:
     # Create chunks for text and images
     chunk = Chunk(path=url, texts=[tweet_text], images=images)
     return [chunk]
-
-if __name__ == "__main__":
-    scraped = scrape_url("https://www.marsicofunds.com/investor-resources/content/distributions.fs", local=True)
-    print(scraped)
