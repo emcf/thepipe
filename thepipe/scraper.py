@@ -38,25 +38,32 @@ DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o-mini")
 FILESIZE_LIMIT_MB = os.getenv("FILESIZE_LIMIT_MB", 50)
 
 class YouTubeMetadata(Enum):
-    TITLE = auto()
-    DESCRIPTION = auto()
-    UPLOAD_DATE = auto()
-    UPLOADER = auto()
-    VIEW_COUNT = auto()
-    LIKE_COUNT = auto()
-    DURATION = auto()
-    TAGS = auto()
-    CATEGORY = auto()
-    THUMBNAIL_URL = auto()
+    TITLE = 'title'
+    DESCRIPTION = 'description'
+    UPLOAD_DATE = 'upload_date'
+    UPLOADER = 'uploader'
+    VIEW_COUNT = 'view_count'
+    LIKE_COUNT = 'like_count'
+    DURATION = 'duration'
+    TAGS = 'tags'
+    CATEGORY = 'categories'
+    THUMBNAIL_URL = 'thumbnail'
 
-DEFAULT_METADATA = [
-    YouTubeMetadata.TITLE,
-    YouTubeMetadata.DESCRIPTION,
-    YouTubeMetadata.UPLOAD_DATE,
-    YouTubeMetadata.UPLOADER,
-    YouTubeMetadata.VIEW_COUNT,
-    YouTubeMetadata.DURATION
-]
+    @classmethod
+    def extract(cls, info: Dict[str, Any]) -> Dict[str, Any]:
+        return {field.name.lower(): info.get(field.value, 'N/A') for field in cls}
+
+DEFAULT_METADATA = list(YouTubeMetadata)
+
+def format_metadata(metadata: Dict[str, Any]) -> str:
+    metadata_text = "Video Metadata:\n\n"
+    for key, value in metadata.items():
+        if isinstance(value, list):
+            value = ', '.join(map(str, value))
+        elif not isinstance(value, str):
+            value = str(value)
+        metadata_text += f"{key.capitalize()}: {value}\n"
+    return metadata_text
 
 def detect_source_type(source: str) -> str:
     # otherwise, try to detect the file type by its extension
@@ -804,13 +811,19 @@ def scrape_youtube(url: str, text_only: Optional[str] = None, verbose: bool = Fa
         try:
             chunks = []
 
+            # Extract metadata
+            with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
+                info = ydl.extract_info(url, download=False)
+                metadata = YouTubeMetadata.extract(info)
+                if metadata_fields:
+                    metadata = {k: v for k, v in metadata.items() if YouTubeMetadata[k.upper()] in metadata_fields}
+
             if text_only == 'transcribe':
                 if verbose:
                     print("[thepipe] Downloading audio for transcription.")
                 with yt_dlp.YoutubeDL(video_opts) as ydl:
                     ydl.params['outtmpl']['default'] = os.path.join(temp_dir, '%(title)s.%(ext)s')
-                    info = ydl.extract_info(url, download=True)
-                    video = info['entries'][0] if 'entries' in info else info
+                    ydl.download([url])
 
                     file = os.listdir(temp_dir)[0]
                     file_path = os.path.join(temp_dir, file)
@@ -846,8 +859,7 @@ def scrape_youtube(url: str, text_only: Optional[str] = None, verbose: bool = Fa
                         print("[thepipe] No subtitles found. Downloading video/audio for transcription.")
                     with yt_dlp.YoutubeDL(video_opts) as ydl:
                         ydl.params['outtmpl']['default'] = os.path.join(temp_dir, '%(title)s.%(ext)s')
-                        info = ydl.extract_info(url, download=True)
-                        video = info['entries'][0] if 'entries' in info else info
+                        ydl.download([url])
 
                         file = os.listdir(temp_dir)[0]
                         file_path = os.path.join(temp_dir, file)
@@ -856,12 +868,6 @@ def scrape_youtube(url: str, text_only: Optional[str] = None, verbose: bool = Fa
                             chunks = scrape_audio(file_path=file_path, verbose=verbose)
                         else:
                             chunks = scrape_video(file_path=file_path, verbose=verbose, text_only=True)
-
-            # Extract metadata
-            with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
-                info = ydl.extract_info(url, download=False)
-                video = info['entries'][0] if 'entries' in info else info
-                metadata = extract_metadata(video, metadata_fields, verbose)
 
             # Add metadata to the first chunk
             if chunks and metadata:
