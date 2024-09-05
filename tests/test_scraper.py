@@ -16,7 +16,16 @@ class test_scraper(unittest.TestCase):
             for file in os.listdir(self.outputs_directory):
                 os.remove(os.path.join(self.outputs_directory, file))
             os.rmdir(self.outputs_directory)
-    
+
+    def test_scrape_url_with_html(self):
+        url = "https://www.marsicofunds.com/investor-resources/content/distributions.fs"
+        chunks = scraper.scrape_url(url, local=True)
+        # verify it scraped the url into chunks
+        self.assertEqual(type(chunks), list)
+        self.assertNotEqual(len(chunks), 0)
+        # verify it scraped markdown data
+        self.assertTrue(any(len(chunk.texts) > 0 for chunk in chunks))
+
     def test_scrape_zip(self):
         chunks = scraper.scrape_file(self.files_directory+"/example.zip", verbose=True, local=True)
         # verify it scraped the zip file into chunks
