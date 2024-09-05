@@ -211,8 +211,19 @@ def parse_arguments() -> argparse.Namespace:
     group.add_argument('--include_pattern', type=str, nargs='?', const='*', default=None, 
                        help='Glob pattern to match files in a directory (e.g., "*.tsx"). Use quotes for patterns with special characters.')    
     parser.add_argument('--ai_extraction', action='store_true', help='Use ai_extraction to extract text from images.')
-    parser.add_argument('--text_only', action='store_true', help='Extract only text from the source.')
+    parser.add_argument('--text_only', nargs='?', const='default', default=None, 
+                        choices=['default', 'transcribe', 'ai', 'uploaded'],
+                        help='Extract only text from the source. Options: default (try all methods), transcribe (force local transcription), ai (prefer AI-generated), uploaded (prefer uploaded)')
     parser.add_argument('--verbose', action='store_true', help='Print status messages.')
     parser.add_argument('--local', action='store_true', help='Use local processing instead of API.')
+    parser.add_argument('--options', type=str, help='JSON string of type-specific options')
     args = parser.parse_args()
+    
+    if args.options:
+        try:
+            args.options = json.loads(args.options)
+        except json.JSONDecodeError:
+            print("Error: Invalid JSON in options")
+            exit(1)
+    
     return args

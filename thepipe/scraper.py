@@ -4,7 +4,7 @@ from io import BytesIO
 import io
 import math
 import re
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import  List, Dict, Any, Callable, Optional
 import glob
 import os
 import tempfile
@@ -22,8 +22,6 @@ import shutil
 from magika import Magika
 dotenv.load_dotenv()
 from enum import Enum, auto
-
-from typing import List, Dict, Tuple, Optional
 
 FOLDERS_TO_IGNORE = ['*node_modules.*', '.*venv.*', '.*\.git.*', '.*\.vscode.*', '.*pycache.*']
 FILES_TO_IGNORE = ['package-lock.json', '.gitignore', '.*\.bin', '.*\.pyc', '.*\.pyo', '.*\.exe', '.*\.dll', '.*\.ipynb_checkpoints']
@@ -121,7 +119,7 @@ def detect_url_type(url: str) -> str:
     # If none of the above, assume it's a general website
     return 'website'
 
-def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False, local: bool = False, chunking_method: Optional[Callable] = chunk_by_page) -> List[Chunk]:
+def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False, local: bool = False, chunking_method: Optional[Callable] = chunk_by_page, options: Optional[Dict[str, Any]] = None) -> List[Chunk]:
     if not local:
         with open(filepath, 'rb') as f:
             response = requests.post(
@@ -131,7 +129,8 @@ def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = Fa
                 data={
                     'text_only': str(text_only).lower(),
                     'ai_extraction': str(ai_extraction).lower(),
-                    'chunking_method': chunking_method.__name__
+                    'chunking_method': chunking_method.__name__,
+                    'options': json.dumps(options) if options else None
                 }
             )
         chunks = []
@@ -158,28 +157,28 @@ def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = Fa
     if verbose: 
         print(f"[thepipe] Scraping {source_type}: {filepath}...")
     if source_type == 'application/pdf':
-        scraped_chunks = scrape_pdf(file_path=filepath, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose)
+        scraped_chunks = scrape_pdf(file_path=filepath, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, options=options)
     elif source_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-        scraped_chunks = scrape_docx(file_path=filepath, verbose=verbose, text_only=text_only)
+        scraped_chunks = scrape_docx(file_path=filepath, verbose=verbose, text_only=text_only, options=options)
     elif source_type == 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
-        scraped_chunks = scrape_pptx(file_path=filepath, verbose=verbose, text_only=text_only)
+        scraped_chunks = scrape_pptx(file_path=filepath, verbose=verbose, text_only=text_only, options=options)
     elif source_type.startswith('image/'):
-        scraped_chunks = scrape_image(file_path=filepath, text_only=text_only)
+        scraped_chunks = scrape_image(file_path=filepath, text_only=text_only, options=options)
     elif source_type.startswith('application/vnd.ms-excel') or source_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-        scraped_chunks = scrape_spreadsheet(file_path=filepath, source_type=source_type)
+        scraped_chunks = scrape_spreadsheet(file_path=filepath, source_type=source_type, options=options)
     elif source_type == 'application/x-ipynb+json':
-        scraped_chunks = scrape_ipynb(file_path=filepath, verbose=verbose, text_only=text_only)
+        scraped_chunks = scrape_ipynb(file_path=filepath, verbose=verbose, text_only=text_only, options=options)
     elif source_type == 'application/zip' or source_type == 'application/x-zip-compressed':
-        scraped_chunks = scrape_zip(file_path=filepath, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local)
+        scraped_chunks = scrape_zip(file_path=filepath, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local, options=options)
     elif source_type.startswith('video/'):
-        scraped_chunks = scrape_video(file_path=filepath, verbose=verbose, text_only=text_only)
+        scraped_chunks = scrape_video(file_path=filepath, verbose=verbose, text_only=text_only, options=options)
     elif source_type.startswith('audio/'):
-        scraped_chunks = scrape_audio(file_path=filepath, verbose=verbose)
+        scraped_chunks = scrape_audio(file_path=filepath, verbose=verbose, options=options)
     elif source_type.startswith('text/'):
-        scraped_chunks = scrape_plaintext(file_path=filepath)
+        scraped_chunks = scrape_plaintext(file_path=filepath, options=options)
     else:
         try:
-            scraped_chunks = scrape_plaintext(file_path=filepath)
+            scraped_chunks = scrape_plaintext(file_path=filepath, options=options)
         except Exception as e:
             if verbose: 
                 print(f"[thepipe] Error extracting from {filepath}: {e}")
@@ -196,7 +195,7 @@ def scrape_plaintext(file_path: str) -> List[Chunk]:
         text = file.read()
     return [Chunk(path=file_path, texts=[text])]
 
-def scrape_directory(dir_path: str, include_regex: Optional[str] = None, include_patterns: Optional[List[str]] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = False) -> List[Chunk]:
+def scrape_directory(dir_path: str, include_regex: Optional[str] = None, include_patterns: Optional[List[str]] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = False, options: Optional[Dict[str, Any]] = None) -> List[Chunk]:
     extraction = []
     
     if include_patterns is not None:
@@ -233,7 +232,8 @@ def scrape_directory(dir_path: str, include_regex: Optional[str] = None, include
                 ai_extraction=ai_extraction, 
                 text_only=text_only, 
                 verbose=verbose, 
-                local=local
+                local=local,
+                options=options
             ), 
             all_files
         )
@@ -241,7 +241,6 @@ def scrape_directory(dir_path: str, include_regex: Optional[str] = None, include
             extraction.extend(result)
     
     return extraction
-
 
 def scrape_zip(file_path: str, include_regex: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = False) -> List[Chunk]:
     chunks = []
@@ -595,7 +594,7 @@ def create_chunk_from_data(result: Dict, host_images: bool) -> Chunk:
         images=images
     )
 
-def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, verbose: bool = False, local: bool = False, chunking_method: Callable = chunk_by_page) -> List[Chunk]:
+def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, verbose: bool = False, local: bool = False, chunking_method: Callable = chunk_by_page, options: Optional[Dict[str, Any]] = None) -> List[Chunk]:
     if not local:
         endpoint = f"{HOST_URL}/scrape"
         headers = {
@@ -606,6 +605,8 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
             "ai_extraction": str(ai_extraction).lower(),
             "chunking_method": chunking_method.__name__
         }
+        if options:
+            data["options"] = json.dumps(options)
         data["urls"] = url
         response = requests.post(endpoint, headers=headers, data=data, stream=True)
         response.raise_for_status()
@@ -623,19 +624,18 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
         print(f"[thepipe] Detected URL type: {url_type}")
     
     if any(url.startswith(domain) for domain in TWITTER_DOMAINS):
-        extraction = scrape_tweet(url=url, text_only=text_only, verbose=verbose)
+        extraction = scrape_tweet(url=url, text_only=text_only, verbose=verbose, options=options)
         return extraction
     elif url_type in ['video', 'video_playlist']:
-        extraction = scrape_youtube(url, text_only=text_only, verbose=verbose)
+        extraction = scrape_youtube(url, text_only=text_only, verbose=verbose, options=options)
         return extraction
     elif any(url.startswith(domain) for domain in GITHUB_DOMAINS):
-        extraction = scrape_github(github_url=url, text_only=text_only, ai_extraction=ai_extraction, verbose=verbose)
+        extraction = scrape_github(github_url=url, text_only=text_only, ai_extraction=ai_extraction, verbose=verbose, options=options)
         return extraction
     elif url_type == 'website_with_media':
         if verbose:
             print("[thepipe] Website contains downloadable media. Scraping entire website in next version.")
-        # extraction =  extract_page_content(url=url, text_only=text_only, verbose=verbose)
-        extraction = scrape_youtube(url, text_only=text_only, verbose=verbose)
+        extraction = scrape_youtube(url, text_only=text_only, verbose=verbose, options=options)
         return extraction
     elif url_type.startswith('file_'):
         # if url leads to a file, attempt to download it and scrape it
@@ -647,17 +647,17 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
                 raise ValueError(f"File size exceeds {FILESIZE_LIMIT_MB} MB limit.")
             with open(file_path, 'wb') as file:
                 file.write(response.content)
-            chunks = scrape_file(filepath=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=local, chunking_method=chunking_method)
+            chunks = scrape_file(filepath=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=local, chunking_method=chunking_method, options=options)
         return chunks
     else:
         # if url leads to web content, scrape it directly
         if ai_extraction:
-            chunk = ai_extract_webpage_content(url=url, text_only=text_only, verbose=verbose)
+            chunk = ai_extract_webpage_content(url=url, text_only=text_only, verbose=verbose, options=options)
         else:
-            chunk = extract_page_content(url=url, text_only=text_only, verbose=verbose)
+            chunk = extract_page_content(url=url, text_only=text_only, verbose=verbose, options=options)
         chunks = chunking_method([chunk])
         return chunks
-
+    
 def format_timestamp(seconds, chunk_index, chunk_duration):
     # helper function to format the timestamp.
     total_seconds = chunk_index * chunk_duration + seconds
@@ -752,66 +752,165 @@ def scrape_video(file_path: str, verbose: bool = False, text_only: bool = False)
     finally:
         video.close()
     return chunks
-
-def scrape_youtube(url: str, text_only: bool = False, verbose: bool = False, metadata_fields: Optional[List[YouTubeMetadata]] = DEFAULT_METADATA) -> List[Chunk]:
-    import yt_dlp
     
-    ydl_opts = {
-        'format': 'bestaudio/best' if text_only else 'bestvideo+bestaudio/best',
+
+def scrape_youtube(url: str, text_only: Optional[str] = None, verbose: bool = False, metadata_fields: Optional[List[YouTubeMetadata]] = DEFAULT_METADATA, options: Optional[Dict[str, Any]] = None) -> List[Chunk]:
+    import yt_dlp
+    from .enums import YouTubeEnum
+
+    subtitle_opts = {
+        'outtmpl': {'default': '%(title)s.%(ext)s'},
+        'quiet': not verbose,
+        'writesubtitles': True,
+        'writeautomaticsub': True,
+        'subtitleslangs': ['en,*', 'a.en,a.*'],
+        'skip_download': True,
+    }
+
+    video_opts = {
         'outtmpl': {'default': '%(title)s.%(ext)s'},
         'quiet': not verbose,
     }
-    
-    if text_only:
-        # Optimize for audio-only download
-        ydl_opts.update({
-            'format': 'bestaudio/best',
-            'postprocessors': [],  # No post-processing
-            'extract_audio': True,  # This ensures we only extract audio
-            'audio_format': 'best',  # Get the best audio format available
-        })
-    
+
+    if text_only == 'transcribe':
+        video_opts['format'] = 'bestaudio/best'
+        video_opts['postprocessors'] = [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }]
+    elif text_only in ['ai', 'uploaded']:
+        if text_only == 'ai':
+            subtitle_opts['subtitleslangs'] = ['a.en,a.*', 'en,*']
+        else:  # uploaded
+            subtitle_opts['subtitleslangs'] = ['en,*', 'a.en,a.*']
+    else:
+        video_opts['format'] = 'bestvideo+bestaudio/best'
+
+    # Process additional options
+    if options and 'youtube' in options:
+        subtitle_opts.update(YouTubeEnum.process_options(options['youtube'], bool(text_only), verbose))
+        video_opts.update(YouTubeEnum.process_options(options['youtube'], bool(text_only), verbose))
+
     with tempfile.TemporaryDirectory() as temp_dir:
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                # First, extract info without downloading
+            chunks = []
+
+            if text_only == 'transcribe':
+                if verbose:
+                    print("[thepipe] Downloading audio for transcription.")
+                with yt_dlp.YoutubeDL(video_opts) as ydl:
+                    ydl.params['outtmpl']['default'] = os.path.join(temp_dir, '%(title)s.%(ext)s')
+                    info = ydl.extract_info(url, download=True)
+                    video = info['entries'][0] if 'entries' in info else info
+
+                    file = os.listdir(temp_dir)[0]
+                    file_path = os.path.join(temp_dir, file)
+
+                    chunks = scrape_audio(file_path=file_path, verbose=verbose)
+            else:
+                # Try to download subtitles
+                with yt_dlp.YoutubeDL(subtitle_opts) as ydl:
+                    ydl.params['outtmpl']['default'] = os.path.join(temp_dir, '%(title)s.%(ext)s')
+                    ydl.download([url])
+
+                    subtitle_found = False
+                    for file in os.listdir(temp_dir):
+                        if file.endswith('.vtt'):
+                            with open(os.path.join(temp_dir, file), 'r', encoding='utf-8') as f:
+                                subtitle_text = f.read()
+                            try:
+                                cleaned_subtitle_text = clean_subtitles(subtitle_text)
+                                chunks.append(Chunk(path=url, texts=[cleaned_subtitle_text]))
+                                subtitle_found = True
+                                break  # Use the first available subtitle file
+                            except Exception as e:
+                                if verbose:
+                                    print(f"[thepipe] Error cleaning subtitles: {str(e)}")
+                                # If cleaning fails, use the original subtitle text
+                                chunks.append(Chunk(path=url, texts=[subtitle_text]))
+                                subtitle_found = True
+                                break
+
+                # If no subtitles found, download video/audio for transcription
+                if not subtitle_found:
+                    if verbose:
+                        print("[thepipe] No subtitles found. Downloading video/audio for transcription.")
+                    with yt_dlp.YoutubeDL(video_opts) as ydl:
+                        ydl.params['outtmpl']['default'] = os.path.join(temp_dir, '%(title)s.%(ext)s')
+                        info = ydl.extract_info(url, download=True)
+                        video = info['entries'][0] if 'entries' in info else info
+
+                        file = os.listdir(temp_dir)[0]
+                        file_path = os.path.join(temp_dir, file)
+
+                        if file.endswith('.mp3') or file.endswith('.m4a'):
+                            chunks = scrape_audio(file_path=file_path, verbose=verbose)
+                        else:
+                            chunks = scrape_video(file_path=file_path, verbose=verbose, text_only=True)
+
+            # Extract metadata
+            with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
                 info = ydl.extract_info(url, download=False)
                 video = info['entries'][0] if 'entries' in info else info
-                
-                # Extract metadata
                 metadata = extract_metadata(video, metadata_fields, verbose)
-                
-                if verbose:
-                    print(f"[thepipe] Downloading {'audio' if text_only else 'video'} from {url}")
-                
-                # Now download the file
-                ydl_opts['outtmpl']['default'] = os.path.join(temp_dir, '%(title)s.%(ext)s')
-                ydl.params.update(ydl_opts)
-                ydl.download([url])
-                
-                file_path = os.path.join(temp_dir, os.listdir(temp_dir)[0])
-                
-                if text_only:
-                    chunks = scrape_audio(file_path=file_path, verbose=verbose)
-                else:
-                    chunks = scrape_video(file_path=file_path, verbose=verbose, text_only=False)
-                
-                # Add metadata to the first chunk
-                if chunks and metadata:
-                    metadata_text = format_metadata(metadata)
-                    chunks[0].texts.insert(0, metadata_text)
-                
-                return chunks
+
+            # Add metadata to the first chunk
+            if chunks and metadata:
+                metadata_text = format_metadata(metadata)
+                chunks[0].texts.insert(0, metadata_text)
+
+            return chunks
+
         except yt_dlp.utils.DownloadError as e:
             if verbose:
-                print(f"[thepipe] Error downloading {'audio' if text_only else 'video'}: {str(e)}")
-            return [Chunk(path=url, texts=[f"Error: Unable to download {'audio' if text_only else 'video'}. {str(e)}"])]
+                print(f"[thepipe] Error processing YouTube video: {str(e)}")
+            return [Chunk(path=url, texts=[f"Error: Unable to process YouTube video. {str(e)}"])]
         except Exception as e:
             if verbose:
                 print(f"[thepipe] Unexpected error: {str(e)}")
             return [Chunk(path=url, texts=[f"Error: An unexpected error occurred. {str(e)}"])]
+                
+def clean_subtitles(subtitle_text: str) -> str:
+    lines = subtitle_text.split('\n')
+    cleaned_lines: List[Tuple[str, str]] = []
+    current_time = ""
     
-        
+    for line in lines:
+        if re.match(r'\d{2}:\d{2}:\d{2}\.\d{3} --> \d{2}:\d{2}:\d{2}\.\d{3}', line):
+            current_time = line.split(' --> ')[0]
+        elif line.strip() and not line.startswith('WEBVTT'):
+            text = re.sub(r'<[^>]+>', '', line).strip()
+            if current_time:  # Only add the line if we have a valid timestamp
+                if cleaned_lines and cleaned_lines[-1][1].endswith(text):
+                    # If this line is contained entirely in the previous line, skip it
+                    continue
+                if cleaned_lines and text.startswith(cleaned_lines[-1][1]):
+                    # If this line starts with the previous line, extend the previous line
+                    cleaned_lines[-1] = (cleaned_lines[-1][0], text)
+                else:
+                    cleaned_lines.append((current_time, text))
+
+    # Merge lines that are continuations
+    merged_lines = []
+    buffer = ""
+    buffer_time = ""
+    for time, text in cleaned_lines:
+        if not buffer:
+            buffer = text
+            buffer_time = time
+        elif text.startswith(buffer.split()[-1]):
+            buffer += text[len(buffer.split()[-1]):]
+        else:
+            merged_lines.append(f"[{buffer_time}] {buffer}")
+            buffer = text
+            buffer_time = time
+    
+    if buffer:
+        merged_lines.append(f"[{buffer_time}] {buffer}")
+
+    return '\n'.join(merged_lines)
+
 def scrape_audio(file_path: str, verbose: bool = False) -> List[Chunk]:
     import whisper
     model = whisper.load_model("base")
@@ -1046,3 +1145,4 @@ def scrape_tweet(url: str, text_only: bool = False, verbose: bool = False) -> Li
         main_chunk.images = images
 
     return chunks
+
