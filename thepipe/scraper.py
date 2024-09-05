@@ -126,7 +126,7 @@ def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = Fa
     return scraped_chunks
 
 def scrape_plaintext(file_path: str) -> List[Chunk]:
-    with open(file_path, 'r', encoding='utf-8') as file:
+    with open(file_path, 'r', encoding='utf-8', errors='ignore') as file:
         text = file.read()
     return [Chunk(path=file_path, texts=[text])]
 
