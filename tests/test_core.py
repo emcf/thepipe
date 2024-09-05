@@ -35,6 +35,9 @@ class test_core(unittest.TestCase):
             self.assertEqual(type(message), dict)
             self.assertIn('role', message)
             self.assertIn('content', message)
+        # test chunks_to_messages with path included
+        messages = core.chunks_to_messages(chunks, include_paths=True)
+        for message in messages:
             self.assertIn('example.md', message['content'][0]['text'])
 
     def test_save_outputs(self):

@@ -40,15 +40,15 @@ class test_scraper(unittest.TestCase):
         self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
 
     # requires modal token to run
-    #def test_scrape_pdf_with_ai_extraction(self):
-    #    chunks = scraper.scrape_file("tests/files/example.pdf", ai_extraction=True, verbose=True, local=True)
-    #    # verify it scraped the pdf file into chunks
-    #    self.assertEqual(type(chunks), list)
-    #    self.assertNotEqual(len(chunks), 0)
-    #    self.assertEqual(type(chunks[0]), core.Chunk)
-    #    # verify it scraped the data
-    #    for chunk in chunks:
-    #        self.assertIsNotNone(chunk.texts or chunk.images)
+    def test_scrape_pdf_with_ai_extraction(self):
+        chunks = scraper.scrape_file("tests/files/example.pdf", ai_extraction=True, verbose=True, local=True)
+        # verify it scraped the pdf file into chunks
+        self.assertEqual(type(chunks), list)
+        self.assertNotEqual(len(chunks), 0)
+        self.assertEqual(type(chunks[0]), core.Chunk)
+        # verify it scraped the data
+        for chunk in chunks:
+            self.assertIsNotNone(chunk.texts or chunk.images)
     
     def test_scrape_docx(self):
         chunks = scraper.scrape_file(self.files_directory+"/example.docx", verbose=True, local=True)
@@ -147,6 +147,18 @@ class test_scraper(unittest.TestCase):
         # verify file url scrape result
         chunks = scraper.scrape_url('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', local=True)
         self.assertEqual(len(chunks), 1)
+
+    def test_scrape_url_with_ai_extraction(self):
+        # verify web page scrape result with ai extraction
+        chunks = scraper.scrape_url('https://en.wikipedia.org/wiki/Piping', ai_extraction=True, local=True)
+        for chunk in chunks:
+            self.assertEqual(type(chunk), core.Chunk)
+            self.assertEqual(chunk.path, 'https://en.wikipedia.org/wiki/Piping')
+        # assert if any of the texts in chunk.texts contains 'pipe'
+        self.assertGreater(len(chunk.texts), 0)
+        self.assertIn('pipe', chunk.texts[0])
+        # verify if at least one image was scraped
+        self.assertTrue(any(len(chunk.images) > 0 for chunk in chunks))
 
     @unittest.skipUnless(os.environ.get('GITHUB_TOKEN'), "requires GITHUB_TOKEN")
     def test_scrape_github(self):

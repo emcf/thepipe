@@ -10,17 +10,20 @@ import os
 from openai import OpenAI
 
 DEFAULT_EXTRACTION_PROMPT = "Extract structured information from the above document according to the following schema: {schema}. Immediately return valid JSON formatted data. If there is missing data, you may use null, but use your reasoning to always fill in every column as best you can. Always immediately return valid JSON."
+DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o-mini")
 
-def extract_json_from_response(llm_response: str) -> Optional[Dict]:
+def extract_json_from_response(llm_response: str) -> Union[Dict, List[Dict], None]:
     def clean_response_text(llm_response: str) -> str:
-        return llm_response.encode('utf-8', 'ignore').decode('utf-8')
+        return llm_response.encode('utf-8', 'ignore').decode('utf-8').strip()
     
-    llm_response = llm_response.strip()
+    # try to match inside of code block
     code_block_pattern = r'^```(?:json)?\s*([\s\S]*?)\s*```$'
     match = re.match(code_block_pattern, llm_response, re.MULTILINE | re.DOTALL)
     if match:
-        llm_response = match.group(1).strip()
+        llm_response = match.group(1)
     llm_response = clean_response_text(llm_response)
+
+    # parse json by matching curly braces
     try:
         parsed_json = json.loads(llm_response)
         return parsed_json
@@ -67,7 +70,7 @@ def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: st
             model=ai_model,
             messages=messages,
             response_format={"type": "json_object"},
-            temperature=0.2
+            temperature=0.1,
         )
         llm_response = response.choices[0].message.content
         input_tokens = calculate_tokens([chunk])
@@ -79,11 +82,15 @@ def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: st
                 if multiple_extractions:
                     if isinstance(llm_response_dict, dict) and "extraction" in llm_response_dict:
                         response_dict["extraction"] = llm_response_dict["extraction"]
+                    elif isinstance(llm_response_dict, list):
+                        response_dict["extraction"] = llm_response_dict
                     else:
                         response_dict["extraction"] = [llm_response_dict]
                 else:
                     if isinstance(llm_response_dict, dict):
                         response_dict.update(llm_response_dict)
+                    elif isinstance(llm_response_dict, list):
+                        response_dict["error"] = f"Expected a single JSON object but received a list: {llm_response_dict}"
                     else:
                         response_dict["error"] = f"Invalid JSON structure in LLM response: {llm_response_dict}"
             else:
@@ -99,7 +106,7 @@ def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: st
         response_dict = {"chunk_index": chunk_index, "source": source, "error": str(e)}
     return response_dict, tokens_used
 
-def extract(chunks: List[Chunk], schema: Union[str, Dict], ai_model: str = 'google/gemma-2-9b-it', multiple_extractions: bool = False, extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT, host_images: bool = False) -> Tuple[List[Dict], int]:
+def extract(chunks: List[Chunk], schema: Union[str, Dict], ai_model: Optional[str] = 'openai/gpt-4o-mini', multiple_extractions: Optional[bool] = False, extraction_prompt: Optional[str] = DEFAULT_EXTRACTION_PROMPT, host_images: Optional[bool] = False) -> Tuple[List[Dict], int]:
     if isinstance(schema, dict):
         schema = json.dumps(schema)
 

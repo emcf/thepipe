@@ -34,9 +34,7 @@ thepi.pe is an API that can scrape multimodal data via `thepipe.scrape` or extra
 
 ## Get started in 5 minutes  🚀
 
-thepi.pe can read a wide range of filetypes and web sources, so it requires a few dependencies. It also requires vision-language model inference for AI extraction features. For these reasons, we host an API that works out-of-the-box at [thepi.pe](https://thepi.pe).
-
-For more detailed setup instructions, view the [docs](https://thepi.pe/docs-platform).
+thepi.pe can read a wide range of filetypes and web sources, so it requires a few dependencies. It also requires vision-language model inference for AI extraction features. For these reasons, we host an API that works out-of-the-box. For more detailed setup instructions, view the [docs](https://thepi.pe/docs-platform).
 
 ```bash
 pip install thepipe-api
@@ -44,15 +42,17 @@ pip install thepipe-api
 
 ### Hosted API (Python)
 
+You can get an API key by signing up for a free account at [thepi.pe](https://thepi.pe). The, simply set the `THEPIPE_API_KEY` environment variable to your API key.
+
 ```python
 from thepipe.scraper import scrape_file
 from thepipe.core import chunks_to_messages
 from openai import OpenAI
 
-# scrape markdown, tables, visuals
-chunks = scrape_file(filepath="paper.pdf", ai_extraction=True)
+# scrape clean markdown
+chunks = scrape_file(filepath="paper.pdf", ai_extraction=False)
 
-# call LLM with clean, comprehensive data
+# call LLM with scraped chunks
 client = OpenAI()
 response = client.chat.completions.create(
     model="gpt-4o",
@@ -68,7 +68,7 @@ For a local installation, you can use the following command:
 pip install thepipe-api[local]
 ```
 
-You must have a local LLM server setup and running for AI extraction features. You can use any local LLM server that follows OpenAI format (such as [LiteLLM](https://github.com/BerriAI/litellm) or [OpenRouter](https://openrouter.ai/)). Next, set the `LLM_SERVER_BASE_URL` environment variable to your LLM server's endpoint URL and set `LLM_SERVER_API_KEY` to the API key for your LLM of choice. the `DEFAULT_VLM` environment variable can be set to the model name of your LLM. For example, you may use `openai/gpt-4o-mini` if using OpenRouter or `gpt-4o-mini` if using OpenAI. 
+You must have a local LLM server setup and running for AI extraction features. You can use any local LLM server that follows OpenAI format (such as [LiteLLM](https://github.com/BerriAI/litellm) or [OpenRouter](https://openrouter.ai/)). Next, set the `LLM_SERVER_BASE_URL` environment variable to your LLM server's endpoint URL and set `LLM_SERVER_API_KEY` to the API key for your LLM of choice. the `DEFAULT_AI_MODEL` environment variable can be set to the model name of your LLM. For example, you may use `openai/gpt-4o-mini` if using OpenRouter or `gpt-4o-mini` if using OpenAI. 
 
 For full functionality with media-rich sources, you will need to install the following dependencies:
 
