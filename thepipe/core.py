@@ -208,8 +208,8 @@ def parse_arguments() -> argparse.Namespace:
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--include_regex', type=str, nargs='?', const='.*', default=None, 
                        help='Regex pattern to match in a directory. Use quotes for patterns with special characters.')
-    group.add_argument('--include_pattern', type=str, nargs='?', const='*', default=None, 
-                       help='Glob pattern to match files in a directory (e.g., "*.tsx"). Use quotes for patterns with special characters.')    
+    group.add_argument('--include_patterns', type=str, nargs='+', default=None,
+                       help='Glob patterns to match files in a directory (e.g., "*.tsx" "*.ts"). Use quotes for patterns with special characters.')
     parser.add_argument('--ai_extraction', action='store_true', help='Use ai_extraction to extract text from images.')
     parser.add_argument('--text_only', nargs='?', const='default', default=None, 
                         choices=['default', 'transcribe', 'ai', 'uploaded'],
