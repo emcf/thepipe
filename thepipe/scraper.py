@@ -196,13 +196,15 @@ def scrape_plaintext(file_path: str) -> List[Chunk]:
         text = file.read()
     return [Chunk(path=file_path, texts=[text])]
 
-def scrape_directory(dir_path: str, include_regex: Optional[str] = None, include_pattern: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = False) -> List[Chunk]:
+def scrape_directory(dir_path: str, include_regex: Optional[str] = None, include_patterns: Optional[List[str]] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = False) -> List[Chunk]:
     extraction = []
     
-    if include_pattern is not None:
-        # Use glob pattern
-        pattern = os.path.join(dir_path, '**', include_pattern)
-        all_files = glob.glob(pattern, recursive=True)
+    if include_patterns is not None:
+        # Use glob patterns
+        all_files = []
+        for pattern in include_patterns:
+            pattern_path = os.path.join(dir_path, '**', pattern)
+            all_files.extend(glob.glob(pattern_path, recursive=True))
     elif include_regex is not None:
         # Use regex
         all_files = []
@@ -239,6 +241,7 @@ def scrape_directory(dir_path: str, include_regex: Optional[str] = None, include
             extraction.extend(result)
     
     return extraction
+
 
 def scrape_zip(file_path: str, include_regex: Optional[str] = None, verbose: bool = False, ai_extraction: bool = False, text_only: bool = False, local: bool = False) -> List[Chunk]:
     chunks = []
@@ -630,8 +633,9 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
         return extraction
     elif url_type == 'website_with_media':
         if verbose:
-            print("[thepipe] Website contains downloadable media. Scraping entire website.")
-        extraction =  extract_page_content(url=url, text_only=text_only, verbose=verbose)
+            print("[thepipe] Website contains downloadable media. Scraping entire website in next version.")
+        # extraction =  extract_page_content(url=url, text_only=text_only, verbose=verbose)
+        extraction = scrape_youtube(url, text_only=text_only, verbose=verbose)
         return extraction
     elif url_type.startswith('file_'):
         # if url leads to a file, attempt to download it and scrape it
@@ -662,6 +666,47 @@ def format_timestamp(seconds, chunk_index, chunk_duration):
     seconds = total_seconds % 60
     milliseconds = int((seconds - int(seconds)) * 1000)
     return f"{hours:02}:{minutes:02}:{int(seconds):02}.{milliseconds:03}"
+
+def extract_metadata(video: dict, metadata_fields: Optional[List[YouTubeMetadata]], verbose: bool) -> dict:
+    metadata = {}
+    if metadata_fields is not None:
+        for field in metadata_fields:
+            try:
+                if field == YouTubeMetadata.TITLE:
+                    metadata['title'] = video.get('title', 'Untitled')
+                elif field == YouTubeMetadata.DESCRIPTION:
+                    metadata['description'] = video.get('description', '')
+                elif field == YouTubeMetadata.UPLOAD_DATE:
+                    metadata['upload_date'] = video.get('upload_date', '')
+                elif field == YouTubeMetadata.UPLOADER:
+                    metadata['uploader'] = video.get('uploader', '')
+                elif field == YouTubeMetadata.VIEW_COUNT:
+                    metadata['view_count'] = str(video.get('view_count', 'N/A'))
+                elif field == YouTubeMetadata.LIKE_COUNT:
+                    metadata['like_count'] = str(video.get('like_count', 'N/A'))
+                elif field == YouTubeMetadata.DURATION:
+                    metadata['duration'] = str(video.get('duration', 'N/A'))
+                elif field == YouTubeMetadata.TAGS:
+                    metadata['tags'] = video.get('tags', [])
+                elif field == YouTubeMetadata.CATEGORY:
+                    metadata['category'] = video.get('categories', ['N/A'])[0] if video.get('categories') else 'N/A'
+                elif field == YouTubeMetadata.THUMBNAIL_URL:
+                    metadata['thumbnail_url'] = video.get('thumbnail', 'N/A')
+            except Exception as e:
+                if verbose:
+                    print(f"[thepipe] Error extracting {field.name} metadata: {str(e)}")
+                metadata[field.name.lower()] = 'N/A'
+    return metadata
+
+def format_metadata(metadata: dict) -> str:
+    metadata_text = "Video Metadata:\n\n"
+    for key, value in metadata.items():
+        if isinstance(value, list):
+            value = ', '.join(map(str, value))
+        elif not isinstance(value, str):
+            value = str(value)
+        metadata_text += f"{key.capitalize()}: {value}\n"
+    return metadata_text
 
 def scrape_video(file_path: str, verbose: bool = False, text_only: bool = False) -> List[Chunk]:
     import whisper
@@ -710,59 +755,36 @@ def scrape_video(file_path: str, verbose: bool = False, text_only: bool = False)
 
 def scrape_youtube(url: str, text_only: bool = False, verbose: bool = False, metadata_fields: Optional[List[YouTubeMetadata]] = DEFAULT_METADATA) -> List[Chunk]:
     import yt_dlp
+    
     ydl_opts = {
         'format': 'bestaudio/best' if text_only else 'bestvideo+bestaudio/best',
         'outtmpl': {'default': '%(title)s.%(ext)s'},
         'quiet': not verbose,
     }
     
+    if text_only:
+        # Optimize for audio-only download
+        ydl_opts.update({
+            'format': 'bestaudio/best',
+            'postprocessors': [],  # No post-processing
+            'extract_audio': True,  # This ensures we only extract audio
+            'audio_format': 'best',  # Get the best audio format available
+        })
+    
     with tempfile.TemporaryDirectory() as temp_dir:
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                # First, extract info without downloading
                 info = ydl.extract_info(url, download=False)
-                if 'entries' in info:
-                    # It's a playlist or a channel, but we'll just take the first video
-                    video = info['entries'][0]
-                else:
-                    video = info
+                video = info['entries'][0] if 'entries' in info else info
                 
-                # Extract specified metadata
-                metadata = {}
-                if metadata_fields is not None:
-                    for field in metadata_fields:
-                        try:
-                            if field == YouTubeMetadata.TITLE:
-                                metadata['title'] = video.get('title', 'Untitled')
-                            elif field == YouTubeMetadata.DESCRIPTION:
-                                metadata['description'] = video.get('description', '')
-                            elif field == YouTubeMetadata.UPLOAD_DATE:
-                                metadata['upload_date'] = video.get('upload_date', '')
-                            elif field == YouTubeMetadata.UPLOADER:
-                                metadata['uploader'] = video.get('uploader', '')
-                            elif field == YouTubeMetadata.VIEW_COUNT:
-                                metadata['view_count'] = str(video.get('view_count', 'N/A'))
-                            elif field == YouTubeMetadata.LIKE_COUNT:
-                                metadata['like_count'] = str(video.get('like_count', 'N/A'))
-                            elif field == YouTubeMetadata.DURATION:
-                                metadata['duration'] = str(video.get('duration', 'N/A'))
-                            elif field == YouTubeMetadata.TAGS:
-                                metadata['tags'] = video.get('tags', [])
-                            elif field == YouTubeMetadata.CATEGORY:
-                                metadata['category'] = video.get('categories', ['N/A'])[0] if video.get('categories') else 'N/A'
-                            elif field == YouTubeMetadata.THUMBNAIL_URL:
-                                metadata['thumbnail_url'] = video.get('thumbnail', 'N/A')
-                        except Exception as e:
-                            if verbose:
-                                print(f"[thepipe] Error extracting {field.name} metadata: {str(e)}")
-                            metadata[field.name.lower()] = 'N/A'
+                # Extract metadata
+                metadata = extract_metadata(video, metadata_fields, verbose)
                 
-                if text_only:
-                    # For text-only, we just need the audio for transcription
-                    ydl_opts['postprocessors'] = [{
-                        'key': 'FFmpegExtractAudio',
-                        'preferredcodec': 'wav',
-                    }]
+                if verbose:
+                    print(f"[thepipe] Downloading {'audio' if text_only else 'video'} from {url}")
                 
+                # Now download the file
                 ydl_opts['outtmpl']['default'] = os.path.join(temp_dir, '%(title)s.%(ext)s')
                 ydl.params.update(ydl_opts)
                 ydl.download([url])
@@ -776,25 +798,20 @@ def scrape_youtube(url: str, text_only: bool = False, verbose: bool = False, met
                 
                 # Add metadata to the first chunk
                 if chunks and metadata:
-                    metadata_text = "Video Metadata:\n\n"
-                    for key, value in metadata.items():
-                        if isinstance(value, list):
-                            value = ', '.join(map(str, value))
-                        elif not isinstance(value, str):
-                            value = str(value)
-                        metadata_text += f"{key.capitalize()}: {value}\n"
+                    metadata_text = format_metadata(metadata)
                     chunks[0].texts.insert(0, metadata_text)
                 
                 return chunks
         except yt_dlp.utils.DownloadError as e:
             if verbose:
-                print(f"[thepipe] Error downloading video: {str(e)}")
-            return [Chunk(path=url, texts=[f"Error: Unable to download video. {str(e)}"])]
+                print(f"[thepipe] Error downloading {'audio' if text_only else 'video'}: {str(e)}")
+            return [Chunk(path=url, texts=[f"Error: Unable to download {'audio' if text_only else 'video'}. {str(e)}"])]
         except Exception as e:
             if verbose:
                 print(f"[thepipe] Unexpected error: {str(e)}")
             return [Chunk(path=url, texts=[f"Error: An unexpected error occurred. {str(e)}"])]
-              
+    
+        
 def scrape_audio(file_path: str, verbose: bool = False) -> List[Chunk]:
     import whisper
     model = whisper.load_model("base")
