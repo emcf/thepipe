@@ -20,6 +20,7 @@ import mimetypes
 import dotenv
 import shutil
 from magika import Magika
+import markdownify
 dotenv.load_dotenv()
 from enum import Enum, auto
 
@@ -167,26 +168,28 @@ def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = Fa
     if source_type == 'application/pdf':
         scraped_chunks = scrape_pdf(file_path=filepath, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, ai_model=ai_model, options=options)
     elif source_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-        scraped_chunks = scrape_docx(file_path=filepath, verbose=verbose, text_only=text_only, options=options)
+        scraped_chunks = scrape_docx(file_path=filepath, verbose=verbose, text_only=text_only,)
     elif source_type == 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
-        scraped_chunks = scrape_pptx(file_path=filepath, verbose=verbose, text_only=text_only, options=options)
+        scraped_chunks = scrape_pptx(file_path=filepath, verbose=verbose, text_only=text_only,)
     elif source_type.startswith('image/'):
-        scraped_chunks = scrape_image(file_path=filepath, text_only=text_only, options=options)
+        scraped_chunks = scrape_image(file_path=filepath, text_only=text_only,)
     elif source_type.startswith('application/vnd.ms-excel') or source_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-        scraped_chunks = scrape_spreadsheet(file_path=filepath, source_type=source_type, options=options)
+        scraped_chunks = scrape_spreadsheet(file_path=filepath, source_type=source_type,)
     elif source_type == 'application/x-ipynb+json':
-        scraped_chunks = scrape_ipynb(file_path=filepath, verbose=verbose, text_only=text_only, options=options)
+        scraped_chunks = scrape_ipynb(file_path=filepath, verbose=verbose, text_only=text_only,)
     elif source_type == 'application/zip' or source_type == 'application/x-zip-compressed':
-        scraped_chunks = scrape_zip(file_path=filepath, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local, options=options)
+        scraped_chunks = scrape_zip(file_path=filepath, verbose=verbose, ai_extraction=ai_extraction, text_only=text_only, local=local,)
     elif source_type.startswith('video/'):
         scraped_chunks = scrape_video(file_path=filepath, verbose=verbose, text_only=text_only, options=options)
     elif source_type.startswith('audio/'):
         scraped_chunks = scrape_audio(file_path=filepath, verbose=verbose, options=options)
+    elif source_type.startswith('text/html'):
+        scraped_chunks = scrape_html(file_path=filepath, verbose=verbose, text_only=text_only)
     elif source_type.startswith('text/'):
-        scraped_chunks = scrape_plaintext(file_path=filepath, options=options)
+        scraped_chunks = scrape_plaintext(file_path=filepath)
     else:
         try:
-            scraped_chunks = scrape_plaintext(file_path=filepath, options=options)
+            scraped_chunks = scrape_plaintext(file_path=filepath)
         except Exception as e:
             if verbose: 
                 print(f"[thepipe] Error extracting from {filepath}: {e}")
@@ -198,8 +201,17 @@ def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = Fa
     scraped_chunks = chunking_method(scraped_chunks)
     return scraped_chunks
 
+def scrape_html(file_path: str, verbose: bool = False, text_only: bool = False) -> List[Chunk]:
+    with open(file_path, 'r', encoding='utf-8', errors='ignore') as file:
+        html_content = file.read()
+    markdown_content = markdownify.markdownify(html_content, heading_style="ATX")
+    if text_only:
+        return [Chunk(path=file_path, texts=[markdown_content])]
+    images = get_images_from_markdown(html_content)
+    return [Chunk(path=file_path, texts=[markdown_content], images=images)]
+
 def scrape_plaintext(file_path: str) -> List[Chunk]:
-    with open(file_path, 'r', encoding='utf-8') as file:
+    with open(file_path, 'r', encoding='utf-8', errors='ignore') as file:
         text = file.read()
     return [Chunk(path=file_path, texts=[text])]
 
@@ -363,7 +375,7 @@ def scrape_pdf(file_path: str, ai_extraction: Optional[bool] = False, text_only:
             doc.close()
     return chunks
 
-def get_images_from_ipynb_markdown(text: str) -> List[Image.Image]:
+def get_images_from_markdown(text: str) -> List[Image.Image]:
     image_urls = re.findall(r"!\[.*?\]\((.*?)\)", text)
     images = []
     for url in image_urls:
@@ -481,7 +493,6 @@ def ai_extract_webpage_content(url: str, text_only: Optional[bool] = False, verb
 
 def extract_page_content(url: str, text_only: bool = False, verbose: bool = False) -> Chunk:
     from urllib.parse import urlparse
-    import markdownify
     from bs4 import BeautifulSoup
     from playwright.sync_api import sync_playwright
     import base64
@@ -564,28 +575,6 @@ def extract_page_content(url: str, text_only: bool = False, verbose: bool = Fals
         browser.close()
     
     return Chunk(path=url, texts=texts, images=images)
-
-def parse_html_to_markdown(html_content):
-    from bs4 import BeautifulSoup, NavigableString, Tag
-    soup = BeautifulSoup(html_content, 'html.parser')
-    markdown_content = []
-    # recursively traverse the HTML content and extract text and links
-    def traverse_and_extract(element):
-        if isinstance(element, NavigableString):
-            markdown_content.append(str(element))
-        elif isinstance(element, Tag):
-            if element.name == 'a' and 'href' in element.attrs:
-                link_text = element.get_text()
-                link_url = element['href']
-                markdown_content.append(f'[{link_text}]({link_url})')
-            else:
-                for child in element.children:
-                    traverse_and_extract(child)
-    # extract content from the body tag
-    body = soup.body
-    if body:
-        traverse_and_extract(body)
-    return ''.join(markdown_content)
 
 # TODO: deprecate this in favor of Chunk.from_json or Chunk.from_message
 def create_chunk_from_data(result: Dict, host_images: bool) -> Chunk:
@@ -1082,7 +1071,7 @@ def scrape_ipynb(file_path: str, verbose: bool = False, text_only: bool = False)
         if cell['cell_type'] == 'markdown':
             text = ''.join(cell['source'])
             if not text_only:
-                images = get_images_from_ipynb_markdown(text)
+                images = get_images_from_markdown(text)
             texts.append(text)
         elif cell['cell_type'] == 'code':
             source = ''.join(cell['source'])

@@ -6,3 +6,4 @@ requests
 pillow
 pydantic
 supabase
+markdownify==0.12.1

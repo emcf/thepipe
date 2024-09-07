@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML with Tables and JavaScript</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        .highlight {
+            font-weight: bold;
+            color: blue;
+        }
+    </style>
+    <script>
+        function highlightText() {
+            const elements = document.getElementsByClassName('highlight');
+            for (let i = 0; i < elements.length; i++) {
+                elements[i].style.backgroundColor = 'yellow';
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <!-- Markdown-like tags in HTML -->
+    <h1># Heading 1</h1>
+    <h2>## Heading 2</h2>
+    <h3>### Heading 3</h3>
+    <p>This is a paragraph with some <b>bold text</b> and some <i>italic text</i>. You can also use <strong>strong text</strong> for emphasis.</p>
+
+    <p>Here is a simple unordered list:</p>
+    <ul>
+        <li>Item one</li>
+        <li>Item two</li>
+        <li>Item three</li>
+    </ul>
+
+    <p>And an ordered list:</p>
+    <ol>
+        <li>First step</li>
+        <li>Second step</li>
+        <li>Third step</li>
+    </ol>
+
+    <!-- Tables -->
+    <h2>## Sample Table</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Age</th>
+                <th>Country</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="highlight">John Doe</td>
+                <td>28</td>
+                <td>USA</td>
+            </tr>
+            <tr>
+                <td>Jane Smith</td>
+                <td>34</td>
+                <td>Canada</td>
+            </tr>
+            <tr>
+                <td class="highlight">Alice Johnson</td>
+                <td>29</td>
+                <td>UK</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>## Another Table Example</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Price</th>
+                <th>Quantity</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Apples</td>
+                <td>$2</td>
+                <td>10</td>
+            </tr>
+            <tr>
+                <td>Bananas</td>
+                <td>$1</td>
+                <td>15</td>
+            </tr>
+            <tr>
+                <td>Cherries</td>
+                <td>$5</td>
+                <td>7</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Dummy JavaScript Function -->
+    <button onclick="highlightText()">Highlight Text</button>
+
+</body>
+</html>
