@@ -2,9 +2,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import re
 from typing import List, Dict, Union, Optional, Tuple, Callable
-from thepipe.core import HOST_URL, THEPIPE_API_KEY, Chunk, calculate_tokens
-from thepipe.scraper import scrape_url, scrape_file
-from thepipe.chunker import chunk_by_page
+from .core import HOST_URL, THEPIPE_API_KEY, Chunk, calculate_tokens
+from .scraper import scrape_url, scrape_file
+from .chunker import chunk_by_page, chunk_by_document, chunk_by_section, chunk_semantic, chunk_by_keywords
 import requests
 import os
 from openai import OpenAI
@@ -98,7 +98,7 @@ def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: st
                     if isinstance(llm_response_dict, dict):
                         response_dict.update(llm_response_dict)
                     elif isinstance(llm_response_dict, list):
-                        response_dict["error"] = f"Expected a single JSON object but received a list: {llm_response_dict}"
+                        response_dict["error"] = f"Expected a single JSON object but received a list: {llm_response_dict}. Try enabling multiple extractions."
                     else:
                         response_dict["error"] = f"Invalid JSON structure in LLM response: {llm_response_dict}"
             else:

@@ -14,7 +14,7 @@ from PIL import Image
 import requests
 import json
 from .core import HOST_URL, THEPIPE_API_KEY, HOST_IMAGES, Chunk, make_image_url
-from .chunker import chunk_by_page
+from .chunker import chunk_by_page, chunk_by_document, chunk_by_section, chunk_semantic, chunk_by_keywords
 import tempfile
 import mimetypes
 import dotenv
