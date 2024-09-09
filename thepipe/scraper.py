@@ -541,6 +541,9 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
         else:
             chunk = extract_page_content(url=url, text_only=text_only, verbose=verbose)
         chunks = chunking_method([chunk])
+        # if no text or images were extracted, return error
+        if not any(chunk.texts for chunk in chunks) and not any(chunk.images for chunk in chunks):
+            raise ValueError("No content extracted from URL.")
         return chunks
 
 def format_timestamp(seconds, chunk_index, chunk_duration):
