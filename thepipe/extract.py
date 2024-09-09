@@ -9,7 +9,7 @@ import requests
 import os
 from openai import OpenAI
 
-DEFAULT_EXTRACTION_PROMPT = "Extract structured information from the above document according to the following schema: {schema}. Immediately return valid JSON formatted data. If there is missing data, you may use null, but use your reasoning to always fill in every column as best you can. Always immediately return valid JSON."
+DEFAULT_EXTRACTION_PROMPT = "Extract structured information from the given document according to the following schema: {schema}. Immediately return valid JSON formatted data. If there is missing data, you may use null, but use your reasoning to always fill in every column as best you can. Always immediately return valid JSON."
 DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o-mini")
 
 def extract_json_from_response(llm_response: str) -> Union[Dict, List[Dict], None]:
@@ -59,13 +59,21 @@ def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: st
             base_url=os.environ["LLM_SERVER_BASE_URL"],
             api_key=os.environ["LLM_SERVER_API_KEY"],
         )
+
+        corrected_extraction_prompt = extraction_prompt.replace("{schema}", schema)
+        if multiple_extractions:
+            corrected_extraction_prompt += """\nIf there are multiple extractions, return each JSON dictionary in a list under the key "extraction". The list should contain each extraction dict (according to the schema) and the entire list should be set to the "extraction" key. Immediately return this extraction JSON object with the "extraction" key mapping to a list containing all the extracted data."""
+        else:
+            corrected_extraction_prompt += """\nImmediately return the JSON dictionary."""
+            
         messages = [
             chunk.to_message(host_images=host_images),
             {
                 "role": "user",
-                "content": extraction_prompt.replace("{schema}", schema)
+                "content": corrected_extraction_prompt,
             },
         ]
+
         response = openrouter_client.chat.completions.create(
             model=ai_model,
             messages=messages,
