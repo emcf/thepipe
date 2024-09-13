@@ -20,17 +20,16 @@
   </a>
 </div>
 
-### Extract markdown and visuals from PDFs URLs, slides, videos, and more, ready for multimodal LLMs. ⚡
+### Extract clean markdown from PDFs URLs, slides, videos, and more, ready for any LLM. ⚡
 
-thepi.pe is an API that can scrape multimodal data via `thepipe.scrape` or extract structured data via `thepipe.extract` from a wide range of sources. It is built to interface with vision-language models such as GPT-4o, and works out-of-the-box with any LLM or vector database. It can be used right away with a [hosted cloud](https://thepi.pe), or it can be run locally.
+thepi.pe is a package that can scrape clean markdown and extract structured data from tricky sources, like PDFs. It uses vision-language models (VLMs) under the hood, and works out-of-the-box with any LLM, VLM, or vector database. It can be used right away on a [hosted cloud](https://thepi.pe), or it can be run locally.
 
 ## Features 🌟
 
-- Extract markdown, tables, and images from any document or webpage
-- Extract complex structured data from any document or webpage
+- Scrape clean markdown, tables, and images from any document or webpage
 - Works out-of-the-box with LLMs, vector databases, and RAG frameworks
 - AI-native filetype detection, layout analysis, and structured data extraction
-- Multimodal scraping for video, audio, and image sources
+- Accepts a wide range of sources, including Word docs, Powerpoints, Python notebooks, GitHub repos, videos, audio, and more
 
 ## Get started in 5 minutes  🚀
 
@@ -42,7 +41,7 @@ pip install thepipe-api
 
 ### Hosted API (Python)
 
-You can get an API key by signing up for a free account at [thepi.pe](https://thepi.pe). The, simply set the `THEPIPE_API_KEY` environment variable to your API key.
+You can get an API key by signing up for a free account at [thepi.pe](https://thepi.pe). It is completely free to try out. The, simply set the `THEPIPE_API_KEY` environment variable to your API key.
 
 ```python
 from thepipe.scraper import scrape_file
@@ -68,7 +67,7 @@ For a local installation, you can use the following command:
 pip install thepipe-api[local]
 ```
 
-You must have a local LLM server setup and running for AI extraction features. You can use any local LLM server that follows OpenAI format (such as [LiteLLM](https://github.com/BerriAI/litellm) or [OpenRouter](https://openrouter.ai/)). Next, set the `LLM_SERVER_BASE_URL` environment variable to your LLM server's endpoint URL and set `LLM_SERVER_API_KEY` to the API key for your LLM of choice. the `DEFAULT_AI_MODEL` environment variable can be set to the model name of your LLM. For example, you may use `openai/gpt-4o-mini` if using OpenRouter or `gpt-4o-mini` if using OpenAI. 
+You must have a local LLM server setup and running for AI extraction features. You can use any local LLM server that follows OpenAI format (such as [LiteLLM](https://github.com/BerriAI/litellm)) or a provider (such as [OpenRouter](https://openrouter.ai/) or [OpenAI](https://platform.openai.com/)). Next, set the `LLM_SERVER_BASE_URL` environment variable to your LLM server's endpoint URL and set `LLM_SERVER_API_KEY`. the `DEFAULT_AI_MODEL` environment variable can be set to your VLM of choice. For example, you would use `openai/gpt-4o-mini` if using OpenRouter or `gpt-4o-mini` if using OpenAI. 
 
 For full functionality with media-rich sources, you will need to install the following dependencies:
 
@@ -77,7 +76,7 @@ apt-get update && apt-get install -y git ffmpeg tesseract-ocr
 python -m playwright install --with-deps chromium
 ```
 
-When using thepi.pe, be sure to append `local=True` to your function calls:
+When using thepi.pe locally, be sure to append `local=True` to your function calls:
 
 ```python
 chunks = scrape_url(url="https://example.com", local=True)
