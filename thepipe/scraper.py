@@ -74,12 +74,22 @@ def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = Fa
             if line:
                 data = json.loads(line)
                 if 'result' in data:
+                    texts = []
+                    images = []
+                    if 'content' in data['result']:
+                        for content in data['result']['content']:
+                            if content['type'] == 'text':
+                                texts.append(content['text'])
+                            elif content['type'] == 'image_url':
+                                image = Image.open(BytesIO(base64.b64decode(content['image_url'].split(',')[1])))
+                                if image.mode == 'P' and 'transparency' in image.info:
+                                    image = image.convert('RGBA')
+                                images.append(image)
                     chunk = Chunk(
                         path=data['result']['source'],
-                        texts=[content['text'] for content in data['result']['content'] if content['type'] == 'text'],
-                        images=[Image.open(BytesIO(base64.b64decode(content['image_url'].split(',')[1]))) 
-                                for content in data['result']['content'] if content['type'] == 'image_url']
-                    )
+                        texts=texts,
+                        images=images
+                        )
                     chunks.append(chunk)
         return chunks
 
@@ -272,23 +282,27 @@ def get_images_from_markdown(text: str) -> List[Image.Image]:
     for url in image_urls:
         extension = os.path.splitext(urlparse(url).path)[1]
         if extension in {'.jpg', '.jpeg', '.png'}:
-            img = Image.open(requests.get(url, stream=True).raw)
+            image = Image.open(requests.get(url, stream=True).raw)
+            if image.mode == 'P' and 'transparency' in image.info:
+                image = image.convert('RGBA')
         else:
             # ignore incompatible image extractions
             continue
-        images.append(img)
+        images.append(image)
     return images
 
 def scrape_image(file_path: str, text_only: bool = False) -> List[Chunk]:
     import pytesseract
-    img = Image.open(file_path)
-    img.load()  # needed to close the file
+    image = Image.open(file_path)
+    if image.mode == 'P' and 'transparency' in image.info:
+        image = image.convert('RGBA')
+    image.load()  # needed to close the file
     chunks = []
     if text_only:
-        text = pytesseract.image_to_string(img)
+        text = pytesseract.image_to_string(image)
         chunks.append(Chunk(path=file_path, texts=[text]))
     else:
-        chunks.append(Chunk(path=file_path, images=[img]))
+        chunks.append(Chunk(path=file_path, images=[image]))
     return chunks
 
 def scrape_spreadsheet(file_path: str, source_type: str) -> List[Chunk]:
@@ -332,8 +346,10 @@ def ai_extract_webpage_content(url: str, text_only: Optional[bool] = False, verb
         while current_scroll_position < total_height and scrolldowns < max_scrolldowns:
             page.wait_for_timeout(1000)
             screenshot = page.screenshot(full_page=False)
-            img = Image.open(io.BytesIO(screenshot))
-            images.append(img)
+            image = Image.open(io.BytesIO(screenshot))
+            if image.mode == 'P' and 'transparency' in image.info:
+                image = image.convert('RGBA')
+            images.append(image)
 
             current_scroll_position += viewport_height
             page.evaluate(f"window.scrollTo(0, {current_scroll_position})")
@@ -348,9 +364,9 @@ def ai_extract_webpage_content(url: str, text_only: Optional[bool] = False, verb
         max_width = max(img.width for img in images)
         stacked_image = Image.new('RGB', (max_width, total_height))
         y_offset = 0
-        for img in images:
-            stacked_image.paste(img, (0, y_offset))
-            y_offset += img.height
+        for image in images:
+            stacked_image.paste(image, (0, y_offset))
+            y_offset += image.height
 
         # Process the stacked image with the UI model
         #figures = fn.remote(stacked_image)
@@ -435,6 +451,8 @@ def extract_page_content(url: str, text_only: bool = False, verbose: bool = Fals
                     decoded_data = base64.b64decode(img_path.split(',')[1])
                     try:
                         image = Image.open(BytesIO(decoded_data))
+                        if image.mode == 'P' and 'transparency' in image.info:
+                            image = image.convert('RGBA')
                         images.append(image)
                     except Exception as e:
                         if verbose: print(f"[thepipe] Ignoring error loading image {img_path}: {e}")
@@ -442,6 +460,8 @@ def extract_page_content(url: str, text_only: bool = False, verbose: bool = Fals
                 else:
                     try:
                         image = Image.open(requests.get(img_path, stream=True).raw)
+                        if image.mode == 'P' and 'transparency' in image.info:
+                            image = image.convert('RGBA')
                         images.append(image)
                     except:
                         if 'https://' not in img_path and 'http://' not in img_path:
@@ -450,11 +470,15 @@ def extract_page_content(url: str, text_only: bool = False, verbose: bool = Fals
                                     img_path = img_path[1:]
                                 path_with_schema = urlparse(url).scheme + "://" + img_path
                                 image = Image.open(requests.get(path_with_schema, stream=True).raw)
+                                if image.mode == 'P' and 'transparency' in image.info:
+                                    image = image.convert('RGBA')
                                 images.append(image)
                             except:
                                 try:
                                     path_with_schema_and_netloc = urlparse(url).scheme + "://" + urlparse(url).netloc + "/" + img_path
                                     image = Image.open(requests.get(path_with_schema_and_netloc, stream=True).raw)
+                                    if image.mode == 'P' and 'transparency' in image.info:
+                                        image = image.convert('RGBA')
                                     images.append(image)
                                 except:
                                     if verbose: print(f"[thepipe] Ignoring error loading image {img_path}")
@@ -481,6 +505,8 @@ def create_chunk_from_data(result: Dict, host_images: bool) -> Chunk:
                 # If images are not hosted, we decode the base64 string
                 image_data = content['image_url'].split(',')[1]
                 image = Image.open(BytesIO(base64.b64decode(image_data)))
+                if image.mode == 'P' and 'transparency' in image.info:
+                    image = image.convert('RGBA')
                 images.append(image)
     
     return Chunk(
@@ -708,6 +734,8 @@ def scrape_docx(file_path: str, verbose: bool = False, text_only: bool = False) 
                                         image_part = document.part.related_parts[embed_attr]
                                         image_data = io.BytesIO(image_part._blob)
                                         image = Image.open(image_data)
+                                        if image.mode == 'P' and 'transparency' in image.info:
+                                            image = image.convert('RGBA')
                                         image.load()
                                         block_images.append(image)
                                         image_counter += 1
@@ -746,6 +774,8 @@ def scrape_pptx(file_path: str, verbose: bool = False, text_only: bool = False) 
             if shape.shape_type == MSO_SHAPE_TYPE.PICTURE and not text_only:
                 image_data = shape.image.blob
                 image = Image.open(BytesIO(image_data))
+                if image.mode == 'P' and 'transparency' in image.info:
+                    image = image.convert('RGBA')
                 slide_images.append(image)
         # add slide to chunks if it has text or images
         if slide_texts or slide_images:
@@ -777,6 +807,8 @@ def scrape_ipynb(file_path: str, verbose: bool = False, text_only: bool = False)
                     if 'data' in output and 'image/png' in output['data'] and not text_only:
                         image_data = output['data']['image/png']
                         image = Image.open(BytesIO(base64.b64decode(image_data)))
+                        if image.mode == 'P' and 'transparency' in image.info:
+                            image = image.convert('RGBA')
                         images.append(image)
                     elif 'data' in output and 'text/plain' in output['data']:
                         output_text = ''.join(output['data']['text/plain'])
@@ -825,8 +857,10 @@ def scrape_tweet(url: str, text_only: bool = False) -> List[Chunk]:
                 image_url = media.get("media_url_https")
                 if image_url:
                     image_response = requests.get(image_url)
-                    img = Image.open(BytesIO(image_response.content))
-                    images.append(img)
+                    image = Image.open(BytesIO(image_response.content))
+                    if image.mode == 'P' and 'transparency' in image.info:
+                        image = image.convert('RGBA')
+                    images.append(image)
     # Create chunks for text and images
     chunk = Chunk(path=url, texts=[tweet_text], images=images)
     return [chunk]
