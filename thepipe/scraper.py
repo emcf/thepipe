@@ -69,6 +69,10 @@ def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = Fa
                     'chunking_method': chunking_method.__name__
                 }
             )
+        if "error" in response.content.decode('utf-8'):
+            error_message = json.loads(response.content.decode('utf-8'))['error']
+            raise ValueError(f"Error scraping {filepath}: {error_message}")
+        response.raise_for_status()
         chunks = []
         for line in response.iter_lines():
             if line:
@@ -502,6 +506,9 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
         }
         data["urls"] = url
         response = requests.post(endpoint, headers=headers, data=data, stream=True)
+        if "error" in response.content.decode('utf-8'):
+            error_message = json.loads(response.content.decode('utf-8'))['error']
+            raise ValueError(f"Error scraping {url}: {error_message}")
         response.raise_for_status()
         results = []
         for line in response.iter_lines():
