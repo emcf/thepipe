@@ -9,26 +9,24 @@ import requests
 import os
 from openai import OpenAI
 
-DEFAULT_EXTRACTION_PROMPT = "Extract structured information from the given document according to the following schema: {schema}. Immediately return valid JSON formatted data. If there is missing data, you may use null, but use your reasoning to always fill in every column as best you can. Always immediately return valid JSON."
+DEFAULT_EXTRACTION_PROMPT = "Extract all the information from the given document according to the following schema: {schema}. Immediately return valid JSON formatted data. If there is missing data, you may use null, but always fill in every column as best you can. Always immediately return valid JSON. You must extract ALL the information available in the entire document."
 DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o-mini")
 
 def extract_json_from_response(llm_response: str) -> Union[Dict, List[Dict], None]:
     def clean_response_text(llm_response: str) -> str:
         return llm_response.encode('utf-8', 'ignore').decode('utf-8').strip()
     
-    # try to match inside of code block
     code_block_pattern = r'^```(?:json)?\s*([\s\S]*?)\s*```$'
     match = re.match(code_block_pattern, llm_response, re.MULTILINE | re.DOTALL)
     if match:
         llm_response = match.group(1)
     llm_response = clean_response_text(llm_response)
 
-    # parse json by matching curly braces
     try:
         parsed_json = json.loads(llm_response)
         return parsed_json
     except json.JSONDecodeError:
-        json_pattern = r'(\[[\s\S]*\]|\{[\s\S]*\})'
+        json_pattern = r'($$[\s\S]*$$|\{[\s\S]*\})'
         match = re.search(json_pattern, llm_response)
         if match:
             try:
@@ -78,7 +76,7 @@ def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: st
             model=ai_model,
             messages=messages,
             response_format={"type": "json_object"},
-            temperature=0.1,
+            temperature=0,
         )
         llm_response = response.choices[0].message.content
         input_tokens = calculate_tokens([chunk])
@@ -162,10 +160,10 @@ def extract_from_url(
     verbose: bool = False,
     chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
     local: bool = False
-) -> List[Dict]: #Tuple[List[Dict], int]:
+) -> List[Dict]:
     if local:
         chunks = scrape_url(url, text_only=text_only, ai_extraction=ai_extraction, verbose=verbose, local=local, chunking_method=chunking_method)
-        return extract(chunks=chunks, schema=schema, ai_model=ai_model, multiple_extractions=multiple_extractions, extraction_prompt=extraction_prompt, host_images=host_images)
+        return extract(chunks=chunks, schema=schema, ai_model=ai_model, multiple_extractions=multiple_extractions, extraction_prompt=extraction_prompt, host_images=host_images)[0]
     else:
         headers = {
             "Authorization": f"Bearer {THEPIPE_API_KEY}"
@@ -181,15 +179,16 @@ def extract_from_url(
             'ai_extraction': str(ai_extraction).lower(),
             'chunking_method': chunking_method.__name__
         }
-        response = requests.post(f"{HOST_URL}/extract", headers=headers, data=data)
+        response = requests.post(f"{HOST_URL}/extract", headers=headers, data=data, stream=True)
         if response.status_code != 200:
             raise Exception(f"API request failed with status code {response.status_code}: {response.text}")
         
         results = []
-        total_tokens_used = 0
         for line in response.iter_lines(decode_unicode=True):
             if line:
                 data = json.loads(line)
+                if 'extraction_complete' in data:
+                    break
                 result = data['result']
                 if 'error' in result:
                     results.append(result)
@@ -207,9 +206,8 @@ def extract_from_url(
                             if key not in extracted_data:
                                 extracted_data[key] = None
                     results.append(extracted_data)
-                total_tokens_used += data['tokens_used']
         
-        return results#, total_tokens_used
+        return results
 
 def extract_from_file(
     file_path: str, 
@@ -223,10 +221,10 @@ def extract_from_file(
     verbose: bool = False,
     chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
     local: bool = False
-) -> List[Dict]: #Tuple[List[Dict], int]:
+) -> List[Dict]:
     if local:
         chunks = scrape_file(file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=local, chunking_method=chunking_method)
-        return extract(chunks=chunks, schema=schema, ai_model=ai_model, multiple_extractions=multiple_extractions, extraction_prompt=extraction_prompt, host_images=host_images)
+        return extract(chunks=chunks, schema=schema, ai_model=ai_model, multiple_extractions=multiple_extractions, extraction_prompt=extraction_prompt, host_images=host_images)[0]
     else:
         headers = {
             "Authorization": f"Bearer {THEPIPE_API_KEY}"
@@ -243,15 +241,16 @@ def extract_from_file(
         }
         files = {'files': (os.path.basename(file_path), open(file_path, 'rb'))}
         
-        response = requests.post(f"{HOST_URL}/extract", headers=headers, data=data, files=files)
+        response = requests.post(f"{HOST_URL}/extract", headers=headers, data=data, files=files, stream=True)
         if response.status_code != 200:
             raise Exception(f"API request failed with status code {response.status_code}: {response.text}")
         
         results = []
-        total_tokens_used = 0
         for line in response.iter_lines(decode_unicode=True):
             if line:
                 data = json.loads(line)
+                if 'extraction_complete' in data:
+                    break
                 result = data['result']
                 if 'error' in result:
                     results.append(result)
@@ -269,6 +268,5 @@ def extract_from_file(
                             if key not in extracted_data:
                                 extracted_data[key] = None
                     results.append(extracted_data)
-                total_tokens_used += data['tokens_used']
         
-        return results#, total_tokens_used
+        return results
