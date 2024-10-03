@@ -8,7 +8,7 @@ def main() -> None:
     if args.source.startswith("http"):
         chunks = scrape_url(args.source, text_only=args.text_only, ai_extraction=args.ai_extraction, verbose=args.verbose, local=args.local)
     elif os.path.isdir(args.source):
-        chunks = scrape_directory(args.source, include_regex=args.include_regex, text_only=args.text_only, ai_extraction=args.ai_extraction, verbose=args.verbose, local=args.local)
+        chunks = scrape_directory(args.source, include_regex=args.include_regex,include_pattern=args.include_pattern,verbose=args.verbose,ai_extraction=args.ai_extraction,text_only=args.text_only,local=args.local)
     else:
         chunks = scrape_file(args.source, text_only=args.text_only, ai_extraction=args.ai_extraction, verbose=args.verbose, local=args.local)
     save_outputs(chunks=chunks, verbose=args.verbose, text_only=args.text_only)
