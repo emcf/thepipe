@@ -18,7 +18,6 @@ python-dotenv
 git+https://github.com/openai/whisper.git
 moviepy
 openpyxl
-pytube
 ffmpeg-python
 python-docx
 pymupdf4llm
@@ -29,3 +28,5 @@ jwt
 sentence-transformers
 marker-pdf
 modal
+scikit-learn
+yt-dlp
