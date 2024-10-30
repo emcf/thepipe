@@ -20,16 +20,16 @@
   </a>
 </div>
 
-### Extract clean markdown from PDFs URLs, slides, videos, and more, ready for any LLM. ⚡
+### Extract clean data from tricky documents ⚡
 
-thepi.pe is a package that can scrape clean markdown and extract structured data from tricky sources, like PDFs. It uses vision-language models (VLMs) under the hood, and works out-of-the-box with any LLM, VLM, or vector database. It can be used right away on a [hosted cloud](https://thepi.pe), or it can be run locally.
+thepi.pe is a package that can scrape clean markdown or accurately extract structured data from complex documents. It uses vision-language models (VLMs) under the hood, and works out-of-the-box with any LLM, VLM, or vector database. It can be used right away on a [hosted cloud](https://thepi.pe), or it can be run locally.
 
 ## Features 🌟
 
 - Scrape clean markdown, tables, and images from any document or webpage
 - Works out-of-the-box with LLMs, vector databases, and RAG frameworks
 - AI-native filetype detection, layout analysis, and structured data extraction
-- Accepts a wide range of sources, including Word docs, Powerpoints, Python notebooks, GitHub repos, videos, audio, and more
+- Accepts a wide range of sources, including PDFs, URLs, Word docs, Powerpoints, Python notebooks, GitHub repos, videos, audio, and more
 
 ## Get started in 5 minutes  🚀
 
@@ -42,6 +42,8 @@ pip install thepipe-api
 ### Hosted API (Python)
 
 You can get an API key by signing up for a free account at [thepi.pe](https://thepi.pe). It is completely free to try out. The, simply set the `THEPIPE_API_KEY` environment variable to your API key.
+
+## Scrape Function
 
 ```python
 from thepipe.scraper import scrape_file
@@ -57,6 +59,57 @@ response = client.chat.completions.create(
     model="gpt-4o",
     messages=chunks_to_messages(chunks),
 )
+```
+
+The output from thepi.pe is a list of chunks containing all content within the source document. These chunks can easily be converted to a prompt format that is compatible with any LLM or multimodal model with `thepipe.core.chunks_to_messages`, which gives the following format:
+```json
+[
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "text",
+        "text": "..."
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:image/jpeg;base64,..."
+        }
+      }
+    ]
+  }
+]
+```
+
+## Extract Function
+
+The extract function allows you to extract structured data from documents. You can use it as follows:
+
+```python
+from thepipe.extract import extract_from_chunk
+from thepipe.scraper import scrape_file
+
+# First, scrape the document
+chunks = scrape_file(filepath="document.pdf", ai_extraction=True)
+
+# Define your schema
+schema = {
+    "name": "string",
+    "age": "int",
+    "is_student": "bool"
+}
+
+# Extract data from each chunk
+for chunk in chunks:
+    result, tokens_used = extract_from_chunk(
+        chunk=chunk,
+        schema=json.dumps(schema),
+        ai_model="gpt-4o-mini",
+        multiple_extractions=True
+    )
+    print(result)
+    print(f"Tokens used: {tokens_used}")
 ```
 
 ### Local Installation (Python)
@@ -92,7 +145,7 @@ thepipe path/to/folder --include_regex .*\.tsx --local
 | Source              | Input types                                                    | Multimodal | Notes |
 |--------------------------|----------------------------------------------------------------|---------------------|----------------------|
 | Webpage                  | URLs starting with `http`, `https`, `ftp`                      | ✔️                  | Scrapes markdown, images, and tables from web pages. `ai_extraction` available for AI content extraction from the webpage's screenshot |
-| PDF                      | `.pdf`                                                          | ✔️                  | Extracts page markdown and page images. `ai_extraction` available for AI layout analysis |
+| PDF                      | `.pdf`                                                          | ✔️                  | Extracts page markdown and page images. `ai_extraction` available to use a VLM for complex or scanned documents |
 | Word Document  | `.docx`                                                         | ✔️                  | Extracts text, tables, and images |
 | PowerPoint     | `.pptx`                                                         | ✔️                  | Extracts text and images from slides |
 | Video                    | `.mp4`, `.mov`, `.wmv`                                          | ✔️                  | Uses Whisper for transcription and extracts frames |
@@ -109,28 +162,7 @@ thepipe path/to/folder --include_regex .*\.tsx --local
 
 ## How it works 🛠️
 
-thepi.pe uses computer vision models and heuristics to extract clean content from the source and process it for downstream use with [language models](https://en.wikipedia.org/wiki/Large_language_model), or [vision transformers](https://en.wikipedia.org/wiki/Vision_transformer). The output from thepi.pe is a list of chunks containing all content within the source document. These chunks can easily be converted to a prompt format that is compatible with any LLM or multimodal model with `thepipe.core.chunks_to_messages`, which gives the following format:
-```json
-[
-  {
-    "role": "user",
-    "content": [
-      {
-        "type": "text",
-        "text": "..."
-      },
-      {
-        "type": "image_url",
-        "image_url": {
-          "url": "data:image/jpeg;base64,..."
-        }
-      }
-    ]
-  }
-]
-```
-
-You can feed these messages directly into the model, or alternatively you can use `chunker.chunk_by_document`, `chunker.chunk_by_page`, `chunker.chunk_by_section`, `chunker.chunk_semantic` to chunk these messages for a vector database such as ChromaDB or a RAG framework. A chunk can be converted to LlamaIndex Document/ImageDocument with `.to_llamaindex`.
+thepi.pe uses computer vision models and heuristics to extract clean content from the source and process it for downstream use with [language models](https://en.wikipedia.org/wiki/Large_language_model), or [vision transformers](https://en.wikipedia.org/wiki/Vision_transformer). You can feed these messages directly into the model, or alternatively you can use `chunker.chunk_by_document`, `chunker.chunk_by_page`, `chunker.chunk_by_section`, `chunker.chunk_semantic` to chunk these messages for a vector database such as ChromaDB or a RAG framework. A chunk can be converted to LlamaIndex Document/ImageDocument with `.to_llamaindex`.
 
 > ⚠️ **It is important to be mindful of your model's token limit.**
 GPT-4o does not work with too many images in the prompt (see discussion [here](https://community.openai.com/t/gpt-4-vision-maximum-amount-of-images/573110/6)). To remedy this issue, either use an LLM with a larger context window, extract larger documents with `text_only=True`, or embed the chunks into vector database.

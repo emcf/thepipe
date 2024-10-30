@@ -34,13 +34,13 @@ class TestAPI(unittest.TestCase):
             self.assertIsInstance(result, list)
             self.assertGreater(len(result), 0)
             # Check if the extracted data matches the schema
-            # since multiple extractions is enabled, we have the 'extractions' key for each chunk
+            # since multiple extractions is enabled, we have the 'extraction' key for each chunk
             # containing all the extractions.
             # the result looks like: [{'chunk_index': 0, 'source': 'example.pdf', 'extraction': [{'document_topic': 'Density PDFs in Supersonic Turbulence', 'document_sentiment': None}]}]
             for item in result:
                 self.assertIsInstance(item, dict)
-                if 'extractions' in item:
-                    for extraction in item['extractions']:
+                if 'extraction' in item:
+                    for extraction in item['extraction']:
                         self.assertIsInstance(extraction, dict)
                         for key in self.schema:
                             self.assertIn(key, extraction)
@@ -70,7 +70,7 @@ class TestAPI(unittest.TestCase):
             self.assertGreater(len(result), 0)
 
             # Check if the extracted data matches the schema
-            # since multiple extractions is disabled, we don't have the 'extractions' key for each chunk
+            # since multiple extractions is disabled, we don't have the 'extraction' key for each chunk
             # [{'chunk_index': 0, 'source': 'https://thepi.pe/', 'document_topic': 'AI document extraction and data processing', 'document_sentiment': 0.8}]
             for item in result:
                 self.assertIsInstance(item, dict)
