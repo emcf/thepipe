@@ -88,7 +88,6 @@ The extract function allows you to extract structured data from documents. You c
 
 ```python
 from thepipe.extract import extract_from_file
-import json
 
 # Define your schema
 schema = {
