@@ -87,11 +87,8 @@ The output from thepi.pe is a list of chunks containing all content within the s
 The extract function allows you to extract structured data from documents. You can use it as follows:
 
 ```python
-from thepipe.extract import extract_from_chunk
-from thepipe.scraper import scrape_file
-
-# First, scrape the document
-chunks = scrape_file(filepath="document.pdf", ai_extraction=True)
+from thepipe.extract import extract_from_file
+import json
 
 # Define your schema
 schema = {
@@ -100,16 +97,15 @@ schema = {
     "is_student": "bool"
 }
 
-# Extract data from each chunk
-for chunk in chunks:
-    result, tokens_used = extract_from_chunk(
-        chunk=chunk,
-        schema=json.dumps(schema),
-        ai_model="gpt-4o-mini",
-        multiple_extractions=True
-    )
-    print(result)
-    print(f"Tokens used: {tokens_used}")
+# Extract data from the file
+result = extract_from_file(
+    file_path="document.pdf",
+    schema=schema,
+    ai_model="gpt-4o-mini",
+    multiple_extractions=True
+)
+
+print(result)
 ```
 
 ### Local Installation (Python)
