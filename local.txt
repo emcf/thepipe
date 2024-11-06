@@ -29,4 +29,5 @@ sentence-transformers
 marker-pdf
 modal
 scikit-learn
+webvtt-py
 yt-dlp

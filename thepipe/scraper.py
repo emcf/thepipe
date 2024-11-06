@@ -1,10 +1,11 @@
 import base64
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 from io import BytesIO
 import io
 import math
 import re
-from typing import  List, Dict, Any, Callable, Optional,Tuple
+from typing import  List, Dict, Any, Callable, Optional,Tuple, Generator, Union
 import glob
 import os
 import tempfile
@@ -23,6 +24,27 @@ from magika import Magika
 import markdownify
 dotenv.load_dotenv()
 from enum import Enum, auto
+from .enums import YouTubeEnum
+
+# Global variables to hold the imported video modules
+yt_dlp = None
+
+def initialize_video_processing():
+    global yt_dlp
+    if yt_dlp is None:
+        import yt_dlp
+
+webvtt = None
+
+def initialize_subtitle_libraries():
+    global webvtt
+    if webvtt is None:
+        import webvtt
+
+@lru_cache(maxsize=1)
+def get_subtitle_parser():
+    initialize_subtitle_libraries()
+    return webvtt
 
 FOLDERS_TO_IGNORE = ['*node_modules.*', '.*venv.*', '.*\.git.*', '.*\.vscode.*', '.*pycache.*']
 FILES_TO_IGNORE = ['package-lock.json', '.gitignore', '.*\.bin', '.*\.pyc', '.*\.pyo', '.*\.exe', '.*\.dll', '.*\.ipynb_checkpoints']
@@ -30,13 +52,27 @@ GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", None)
 USER_AGENT_STRING: str = os.getenv("USER_AGENT_STRING", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")
 MAX_WHISPER_DURATION = 600 # 10 minutes
 TWITTER_DOMAINS = ['https://twitter.com', 'https://www.twitter.com', 'https://x.com', 'https://www.x.com']
-YOUTUBE_DOMAINS = ['https://www.youtube.com', 'https://youtube.com']
 GITHUB_DOMAINS = ['https://github.com', 'https://www.github.com']
 SCRAPING_PROMPT = os.getenv("EXTRACTION_PROMPT", """An open source document is given. Output the entire extracted contents from the document in detailed markdown format.
 Be sure to correctly format markdown for headers, paragraphs, lists, tables, menus, equations, full text contents, etc.
 Always reply immediately with only markdown. Do not output anything else.""")
 DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o-mini")
 FILESIZE_LIMIT_MB = os.getenv("FILESIZE_LIMIT_MB", 50)
+VIDEO_PLATFORMS = {
+    "youtube", "youtu", "netflix", "amazon", "hulu", "disneyplus", "vimeo", 
+    "twitch", "tiktok", "dailymotion", "vevo", "kick",
+    "crunchyroll", "peacocktv", "hbomax", "roku", "pluto", 
+    "tubitv", "iqiyi", "v.qq", "youku", "bilibili", "flicknexs", 
+    "brightcove", "wistia", "jwplayer", "kaltura", "panopto", "vidyard", 
+    "vk", "rutube", "metacafe", "veoh", "ustream", "livestream", "periscope", 
+    "mixer", "younow", "smashcast", "niconico", "vlive", "afreecatv", 
+    "kakao", "naver", "line", "iflix", "hooq", "viu", "mubi"
+}
+
+def is_video_platform(url: str) -> bool:
+    parsed_url = urlparse(url)
+    domain = parsed_url.netloc.lower()
+    return any(platform in domain for platform in VIDEO_PLATFORMS)
 
 class YouTubeMetadata(Enum):
     TITLE = 'title'
@@ -82,50 +118,6 @@ def detect_source_type(source: str) -> str:
         result = magika.identify_bytes(file.read())
     mimetype = result.output.mime_type
     return mimetype
-
-def is_primarily_video_platform(extractor_key: str) -> bool:
-    # List of known video platforms
-    video_platforms = {
-        "youtube", "youtu", "netflix", "amazon", "hulu", "disneyplus", "vimeo", 
-        "twitch", "tiktok", "dailymotion", "vevo", "kick",
-        "crunchyroll", "peacocktv", "hbomax", "roku", "pluto", 
-        "tubitv", "iqiyi", "v.qq", "youku", "bilibili", "flicknexs", 
-        "brightcove", "wistia", "jwplayer", "kaltura", "panopto", "vidyard", 
-        "vk", "rutube", "metacafe", "veoh", "ustream", "livestream", "periscope", 
-        "mixer", "younow", "smashcast", "niconico", "vlive", "afreecatv", 
-        "kakao", "naver", "line", "iflix", "hooq", "viu", "mubi"
-    }
-    return any(platform in extractor_key.lower() for platform in video_platforms)
-
-def detect_url_type(url: str) -> str:
-    from yt_dlp import YoutubeDL
-    from yt_dlp.utils import DownloadError
-    parsed_url = urlparse(url)
-    
-    # Check if it's a supported video site
-    try:
-        with YoutubeDL({'quiet': True}) as ydl:
-            info = ydl.extract_info(url, download=False)
-            extractor_key = info.get('extractor_key', '').lower()
-            
-            if is_primarily_video_platform(extractor_key):
-                if info.get('_type') == 'playlist':
-                    return 'video_playlist'
-                elif info.get('_type') in ['video', None]:  # Some extractors don't set _type for single videos
-                    return 'video'
-            else:
-                # It's a website that happens to have embeddable/downloadable content
-                return 'website_with_media'
-    except DownloadError:
-        pass  # Not a supported video site, continue to other checks
-    
-    # Check for specific file types
-    file_extension = parsed_url.path.split('.')[-1].lower()
-    if file_extension in ['pdf', 'docx', 'txt', 'csv', 'xlsx']:
-        return f'file_{file_extension}'
-    
-    # If none of the above, assume it's a general website
-    return 'website'
 
 def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = False, verbose: bool = False, local: bool = False, chunking_method: Optional[Callable] = chunk_by_page, ai_model: Optional[str] = DEFAULT_AI_MODEL, options: Optional[Dict[str, Any]] = None) -> List[Chunk]:
 
@@ -491,7 +483,7 @@ def ai_extract_webpage_content(url: str, text_only: Optional[bool] = False, verb
 
     return chunk
 
-def extract_page_content(url: str, text_only: bool = False, verbose: bool = False) -> Chunk:
+def extract_page_content(url: str, text_only: bool = False, verbose: bool = False, options: Optional[Dict[str, Any]] = None) -> Chunk:
     from urllib.parse import urlparse
     from bs4 import BeautifulSoup
     from playwright.sync_api import sync_playwright
@@ -598,7 +590,7 @@ def create_chunk_from_data(result: Dict, host_images: bool) -> Chunk:
         images=images
     )
 
-def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, verbose: bool = False, local: bool = False, chunking_method: Callable = chunk_by_page, options: Optional[Dict[str, Any]] = None) -> List[Chunk]:
+def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, verbose: bool = False, local: bool = False, chunking_method: Optional[Callable] = chunk_by_page, options: Optional[Dict[str, Any]] = None) -> List[Chunk]:
     if not local:
         endpoint = f"{HOST_URL}/scrape"
         headers = {
@@ -620,86 +612,39 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
                 chunk_data = json.loads(line)
                 results.append(chunk_data['result'])
         return results
-
-    # For local processing
-    url_type = detect_url_type(url)
-    
-    if verbose:
-        print(f"[thepipe] Detected URL type: {url_type}")
-    
-    if any(url.startswith(domain) for domain in TWITTER_DOMAINS):
+    if is_video_platform(url):
+        return scrape_youtube(url, text_only=text_only, verbose=verbose, options=options)
+    elif any(url.startswith(domain) for domain in TWITTER_DOMAINS):
         extraction = scrape_tweet(url=url, text_only=text_only, verbose=verbose, options=options)
-        return extraction
-    elif url_type in ['video', 'video_playlist']:
-        extraction = scrape_youtube(url, text_only=text_only, verbose=verbose, options=options)
-        return extraction
     elif any(url.startswith(domain) for domain in GITHUB_DOMAINS):
         extraction = scrape_github(github_url=url, text_only=text_only, ai_extraction=ai_extraction, verbose=verbose, options=options)
-        return extraction
-    elif url_type == 'website_with_media':
-        if verbose:
-            print("[thepipe] Website contains downloadable media. Scraping entire website in next version.")
-        extraction = scrape_youtube(url, text_only=text_only, verbose=verbose, options=options)
-        return extraction
-    elif url_type.startswith('file_'):
-        # if url leads to a file, attempt to download it and scrape it
-        with tempfile.TemporaryDirectory() as temp_dir:
-            file_path = os.path.join(temp_dir, os.path.basename(url))
-            response = requests.get(url)
-            # verify the ingress/egress with be within limits, if there are any set
-            if FILESIZE_LIMIT_MB and int(response.headers['Content-Length']) > FILESIZE_LIMIT_MB * 1024 * 1024:
-                raise ValueError(f"File size exceeds {FILESIZE_LIMIT_MB} MB limit.")
-            with open(file_path, 'wb') as file:
-                file.write(response.content)
-            chunks = scrape_file(filepath=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=local, chunking_method=chunking_method, options=options)
-        return chunks
     else:
-        # if url leads to web content, scrape it directly
-        if ai_extraction:
-            chunk = ai_extract_webpage_content(url=url, text_only=text_only, verbose=verbose, options=options)
+        # Handle other types of content
+        parsed_url = urlparse(url)
+        file_extension = parsed_url.path.split('.')[-1].lower()
+        if file_extension in ['pdf', 'docx', 'txt', 'csv', 'xlsx']:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                file_path = os.path.join(temp_dir, os.path.basename(url))
+                response = requests.get(url)
+                if FILESIZE_LIMIT_MB and int(response.headers['Content-Length']) > FILESIZE_LIMIT_MB * 1024 * 1024:
+                    raise ValueError(f"File size exceeds {FILESIZE_LIMIT_MB} MB limit.")
+                with open(file_path, 'wb') as file:
+                    file.write(response.content)
+                extraction = scrape_file(filepath=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=local, chunking_method=chunking_method, options=options)
         else:
-            chunk = extract_page_content(url=url, text_only=text_only, verbose=verbose, options=options)
-        chunks = chunking_method([chunk])
-        return chunks
-    
-def format_timestamp(seconds, chunk_index, chunk_duration):
-    # helper function to format the timestamp.
-    total_seconds = chunk_index * chunk_duration + seconds
-    hours = int(total_seconds // 3600)
-    minutes = int((total_seconds % 3600) // 60)
-    seconds = total_seconds % 60
-    milliseconds = int((seconds - int(seconds)) * 1000)
-    return f"{hours:02}:{minutes:02}:{int(seconds):02}.{milliseconds:03}"
+            # If URL leads to web content, scrape it directly
+            if ai_extraction:
+                chunk = ai_extract_webpage_content(url=url, text_only=text_only, verbose=verbose, options=options)
+            else:
+                chunk = extract_page_content(url=url, text_only=text_only, verbose=verbose, options=options)
+            extraction = chunking_method([chunk])
 
-def extract_metadata(video: dict, metadata_fields: Optional[List[YouTubeMetadata]], verbose: bool) -> dict:
+    return extraction
+    
+def extract_metadata(video_info: Dict[str, Any], metadata_fields: List) -> Dict[str, Any]:
     metadata = {}
-    if metadata_fields is not None:
-        for field in metadata_fields:
-            try:
-                if field == YouTubeMetadata.TITLE:
-                    metadata['title'] = video.get('title', 'Untitled')
-                elif field == YouTubeMetadata.DESCRIPTION:
-                    metadata['description'] = video.get('description', '')
-                elif field == YouTubeMetadata.UPLOAD_DATE:
-                    metadata['upload_date'] = video.get('upload_date', '')
-                elif field == YouTubeMetadata.UPLOADER:
-                    metadata['uploader'] = video.get('uploader', '')
-                elif field == YouTubeMetadata.VIEW_COUNT:
-                    metadata['view_count'] = str(video.get('view_count', 'N/A'))
-                elif field == YouTubeMetadata.LIKE_COUNT:
-                    metadata['like_count'] = str(video.get('like_count', 'N/A'))
-                elif field == YouTubeMetadata.DURATION:
-                    metadata['duration'] = str(video.get('duration', 'N/A'))
-                elif field == YouTubeMetadata.TAGS:
-                    metadata['tags'] = video.get('tags', [])
-                elif field == YouTubeMetadata.CATEGORY:
-                    metadata['category'] = video.get('categories', ['N/A'])[0] if video.get('categories') else 'N/A'
-                elif field == YouTubeMetadata.THUMBNAIL_URL:
-                    metadata['thumbnail_url'] = video.get('thumbnail', 'N/A')
-            except Exception as e:
-                if verbose:
-                    print(f"[thepipe] Error extracting {field.name} metadata: {str(e)}")
-                metadata[field.name.lower()] = 'N/A'
+    for field in metadata_fields:
+        metadata[field] = video_info.get(field, 'N/A')
     return metadata
 
 def format_metadata(metadata: dict) -> str:
@@ -756,167 +701,215 @@ def scrape_video(file_path: str, verbose: bool = False, text_only: bool = False)
     finally:
         video.close()
     return chunks
+
+def scrape_youtube(url: str, text_only: Optional[Union[bool, str]] = None, verbose: bool = False, metadata_fields: Optional[List[YouTubeEnum]] = None, options: Optional[Dict[str, Any]] = None) -> List[Chunk]:
+    initialize_video_processing()
     
-
-def scrape_youtube(url: str, text_only: Optional[str] = None, verbose: bool = False, metadata_fields: Optional[List[YouTubeMetadata]] = DEFAULT_METADATA, options: Optional[Dict[str, Any]] = None) -> List[Chunk]:
-    import yt_dlp
-    from .enums import YouTubeEnum
-
-    subtitle_opts = {
-        'outtmpl': {'default': '%(title)s.%(ext)s'},
+    ydl_opts = {
         'quiet': not verbose,
-        'writesubtitles': True,
-        'writeautomaticsub': True,
-        'subtitleslangs': ['en,*', 'a.en,a.*'],
-        'skip_download': True,
-    }
-
-    video_opts = {
-        'outtmpl': {'default': '%(title)s.%(ext)s'},
-        'quiet': not verbose,
+        'ignoreerrors': True,
+        'extract_flat': 'in_playlist',
+        'outtmpl': '%(title)s.%(ext)s',
+        'subtitlesformat': 'vtt',
+        'skip_download': True,  # Always skip video download initially
     }
 
     if text_only == 'transcribe':
-        video_opts['format'] = 'bestaudio/best'
-        video_opts['postprocessors'] = [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }]
-    elif text_only in ['ai', 'uploaded']:
-        if text_only == 'ai':
-            subtitle_opts['subtitleslangs'] = ['a.en,a.*', 'en,*']
-        else:  # uploaded
-            subtitle_opts['subtitleslangs'] = ['en,*', 'a.en,a.*']
+        ydl_opts.update({
+            'format': 'bestaudio/best',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
+        })
     else:
-        video_opts['format'] = 'bestvideo+bestaudio/best'
+        ydl_opts.update({
+            'writesubtitles': True,
+            'writeautomaticsub': True,
+            'subtitleslangs': ['en', 'en-orig'],
+        })
 
-    # Process additional options
     if options and 'youtube' in options:
-        subtitle_opts.update(YouTubeEnum.process_options(options['youtube'], bool(text_only), verbose))
-        video_opts.update(YouTubeEnum.process_options(options['youtube'], bool(text_only), verbose))
+        ydl_opts.update(YouTubeEnum.process_options(options['youtube'], bool(text_only), verbose))
 
+    chunks = []
     with tempfile.TemporaryDirectory() as temp_dir:
+        ydl_opts['outtmpl'] = os.path.join(temp_dir, '%(title)s.%(ext)s')
+
         try:
-            chunks = []
-
-            # Extract metadata
-            with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
-                metadata = YouTubeMetadata.extract(info)
-                if metadata_fields:
-                    metadata = {k: v for k, v in metadata.items() if YouTubeMetadata[k.upper()] in metadata_fields}
+                
+                if 'entries' in info:  # It's a playlist
+                    videos = info['entries']
+                else:  # Single video
+                    videos = [info]
 
-            if text_only == 'transcribe':
-                if verbose:
-                    print("[thepipe] Downloading audio for transcription.")
-                with yt_dlp.YoutubeDL(video_opts) as ydl:
-                    ydl.params['outtmpl']['default'] = os.path.join(temp_dir, '%(title)s.%(ext)s')
-                    ydl.download([url])
+                for video in videos:
+                    video_chunks = process_video(ydl, video, temp_dir, text_only, verbose, metadata_fields)
+                    chunks.extend(video_chunks)
 
-                    file = os.listdir(temp_dir)[0]
-                    file_path = os.path.join(temp_dir, file)
-
-                    chunks = scrape_audio(file_path=file_path, verbose=verbose)
-            else:
-                # Try to download subtitles
-                with yt_dlp.YoutubeDL(subtitle_opts) as ydl:
-                    ydl.params['outtmpl']['default'] = os.path.join(temp_dir, '%(title)s.%(ext)s')
-                    ydl.download([url])
-
-                    subtitle_found = False
-                    for file in os.listdir(temp_dir):
-                        if file.endswith('.vtt'):
-                            with open(os.path.join(temp_dir, file), 'r', encoding='utf-8') as f:
-                                subtitle_text = f.read()
-                            try:
-                                cleaned_subtitle_text = clean_subtitles(subtitle_text)
-                                chunks.append(Chunk(path=url, texts=[cleaned_subtitle_text]))
-                                subtitle_found = True
-                                break  # Use the first available subtitle file
-                            except Exception as e:
-                                if verbose:
-                                    print(f"[thepipe] Error cleaning subtitles: {str(e)}")
-                                # If cleaning fails, use the original subtitle text
-                                chunks.append(Chunk(path=url, texts=[subtitle_text]))
-                                subtitle_found = True
-                                break
-
-                # If no subtitles found, download video/audio for transcription
-                if not subtitle_found:
-                    if verbose:
-                        print("[thepipe] No subtitles found. Downloading video/audio for transcription.")
-                    with yt_dlp.YoutubeDL(video_opts) as ydl:
-                        ydl.params['outtmpl']['default'] = os.path.join(temp_dir, '%(title)s.%(ext)s')
-                        ydl.download([url])
-
-                        file = os.listdir(temp_dir)[0]
-                        file_path = os.path.join(temp_dir, file)
-
-                        if file.endswith('.mp3') or file.endswith('.m4a'):
-                            chunks = scrape_audio(file_path=file_path, verbose=verbose)
-                        else:
-                            chunks = scrape_video(file_path=file_path, verbose=verbose, text_only=True)
-
-            # Add metadata to the first chunk
-            if chunks and metadata:
-                metadata_text = format_metadata(metadata)
-                chunks[0].texts.insert(0, metadata_text)
-
-            return chunks
-
-        except yt_dlp.utils.DownloadError as e:
-            if verbose:
-                print(f"[thepipe] Error processing YouTube video: {str(e)}")
-            return [Chunk(path=url, texts=[f"Error: Unable to process YouTube video. {str(e)}"])]
         except Exception as e:
             if verbose:
-                print(f"[thepipe] Unexpected error: {str(e)}")
-            return [Chunk(path=url, texts=[f"Error: An unexpected error occurred. {str(e)}"])]
+                print(f"[thepipe] Error processing content: {str(e)}")
+            chunks.append(Chunk(path=url, texts=[f"Error: Unable to process content. {str(e)}"]))
+
+    return chunks
+
+def process_video(ydl, video_info: Dict[str, Any], temp_dir: str, text_only: Optional[Union[bool, str]], verbose: bool, metadata_fields: Optional[List[YouTubeEnum]] = None) -> List[Chunk]:
+    video_chunks = []
+    video_url = video_info.get('webpage_url') or video_info.get('url')
+    if not video_url:
+        if verbose:
+            print(f"[thepipe] Skipping video with no URL")
+        return video_chunks
+
+    try:
+        # Extract metadata
+        metadata = YouTubeEnum.extract_metadata(video_info, metadata_fields)
+        metadata_chunk = Chunk(path=video_url, texts=[YouTubeEnum.format_metadata(metadata)])
+        video_chunks.append(metadata_chunk)
+
+        if text_only == 'transcribe':
+            # Directly download audio and transcribe
+            ydl.params['skip_download'] = False
+            ydl.process_ie_result(video_info, download=True)
+            audio_file = find_audio_file(temp_dir, video_info['title'])
+            if audio_file:
+                transcription_chunks = scrape_audio(audio_file, verbose=verbose)
+                video_chunks.extend(transcription_chunks)
+            else:
+                if verbose:
+                    print(f"[thepipe] Failed to download audio for transcription: {video_url}")
+                video_chunks.append(Chunk(path=video_url, texts=["No transcription available"]))
+        elif text_only in [True, 'ai', 'uploaded']:
+            # Try to get subtitles
+            ydl.params['skip_download'] = True
+            ydl.process_ie_result(video_info, download=True)
+            subtitle_files = find_subtitle_files(temp_dir, video_info['title'])
+
+            if subtitle_files:
+                for subtitle_file in subtitle_files:
+                    subtitle_chunks = clean_subtitles(subtitle_file, video_url, debug=verbose)
+                    if subtitle_chunks:
+                        video_chunks.extend(subtitle_chunks)
+                        break  # Use the first meaningful subtitle file
+                    elif verbose:
+                        print(f"[thepipe] Subtitle file found but content is not meaningful: {subtitle_file}")
+
+            if len(video_chunks) == 1:  # Only metadata chunk
+                if verbose:
+                    print(f"[thepipe] No meaningful subtitles found for {text_only} option. Skipping transcription.")
+                video_chunks.append(Chunk(path=video_url, texts=[f"No {text_only} subtitles available"]))
+        else:  # text_only is False or None
+            # Try to get subtitles first
+            ydl.params['skip_download'] = True
+            ydl.process_ie_result(video_info, download=True)
+            subtitle_files = find_subtitle_files(temp_dir, video_info['title'])
+
+            if subtitle_files:
+                for subtitle_file in subtitle_files:
+                    subtitle_chunks = clean_subtitles(subtitle_file, video_url)
+                    if subtitle_chunks:
+                        video_chunks.extend(subtitle_chunks)
+                        break  # Use the first meaningful subtitle file
+                    elif verbose:
+                        print(f"[thepipe] Subtitle file found but content is not meaningful: {subtitle_file}")
+
+            # If no meaningful subtitles, download video
+            if len(video_chunks) == 1:  # Only metadata chunk
+                ydl.params['skip_download'] = False
+                ydl.params['format'] = 'bestvideo+bestaudio/best'
+                ydl.process_ie_result(video_info, download=True)
                 
-def clean_subtitles(subtitle_text: str) -> str:
-    lines = subtitle_text.split('\n')
-    cleaned_lines: List[Tuple[str, str]] = []
-    current_time = ""
-    
-    for line in lines:
-        if re.match(r'\d{2}:\d{2}:\d{2}\.\d{3} --> \d{2}:\d{2}:\d{2}\.\d{3}', line):
-            current_time = line.split(' --> ')[0]
-        elif line.strip() and not line.startswith('WEBVTT'):
-            text = re.sub(r'<[^>]+>', '', line).strip()
-            if current_time:  # Only add the line if we have a valid timestamp
-                if cleaned_lines and cleaned_lines[-1][1].endswith(text):
-                    # If this line is contained entirely in the previous line, skip it
-                    continue
-                if cleaned_lines and text.startswith(cleaned_lines[-1][1]):
-                    # If this line starts with the previous line, extend the previous line
-                    cleaned_lines[-1] = (cleaned_lines[-1][0], text)
+                video_file = find_video_file(temp_dir, video_info['title'])
+                if video_file:
+                    if verbose:
+                        print(f"[thepipe] Processing video file: {os.path.basename(video_file)}")
+                    video_chunks.extend(scrape_video(video_file, verbose=verbose, text_only=False))
                 else:
-                    cleaned_lines.append((current_time, text))
+                    video_chunks.append(Chunk(path=video_url, texts=["No video content available"]))
 
-    # Merge lines that are continuations
-    merged_lines = []
-    buffer = ""
-    buffer_time = ""
-    for time, text in cleaned_lines:
-        if not buffer:
-            buffer = text
-            buffer_time = time
-        elif text.startswith(buffer.split()[-1]):
-            buffer += text[len(buffer.split()[-1]):]
-        else:
-            merged_lines.append(f"[{buffer_time}] {buffer}")
-            buffer = text
-            buffer_time = time
+    except Exception as e:
+        if verbose:
+            print(f"[thepipe] Error processing video {video_url}: {str(e)}")
+        video_chunks.append(Chunk(path=video_url, texts=[f"Error: Unable to process video. {str(e)}"]))
+
+    return video_chunks
+
+def clean_subtitles(subtitle_file: str, video_url: str, debug: bool = False) -> List[Chunk]:
+    webvtt = get_subtitle_parser()
+    captions = webvtt.read(subtitle_file)
     
-    if buffer:
-        merged_lines.append(f"[{buffer_time}] {buffer}")
+    cleaned_entries = []
+    previous_entry = None
+    
+    for caption in captions:
+        text = re.sub(r'<[^>]+>', '', caption.text)
+        words = text.split()
+        
+        if previous_entry:
+            # Check for significant overlap with previous text
+            overlap = len(set(previous_entry['text'].split()[-5:]) & set(words)) / min(5, len(words))
+            if overlap < 0.5:  # Less than 50% overlap
+                cleaned_entries.append(previous_entry)
+                previous_entry = {'start': caption.start, 'end': caption.end, 'text': ' '.join(words)}
+            else:
+                # Merge with previous text, removing duplicates
+                merged_words = previous_entry['text'].split() + [word for word in words if word not in previous_entry['text'].split()[-5:]]
+                previous_entry['end'] = caption.end
+                previous_entry['text'] = ' '.join(merged_words)
+        else:
+            previous_entry = {'start': caption.start, 'end': caption.end, 'text': ' '.join(words)}
+    
+    if previous_entry:
+        cleaned_entries.append(previous_entry)
+    
+    chunks = []
+    for entry in cleaned_entries:
+        formatted_text = f"[{entry['start']} --> {entry['end']}]  {entry['text'].strip()}"
+        chunks.append(Chunk(path=video_url, texts=[formatted_text]))
+    
+    if debug:
+        with open("original_transcript.txt", "w", encoding="utf-8") as f:
+            for caption in captions:
+                f.write(f"[{caption.start} --> {caption.end}] {caption.text}\n")
+    
+    return chunks
 
-    return '\n'.join(merged_lines)
+def find_subtitle_files(directory: str, video_title: str) -> List[str]:
+    subtitle_files = []
+    for file in os.listdir(directory):
+        if file.startswith(video_title) and file.endswith('.vtt'):
+            subtitle_files.append(os.path.join(directory, file))
+    return subtitle_files
 
-def scrape_audio(file_path: str, verbose: bool = False) -> List[Chunk]:
+def find_audio_file(directory: str, video_title: str) -> Optional[str]:
+    for file in os.listdir(directory):
+        if file.startswith(video_title) and file.endswith(('.mp3', '.m4a', '.wav')):
+            return os.path.join(directory, file)
+    return None
+
+def find_video_file(directory: str, video_title: str) -> Optional[str]:
+    for file in os.listdir(directory):
+        if file.startswith(video_title) and file.endswith(('.mp4', '.webm', '.mkv')):
+            return os.path.join(directory, file)
+    return None
+
+def is_subtitle_meaningful(subtitle_text: str) -> bool:
+    # Remove timestamps and empty lines
+    content_lines = [line.strip() for line in subtitle_text.split('\n') 
+                     if line.strip() and not line.strip().replace('->', '').replace(':', '').isdigit()]
+    
+    # Check if there's meaningful content (more than just a few short words)
+    return len(content_lines) > 5 and any(len(line.split()) > 3 for line in content_lines)
+
+def scrape_audio(file_path: str, verbose: bool = False, options: Optional[Dict[str, Any]] = None) -> List[Chunk]:
     import whisper
     model = whisper.load_model("base")
+    if verbose:
+        print(f"[thepipe] Transcribing audio file: {file_path}")
     result = model.transcribe(audio=file_path, verbose=verbose)
     # Format transcription with timestamps
     transcript = []
@@ -926,7 +919,18 @@ def scrape_audio(file_path: str, verbose: bool = False) -> List[Chunk]:
         if segment['text'].strip():
             transcript.append(f"[{start} --> {end}]  {segment['text']}")
     # join the formatted transcription into a single string
-    return [Chunk(path=file_path, texts=transcript)]
+    transcription_text = '\n'.join(transcript)
+    if verbose:
+        print(f"[thepipe] Transcription completed for {file_path}")
+    return [Chunk(path=file_path, texts=[transcription_text])]
+
+def format_timestamp(seconds: float, chunk_index: int = 0, chunk_duration: int = 0) -> str:
+    total_seconds = chunk_index * chunk_duration + seconds
+    hours = int(total_seconds // 3600)
+    minutes = int((total_seconds % 3600) // 60)
+    seconds = total_seconds % 60
+    milliseconds = int((seconds - int(seconds)) * 1000)
+    return f"{hours:02}:{minutes:02}:{int(seconds):02}.{milliseconds:03}"
 
 def scrape_github(github_url: str, include_regex: Optional[str] = None, text_only: bool = False, ai_extraction: bool = False, branch: str = 'main', verbose: bool = False) -> List[Chunk]:
     files_contents = []
