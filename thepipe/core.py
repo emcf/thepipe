@@ -81,22 +81,25 @@ class Chunk:
     @staticmethod
     def from_json(data: Dict, host_images: bool = False) -> 'Chunk':
         images = []
-        for image_str in data['images']:
-            if host_images:
-                image_data = requests.get(image_str).content
-                image = Image.open(BytesIO(image_data))
-                images.append(image)
-            else:
-                remove_prefix = image_str.replace("data:image/jpeg;base64,", "")
-                image_data = base64.b64decode(remove_prefix)
-                image = Image.open(BytesIO(image_data))
-                images.append(image)
+        if 'images' in data:
+            for image_str in data['images']:
+                if host_images:
+                    image_data = requests.get(image_str).content
+                    image = Image.open(BytesIO(image_data))
+                    images.append(image)
+                else:
+                    remove_prefix = image_str.replace("data:image/jpeg;base64,", "")
+                    image_data = base64.b64decode(remove_prefix)
+                    image = Image.open(BytesIO(image_data))
+                    images.append(image)
+        if 'texts' in data:
+            texts = [text.strip() for text in data['texts']]
         return Chunk(
             path=data['path'],
-            texts=[text.strip() for text in data['texts']],
+            texts=texts,
             images=images,
-            audios=data['audios'],
-            videos=data['videos'],
+            #audios=data['audios'],
+            #videos=data['videos'],
         )
     
     def __repr__(self):

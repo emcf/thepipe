@@ -2,33 +2,31 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import re
 from typing import List, Dict, Union, Optional, Tuple, Callable
-from thepipe.core import HOST_URL, THEPIPE_API_KEY, Chunk, calculate_tokens
-from thepipe.scraper import scrape_url, scrape_file
-from thepipe.chunker import chunk_by_page
+from .core import HOST_URL, THEPIPE_API_KEY, Chunk, calculate_tokens
+from .scraper import scrape_url, scrape_file
+from .chunker import chunk_by_page, chunk_by_document, chunk_by_section, chunk_semantic, chunk_by_keywords
 import requests
 import os
 from openai import OpenAI
 
-DEFAULT_EXTRACTION_PROMPT = "Extract structured information from the above document according to the following schema: {schema}. Immediately return valid JSON formatted data. If there is missing data, you may use null, but use your reasoning to always fill in every column as best you can. Always immediately return valid JSON."
+DEFAULT_EXTRACTION_PROMPT = "Extract all the information from the given document according to the following schema: {schema}. Immediately return valid JSON formatted data. If there is missing data, you may use null, but always fill in every column as best you can. Always immediately return valid JSON. You must extract ALL the information available in the entire document."
 DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o-mini")
 
 def extract_json_from_response(llm_response: str) -> Union[Dict, List[Dict], None]:
     def clean_response_text(llm_response: str) -> str:
         return llm_response.encode('utf-8', 'ignore').decode('utf-8').strip()
     
-    # try to match inside of code block
     code_block_pattern = r'^```(?:json)?\s*([\s\S]*?)\s*```$'
     match = re.match(code_block_pattern, llm_response, re.MULTILINE | re.DOTALL)
     if match:
         llm_response = match.group(1)
     llm_response = clean_response_text(llm_response)
 
-    # parse json by matching curly braces
     try:
         parsed_json = json.loads(llm_response)
         return parsed_json
     except json.JSONDecodeError:
-        json_pattern = r'(\[[\s\S]*\]|\{[\s\S]*\})'
+        json_pattern = r'($$[\s\S]*$$|\{[\s\S]*\})'
         match = re.search(json_pattern, llm_response)
         if match:
             try:
@@ -59,18 +57,26 @@ def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: st
             base_url=os.environ["LLM_SERVER_BASE_URL"],
             api_key=os.environ["LLM_SERVER_API_KEY"],
         )
+
+        corrected_extraction_prompt = extraction_prompt.replace("{schema}", schema)
+        if multiple_extractions:
+            corrected_extraction_prompt += """\nIf there are multiple extractions, return each JSON dictionary in a list under the key "extraction". The list should contain each extraction dict (according to the schema) and the entire list should be set to the "extraction" key. Immediately return this extraction JSON object with the "extraction" key mapping to a list containing all the extracted data."""
+        else:
+            corrected_extraction_prompt += """\nImmediately return the JSON dictionary."""
+            
         messages = [
             chunk.to_message(host_images=host_images),
             {
                 "role": "user",
-                "content": extraction_prompt.replace("{schema}", schema)
+                "content": corrected_extraction_prompt,
             },
         ]
+
         response = openrouter_client.chat.completions.create(
             model=ai_model,
             messages=messages,
             response_format={"type": "json_object"},
-            temperature=0.1,
+            temperature=0,
         )
         llm_response = response.choices[0].message.content
         input_tokens = calculate_tokens([chunk])
@@ -90,7 +96,7 @@ def extract_from_chunk(chunk: Chunk, chunk_index: int, schema: str, ai_model: st
                     if isinstance(llm_response_dict, dict):
                         response_dict.update(llm_response_dict)
                     elif isinstance(llm_response_dict, list):
-                        response_dict["error"] = f"Expected a single JSON object but received a list: {llm_response_dict}"
+                        response_dict["error"] = f"Expected a single JSON object but received a list: {llm_response_dict}. Try enabling multiple extractions."
                     else:
                         response_dict["error"] = f"Invalid JSON structure in LLM response: {llm_response_dict}"
             else:
@@ -154,10 +160,10 @@ def extract_from_url(
     verbose: bool = False,
     chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
     local: bool = False
-) -> List[Dict]: #Tuple[List[Dict], int]:
+) -> List[Dict]:
     if local:
         chunks = scrape_url(url, text_only=text_only, ai_extraction=ai_extraction, verbose=verbose, local=local, chunking_method=chunking_method)
-        return extract(chunks=chunks, schema=schema, ai_model=ai_model, multiple_extractions=multiple_extractions, extraction_prompt=extraction_prompt, host_images=host_images)
+        return extract(chunks=chunks, schema=schema, ai_model=ai_model, multiple_extractions=multiple_extractions, extraction_prompt=extraction_prompt, host_images=host_images)[0]
     else:
         headers = {
             "Authorization": f"Bearer {THEPIPE_API_KEY}"
@@ -173,15 +179,16 @@ def extract_from_url(
             'ai_extraction': str(ai_extraction).lower(),
             'chunking_method': chunking_method.__name__
         }
-        response = requests.post(f"{HOST_URL}/extract", headers=headers, data=data)
+        response = requests.post(f"{HOST_URL}/extract", headers=headers, data=data, stream=True)
         if response.status_code != 200:
             raise Exception(f"API request failed with status code {response.status_code}: {response.text}")
         
         results = []
-        total_tokens_used = 0
         for line in response.iter_lines(decode_unicode=True):
             if line:
                 data = json.loads(line)
+                if 'extraction_complete' in data:
+                    break
                 result = data['result']
                 if 'error' in result:
                     results.append(result)
@@ -199,9 +206,8 @@ def extract_from_url(
                             if key not in extracted_data:
                                 extracted_data[key] = None
                     results.append(extracted_data)
-                total_tokens_used += data['tokens_used']
         
-        return results#, total_tokens_used
+        return results
 
 def extract_from_file(
     file_path: str, 
@@ -215,10 +221,10 @@ def extract_from_file(
     verbose: bool = False,
     chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
     local: bool = False
-) -> List[Dict]: #Tuple[List[Dict], int]:
+) -> List[Dict]:
     if local:
         chunks = scrape_file(file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=local, chunking_method=chunking_method)
-        return extract(chunks=chunks, schema=schema, ai_model=ai_model, multiple_extractions=multiple_extractions, extraction_prompt=extraction_prompt, host_images=host_images)
+        return extract(chunks=chunks, schema=schema, ai_model=ai_model, multiple_extractions=multiple_extractions, extraction_prompt=extraction_prompt, host_images=host_images)[0]
     else:
         headers = {
             "Authorization": f"Bearer {THEPIPE_API_KEY}"
@@ -235,15 +241,16 @@ def extract_from_file(
         }
         files = {'files': (os.path.basename(file_path), open(file_path, 'rb'))}
         
-        response = requests.post(f"{HOST_URL}/extract", headers=headers, data=data, files=files)
+        response = requests.post(f"{HOST_URL}/extract", headers=headers, data=data, files=files, stream=True)
         if response.status_code != 200:
             raise Exception(f"API request failed with status code {response.status_code}: {response.text}")
         
         results = []
-        total_tokens_used = 0
         for line in response.iter_lines(decode_unicode=True):
             if line:
                 data = json.loads(line)
+                if 'extraction_complete' in data:
+                    break
                 result = data['result']
                 if 'error' in result:
                     results.append(result)
@@ -261,6 +268,5 @@ def extract_from_file(
                             if key not in extracted_data:
                                 extracted_data[key] = None
                     results.append(extracted_data)
-                total_tokens_used += data['tokens_used']
         
-        return results#, total_tokens_used
+        return results

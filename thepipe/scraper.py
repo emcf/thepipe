@@ -15,7 +15,7 @@ from PIL import Image
 import requests
 import json
 from .core import HOST_URL, THEPIPE_API_KEY, HOST_IMAGES, Chunk, make_image_url
-from .chunker import chunk_by_page
+from .chunker import chunk_by_page, chunk_by_document, chunk_by_section, chunk_semantic, chunk_by_keywords
 import tempfile
 import mimetypes
 import dotenv
@@ -134,6 +134,10 @@ def scrape_file(filepath: str, ai_extraction: bool = False, text_only: bool = Fa
                     'options': json.dumps(options) if options else None
                 }
             )
+        if "error" in response.content.decode('utf-8'):
+            error_message = json.loads(response.content.decode('utf-8'))['error']
+            raise ValueError(f"Error scraping {filepath}: {error_message}")
+        response.raise_for_status()
         chunks = []
         for line in response.iter_lines():
             if line:
@@ -303,7 +307,7 @@ def scrape_pdf(file_path: str, ai_extraction: Optional[bool] = False, text_only:
                 response = openrouter_client.chat.completions.create(
                     model=ai_model,
                     messages=messages,
-                    temperature=0.1
+                    temperature=0
                 )
                 try:
                     llm_response = response.choices[0].message.content.strip()
@@ -474,7 +478,7 @@ def ai_extract_webpage_content(url: str, text_only: Optional[bool] = False, verb
         response = openrouter_client.chat.completions.create(
             model=ai_model,
             messages=messages,
-            temperature=0.1
+            temperature=0
         )
         llm_response = response.choices[0].message.content
         chunk = Chunk(path=url, texts=[llm_response], images=[stacked_image])
@@ -605,6 +609,9 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
             data["options"] = json.dumps(options)
         data["urls"] = url
         response = requests.post(endpoint, headers=headers, data=data, stream=True)
+        if "error" in response.content.decode('utf-8'):
+            error_message = json.loads(response.content.decode('utf-8'))['error']
+            raise ValueError(f"Error scraping {url}: {error_message}")
         response.raise_for_status()
         results = []
         for line in response.iter_lines():
@@ -632,13 +639,12 @@ def scrape_url(url: str, text_only: bool = False, ai_extraction: bool = False, v
                     file.write(response.content)
                 extraction = scrape_file(filepath=file_path, ai_extraction=ai_extraction, text_only=text_only, verbose=verbose, local=local, chunking_method=chunking_method, options=options)
         else:
-            # If URL leads to web content, scrape it directly
-            if ai_extraction:
-                chunk = ai_extract_webpage_content(url=url, text_only=text_only, verbose=verbose, options=options)
-            else:
-                chunk = extract_page_content(url=url, text_only=text_only, verbose=verbose, options=options)
-            extraction = chunking_method([chunk])
-
+            chunk = extract_page_content(url=url, text_only=text_only, verbose=verbose, options=options)
+            chunks = chunking_method([chunk])
+            # if no text or images were extracted, return error
+            if not any(chunk.texts for chunk in chunks) and not any(chunk.images for chunk in chunks):
+                raise ValueError("No content extracted from URL.")
+            return chunks
     return extraction
     
 def extract_metadata(video_info: Dict[str, Any], metadata_fields: List) -> Dict[str, Any]:

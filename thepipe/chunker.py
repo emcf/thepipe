@@ -100,3 +100,26 @@ def chunk_semantic(chunks: List[Chunk], model_name: str = 'sentence-transformers
         new_chunks.append(Chunk(path=group_path, texts=group_texts, images=group_images))
     
     return new_chunks
+
+# starts a new chunk any time a word is found
+def chunk_by_keywords(chunks: List[Chunk], keywords: List[str] = ['section']) -> List[Chunk]:
+    new_chunks = []
+    current_chunk_text = ""
+    current_chunk_images = []
+    current_chunk_path = chunks[0].path
+    for chunk in chunks:
+        chunk_text = '\n'.join(chunk.texts)
+        chunk_images = chunk.images
+        lines = chunk_text.split('\n')
+        for line in lines:
+            if any(keyword.lower() in line.lower() for keyword in keywords):
+                if current_chunk_text:
+                    new_chunks.append(Chunk(path=chunk.path, texts=[current_chunk_text], images=current_chunk_images))
+                    current_chunk_text = ""
+                    current_chunk_images = chunk_images
+                    current_chunk_path = chunk.path
+            current_chunk_text += line + '\n'
+        current_chunk_images.extend(chunk_images)
+    if current_chunk_text:
+        new_chunks.append(Chunk(path=current_chunk_path, texts=[current_chunk_text], images=current_chunk_images))
+    return new_chunks
