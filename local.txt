@@ -29,3 +29,4 @@ jwt
 sentence-transformers
 marker-pdf
 modal
+scikit-learn
