@@ -114,10 +114,16 @@ def scrape_file(
                     ),
                 },
             )
-        if "error" in response.content.decode("utf-8"):
-            error_message = json.loads(response.content.decode("utf-8"))["error"]
-            raise ValueError(f"Error scraping {filepath}: {error_message}")
         response.raise_for_status()
+        for line in response.iter_lines(decode_unicode=True):
+            # each line is its own JSON object
+            if not line.strip():
+                continue  # skip blank lines
+            data = json.loads(line)
+            # If the server sent an error for this chunk, handle it
+            if "error" in data:
+                raise ValueError(f"Error scraping: {data['error']}")
+
         chunks = []
         for line in response.iter_lines():
             if line:
@@ -729,10 +735,16 @@ def scrape_url(
         }
         data["urls"] = url
         response = requests.post(endpoint, headers=headers, data=data, stream=True)
-        if "error" in response.content.decode("utf-8"):
-            error_message = json.loads(response.content.decode("utf-8"))["error"]
-            raise ValueError(f"Error scraping {url}: {error_message}")
         response.raise_for_status()
+        for line in response.iter_lines(decode_unicode=True):
+            # each line is its own JSON object
+            if not line.strip():
+                continue  # skip blank lines
+            data = json.loads(line)
+            # If the server sent an error for this chunk, handle it
+            if "error" in data:
+                raise ValueError(f"Error scraping: {data['error']}")
+
         results = []
         for line in response.iter_lines():
             if line:
