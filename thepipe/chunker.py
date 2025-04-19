@@ -1,7 +1,8 @@
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from .core import Chunk, calculate_tokens
 from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 
 def chunk_by_document(chunks: List[Chunk]) -> List[Chunk]:
@@ -19,11 +20,10 @@ def chunk_by_document(chunks: List[Chunk]) -> List[Chunk]:
         doc_texts = []
         doc_images = []
         for chunk in doc_chunks:
-            doc_texts.extend(chunk.texts)
+            doc_texts.extend(chunk.text)
             doc_images.extend(chunk.images)
-        new_chunks.append(
-            Chunk(path=doc_chunks[0].path, texts=doc_texts, images=doc_images)
-        )
+        text = "\n".join(doc_texts) if doc_texts else None
+        new_chunks.append(Chunk(path=doc_chunks[0].path, text=text, images=doc_images))
     return new_chunks
 
 
@@ -32,29 +32,27 @@ def chunk_by_page(chunks: List[Chunk]) -> List[Chunk]:
     return chunks
 
 
-def chunk_by_section(chunks: List[Chunk]) -> List[Chunk]:
+def chunk_by_section(
+    chunks: List[Chunk], section_separator: str = "\n## "
+) -> List[Chunk]:
     section_chunks = []
     current_chunk_text = ""
     current_chunk_images = []
     current_chunk_path = None
     # Split the text into sections based on the markdown headers
     for chunk in chunks:
-        chunk_text = "\n".join(chunk.texts) if chunk.texts else None
+        chunk_text = "\n".join(chunk.text) if chunk.text else None
         if chunk.images:
             current_chunk_images.extend(chunk.images)
         if chunk_text:
             lines = chunk_text.split("\n")
             for line in lines:
-                if (
-                    line.startswith("# ")
-                    or line.startswith("## ")
-                    or line.startswith("### ")
-                ):
+                if line.startswith(section_separator):
                     if current_chunk_text:
                         section_chunks.append(
                             Chunk(
                                 path=chunk.path,
-                                texts=[current_chunk_text],
+                                text=current_chunk_text,
                                 images=current_chunk_images,
                             )
                         )
@@ -67,7 +65,7 @@ def chunk_by_section(chunks: List[Chunk]) -> List[Chunk]:
         section_chunks.append(
             Chunk(
                 path=current_chunk_path,
-                texts=[current_chunk_text],
+                text=current_chunk_text,
                 images=current_chunk_images,
             )
         )
@@ -88,7 +86,7 @@ def chunk_semantic(
     sentence_chunk_map = []
     sentence_path_map = []
     for chunk in chunks:
-        chunk_text = "\n".join(chunk.texts) if chunk.texts else None
+        chunk_text = chunk.text
         if chunk_text:
             lines = re.split(r"(?<=[.?!])\s+", chunk_text)
             for line in lines:
@@ -97,7 +95,7 @@ def chunk_semantic(
                 sentence_path_map.append(chunk.path)
 
     # Compute embeddings
-    embeddings = model.encode(sentences)
+    embeddings = np.array(model.encode(sentences, convert_to_numpy=True))
 
     # Create groups based on sentence similarity
     grouped_sentences = []
@@ -109,9 +107,9 @@ def chunk_semantic(
         # Check similarity with the last sentence in the current group
         # If the similarity is above the threshold, add the sentence to the group
         # Otherwise, start a new group
-        similarity = cosine_similarity([embedding], [embeddings[current_group[-1]]])[0][
-            0
-        ]
+        a = embedding.reshape(1, -1)
+        b = embeddings[current_group[-1]].reshape(1, -1)
+        similarity = cosine_similarity(a, b)[0, 0]
         if similarity >= similarity_threshold:
             current_group.append(i)
         else:
@@ -124,7 +122,7 @@ def chunk_semantic(
     # Create new chunks based on grouped sentences
     new_chunks = []
     for group in grouped_sentences:
-        group_texts = [sentences[i] for i in group]
+        group_text = "\n".join(sentences[i] for i in group)
         group_images = []
         group_path = sentence_path_map[group[0]]
         seen_images = []
@@ -133,9 +131,7 @@ def chunk_semantic(
                 if image not in seen_images:
                     group_images.append(image)
                     seen_images.append(image)
-        new_chunks.append(
-            Chunk(path=group_path, texts=group_texts, images=group_images)
-        )
+        new_chunks.append(Chunk(path=group_path, text=group_text, images=group_images))
 
     return new_chunks
 
@@ -151,29 +147,71 @@ def chunk_by_keywords(
     for chunk in chunks:
         if chunk.images:
             current_chunk_images.extend(chunk.images)
-        if chunk.texts:
-            chunk_text = "\n".join(chunk.texts)
-            lines = chunk_text.split("\n")
-            for line in lines:
-                if any(keyword.lower() in line.lower() for keyword in keywords):
-                    if current_chunk_text:
-                        new_chunks.append(
-                            Chunk(
-                                path=chunk.path,
-                                texts=[current_chunk_text],
-                                images=current_chunk_images,
-                            )
+        lines = chunk.text.split("\n") if chunk.text else []
+        for line in lines:
+            if any(keyword.lower() in line.lower() for keyword in keywords):
+                if current_chunk_text:
+                    new_chunks.append(
+                        Chunk(
+                            path=chunk.path,
+                            text=current_chunk_text,
+                            images=current_chunk_images,
                         )
-                        current_chunk_text = ""
-                        current_chunk_images = []
-                        current_chunk_path = chunk.path
-                current_chunk_text += line + "\n"
+                    )
+                    current_chunk_text = ""
+                    current_chunk_images = []
+                    current_chunk_path = chunk.path
+            current_chunk_text += line + "\n"
     if current_chunk_text:
         new_chunks.append(
             Chunk(
                 path=current_chunk_path,
-                texts=[current_chunk_text],
+                text=current_chunk_text,
                 images=current_chunk_images,
             )
         )
+    return new_chunks
+
+
+def chunk_by_length(chunks: List[Chunk], max_tokens: int = 10000) -> List[Chunk]:
+    new_chunks = []
+    for chunk in chunks:
+        total_tokens = calculate_tokens([chunk])
+        if total_tokens < max_tokens:
+            new_chunks.append(chunk)
+            continue
+        text_halfway_index = len(chunk.text) // 2 if chunk.text else 0
+        images_halfway_index = len(chunk.images) // 2 if chunk.images else 0
+        if text_halfway_index == 0 and images_halfway_index == 0:
+            if chunk.images:
+                # can't be split further: try to reduce the size of the images
+                # by resizing each image to half its size
+                new_images = []
+                for image in chunk.images:
+                    new_width = image.width // 2
+                    new_height = image.height // 2
+                    resized_image = image.resize((new_width, new_height))
+                    new_images.append(resized_image)
+            else:
+                # throw error to prevent downstream errors with LLM inference
+                raise ValueError(
+                    "Chunk cannot be split further. Please increase the max_tokens limit."
+                )
+
+            return new_chunks
+        split_chunks = [
+            Chunk(
+                path=chunk.path,
+                text=chunk.text[:text_halfway_index] if chunk.text else None,
+                images=chunk.images[:images_halfway_index] if chunk.images else None,
+            ),
+            Chunk(
+                path=chunk.path,
+                text=chunk.text[text_halfway_index:] if chunk.text else None,
+                images=chunk.images[images_halfway_index:] if chunk.images else None,
+            ),
+        ]
+        # recursive call
+        new_chunks = chunk_by_length(split_chunks, max_tokens)
+
     return new_chunks

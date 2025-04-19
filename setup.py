@@ -17,7 +17,7 @@ def read_git_requirements(file):
 
 setup(
     name="thepipe_api",
-    version="1.4.0",
+    version="1.5.0",
     author="Emmett McFarlane",
     author_email="emmett@thepi.pe",
     description="Document extraction, powered by multimodal LLMs.",
@@ -37,9 +37,6 @@ setup(
         "console_scripts": [
             "thepipe=thepipe.__init__:main",
         ],
-    },
-    extras_require={
-        "local": read_requirements("local.txt"),
     },
     dependency_links=read_git_requirements("local.txt"),
 )

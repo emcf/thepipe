@@ -19,28 +19,49 @@ class Chunk:
     def __init__(
         self,
         path: Optional[str] = None,
-        texts: Optional[List[str]] = [],
+        text: Optional[str] = "",
         images: Optional[List[Image.Image]] = [],
         audios: Optional[List] = [],
         videos: Optional[List] = [],
     ):
         self.path = path
-        self.texts = texts
+        self.text = text
         self.images = images
         self.audios = audios
         self.videos = videos
 
     def to_llamaindex(self) -> Union[List[Document], List[ImageDocument]]:
-        document_text = "\n".join(self.texts) if self.texts else ""
+        document_text = self.text if self.text else ""
+        metadata = {"filepath": self.path} if self.path else {}
+
+        # If we have PIL Image objects in self.images, convert them to base64 strings
         if self.images:
-            return [
-                ImageDocument(text=document_text, image=image) for image in self.images
-            ]
-        else:
-            return [Document(text=document_text)]
+            image_docs: List[ImageDocument] = []
+            for img in self.images:
+                # Encode the image to PNG (or use its original format if available)
+                buffer = BytesIO()
+                fmt = img.format or "PNG"
+                img.save(buffer, format=fmt)
+                img_bytes = buffer.getvalue()
+
+                # Base64‑encode and build MIME type
+                img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+
+                image_docs.append(
+                    ImageDocument(
+                        text=document_text,
+                        image=img_b64,
+                        extra_info=metadata,
+                    )
+                )
+            return image_docs
+
+        # Fallback to plain text Document
+        return [Document(text=document_text, extra_info=metadata)]
 
     def to_message(
         self,
+        text_only: bool = False,
         host_images: bool = False,
         max_resolution: Optional[int] = None,
         include_paths: Optional[bool] = False,
@@ -52,49 +73,48 @@ class Chunk:
                 make_image_url(image, host_images, max_resolution)
                 for image in self.images
             ]
-            if self.images
+            if self.images and not text_only
             else []
         )
-        if self.texts:
-            img_index = 0
-            for text in self.texts:
-                if host_images:
+        img_index = 0
+        text = self.text if self.text else ""
+        if host_images:
 
-                    def replace_image(match):
-                        nonlocal img_index
-                        if img_index < len(image_urls):
-                            url = image_urls[img_index]
-                            img_index += 1
-                            return f"![image]({url})"
-                        return match.group(
-                            0
-                        )  # If we run out of images, leave the original text
+            def replace_image(match):
+                nonlocal img_index
+                if img_index < len(image_urls):
+                    url = image_urls[img_index]
+                    img_index += 1
+                    return f"![image]({url})"
+                return match.group(
+                    0
+                )  # If we run out of images, leave the original text
 
-                    # Replace markdown image references with hosted URLs
-                    text = re.sub(r"!\[([^\]]*)\]\([^\)]+\)", replace_image, text)
-                message_text += text + "\n\n"
-            # clean up, add to message
-            message_text = re.sub(r"\n{3,}", "\n\n", message_text).strip()
-            # Wrap the text in a path html block if it exists
-            if include_paths and self.path:
-                message_text = (
-                    f'<Document path="{self.path}">\n{message_text}\n</Document>'
-                )
-            message["content"].append({"type": "text", "text": message_text})
+            # Replace markdown image references with hosted URLs
+            text = re.sub(r"!\[([^\]]*)\]\([^\)]+\)", replace_image, text)
+        message_text += text + "\n\n"
+        # clean up, add to message
+        message_text = re.sub(r"\n{3,}", "\n\n", message_text).strip()
+        # Wrap the text in a path html block if it exists
+        if include_paths and self.path:
+            message_text = f'<Document path="{self.path}">\n{message_text}\n</Document>'
+        message["content"].append({"type": "text", "text": message_text})
+
         # Add remaining images that weren't referenced in the text
         for image_url in image_urls:
             message["content"].append({"type": "image_url", "image_url": image_url})
 
         return message
 
-    def to_json(self, host_images: bool = False) -> Dict:
+    def to_json(self, host_images: bool = False, text_only: bool = False) -> Dict:
         data = {
             "path": self.path,
-            "texts": [text.strip() for text in self.texts] if self.texts else [],
+            "text": self.text.strip() if self.text else "",
             "images": (
                 [
                     make_image_url(image=image, host_images=host_images)
                     for image in self.images
+                    if not text_only
                 ]
                 if self.images
                 else []
@@ -118,12 +138,10 @@ class Chunk:
                     image_data = base64.b64decode(remove_prefix)
                     image = Image.open(BytesIO(image_data))
                     images.append(image)
-        texts = []
-        if "texts" in data:
-            texts = [text.strip() for text in data["texts"]]
+        text = data["text"].strip() if "text" in data else None
         return Chunk(
             path=data["path"],
-            texts=texts,
+            text=text,
             images=images,
             # audios=data['audios'],
             # videos=data['videos'],
@@ -177,12 +195,11 @@ def calculate_image_tokens(image: Image.Image, detail: str = "auto") -> int:
             return calculate_image_tokens(image, detail="high")
 
 
-def calculate_tokens(chunks: List[Chunk]) -> int:
+def calculate_tokens(chunks: List[Chunk], text_only: bool = False) -> int:
     n_tokens = 0
     for chunk in chunks:
-        if chunk.texts:
-            for text in chunk.texts:
-                n_tokens += len(text) / 4
+        if chunk.text:
+            n_tokens += len(chunk.text) / 4
         if chunk.images:
             for image in chunk.images:
                 n_tokens += calculate_image_tokens(image)
@@ -191,12 +208,14 @@ def calculate_tokens(chunks: List[Chunk]) -> int:
 
 def chunks_to_messages(
     chunks: List[Chunk],
+    text_only: bool = False,
     host_images: bool = False,
     max_resolution: Optional[int] = None,
     include_paths: Optional[bool] = False,
 ) -> List[Dict]:
     return [
         chunk.to_message(
+            text_only=text_only,
             host_images=host_images,
             max_resolution=max_resolution,
             include_paths=include_paths,
@@ -211,24 +230,20 @@ def save_outputs(
     if not os.path.exists("outputs"):
         os.makedirs("outputs")
     text = ""
-
     # Save the text and images to the outputs directory
     for i, chunk in enumerate(chunks):
         if chunk is None:
             continue
         if chunk.path is not None:
             text += f"{chunk.path}:\n"
-        if chunk.texts:
-            for chunk_text in chunk.texts:
-                text += f"```\n{chunk_text}\n```\n"
-        if chunk.images and not text_only:
+        if chunk.text:
+            text += f"```\n{chunk.text}\n```\n"
+        if not text_only and chunk.images:
             for j, image in enumerate(chunk.images):
                 image.convert("RGB").save(f"outputs/{i}_{j}.jpg")
-
     # Save the text
     with open("outputs/prompt.txt", "w", encoding="utf-8") as file:
         file.write(text)
-
     if verbose:
         print(f"[thepipe] {calculate_tokens(chunks)} tokens saved to outputs folder")
 
@@ -251,9 +266,7 @@ def parse_arguments() -> argparse.Namespace:
         action="store_true",
         help="Use ai_extraction to extract text from images.",
     )
-    parser.add_argument(
-        "--text_only", action="store_true", help="Extract only text from the source."
-    )
+    parser.add_argument("--text_only", action="store_true", help="Only store text.")
     parser.add_argument("--verbose", action="store_true", help="Print status messages.")
     parser.add_argument("--local", action="store_true", help="Print status messages.")
     args = parser.parse_args()

@@ -103,7 +103,7 @@ def extract_from_chunk(
                 f"Failed to receive a message content from LLM Response: {response}"
             )
         input_tokens = calculate_tokens([chunk])
-        output_tokens = calculate_tokens([Chunk(texts=[llm_response])])
+        output_tokens = calculate_tokens([Chunk(text=llm_response)])
         tokens_used += input_tokens + output_tokens
         try:
             llm_response_dict = extract_json_from_response(llm_response)
@@ -213,79 +213,25 @@ def extract_from_url(
     multiple_extractions: bool = False,
     extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT,
     host_images: bool = False,
-    text_only: bool = False,
     ai_extraction: bool = False,
     verbose: bool = False,
     chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
-    local: bool = False,
 ) -> List[Dict]:
-    if local:
-        chunks = scrape_url(
-            url,
-            text_only=text_only,
-            ai_extraction=ai_extraction,
-            verbose=verbose,
-            local=local,
-            chunking_method=chunking_method,
-        )
-        return extract(
-            chunks=chunks,
-            schema=schema,
-            ai_model=ai_model,
-            multiple_extractions=multiple_extractions,
-            extraction_prompt=extraction_prompt,
-            host_images=host_images,
-        )[0]
-    else:
-        headers = {"Authorization": f"Bearer {THEPIPE_API_KEY}"}
-        data = {
-            "urls": [url],
-            "schema": json.dumps(schema),
-            "ai_model": ai_model,
-            "multiple_extractions": str(multiple_extractions).lower(),
-            "extraction_prompt": extraction_prompt,
-            "host_images": str(host_images).lower(),
-            "text_only": str(text_only).lower(),
-            "ai_extraction": str(ai_extraction).lower(),
-            "chunking_method": chunking_method.__name__,
-        }
-        response = requests.post(
-            f"{HOST_URL}/extract", headers=headers, data=data, stream=True
-        )
-        if response.status_code != 200:
-            raise Exception(
-                f"API request failed with status code {response.status_code}: {response.text}"
-            )
-
-        results = []
-        for line in response.iter_lines(decode_unicode=True):
-            if line:
-                data = json.loads(line)
-                if "extraction_complete" in data:
-                    break
-                result = data["result"]
-                if "error" in result:
-                    results.append(result)
-                else:
-                    extracted_data = {
-                        "chunk_index": result["chunk_index"],
-                        "source": result["source"],
-                    }
-                    if multiple_extractions:
-                        extracted_data["extraction"] = result.get("extraction", [])
-                    else:
-                        extracted_data.update(result)
-                        schema_keys = (
-                            json.loads(schema).keys()
-                            if isinstance(schema, str)
-                            else schema.keys()
-                        )
-                        for key in schema_keys:
-                            if key not in extracted_data:
-                                extracted_data[key] = None
-                    results.append(extracted_data)
-
-        return results
+    chunks = scrape_url(
+        url,
+        ai_extraction=ai_extraction,
+        verbose=verbose,
+        chunking_method=chunking_method,
+    )
+    extracted_chunks = extract(
+        chunks=chunks,
+        schema=schema,
+        ai_model=ai_model,
+        multiple_extractions=multiple_extractions,
+        extraction_prompt=extraction_prompt,
+        host_images=host_images,
+    )
+    return extracted_chunks[0]
 
 
 def extract_from_file(
@@ -295,77 +241,21 @@ def extract_from_file(
     multiple_extractions: bool = False,
     extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT,
     host_images: bool = False,
-    text_only: bool = False,
     ai_extraction: bool = False,
     verbose: bool = False,
     chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
-    local: bool = False,
 ) -> List[Dict]:
-    if local:
-        chunks = scrape_file(
-            file_path,
-            ai_extraction=ai_extraction,
-            text_only=text_only,
-            verbose=verbose,
-            local=local,
-            chunking_method=chunking_method,
-        )
-        return extract(
-            chunks=chunks,
-            schema=schema,
-            ai_model=ai_model,
-            multiple_extractions=multiple_extractions,
-            extraction_prompt=extraction_prompt,
-            host_images=host_images,
-        )[0]
-    else:
-        headers = {"Authorization": f"Bearer {THEPIPE_API_KEY}"}
-        data = {
-            "schema": json.dumps(schema),
-            "ai_model": ai_model,
-            "multiple_extractions": str(multiple_extractions).lower(),
-            "extraction_prompt": extraction_prompt,
-            "host_images": str(host_images).lower(),
-            "text_only": str(text_only).lower(),
-            "ai_extraction": str(ai_extraction).lower(),
-            "chunking_method": chunking_method.__name__,
-        }
-        files = {"files": (os.path.basename(file_path), open(file_path, "rb"))}
-
-        response = requests.post(
-            f"{HOST_URL}/extract", headers=headers, data=data, files=files, stream=True
-        )
-        if response.status_code != 200:
-            raise Exception(
-                f"API request failed with status code {response.status_code}: {response.text}"
-            )
-
-        results = []
-        for line in response.iter_lines(decode_unicode=True):
-            if line:
-                data = json.loads(line)
-                if "extraction_complete" in data:
-                    break
-                result = data["result"]
-                if "error" in result:
-                    results.append(result)
-                else:
-                    extracted_data = {
-                        "chunk_index": result["chunk_index"],
-                        "source": result["source"],
-                    }
-                    if multiple_extractions:
-                        extracted_data["extraction"] = result.get("extraction", [])
-                    else:
-                        extracted_data.update(result)
-                        schema_keys = (
-                            json.loads(schema).keys()
-                            if isinstance(schema, str)
-                            else schema.keys()
-                        )
-                        for key in schema_keys:
-                            if key not in extracted_data:
-                                extracted_data[key] = None
-                    results.append(extracted_data)
-
-        return results
+    chunks = scrape_file(
+        file_path,
+        ai_extraction=ai_extraction,
+        verbose=verbose,
+        chunking_method=chunking_method,
+    )
+    return extract(
+        chunks=chunks,
+        schema=schema,
+        ai_model=ai_model,
+        multiple_extractions=multiple_extractions,
+        extraction_prompt=extraction_prompt,
+        host_images=host_images,
+    )[0]
