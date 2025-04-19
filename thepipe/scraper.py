@@ -14,7 +14,7 @@ import zipfile
 from PIL import Image
 import requests
 import json
-from .core import HOST_URL, THEPIPE_API_KEY, HOST_IMAGES, Chunk, make_image_url
+from .core import HOST_IMAGES, Chunk, make_image_url
 from .chunker import (
     chunk_by_page,
     chunk_by_document,

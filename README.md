@@ -91,6 +91,21 @@ page_chunks = chunk_by_page(doc_chunks)
 > ⚠️ **It is important to be mindful of your model's token limit.**
 > Be sure your prompt is within the token limit of your model. You can use chunking to split your messages into smaller chunks.
 
+### Structured extraction 🗂️
+
+```python
+schema = {
+  "description": "string",
+  "amount_usd": "float"
+}
+
+results, tokens_used = extract(
+    chunks=chunks,
+    schema=schema,
+    multiple_extractions=True
+)
+```
+
 ### OpenAI Integration 🤖
 
 ```python

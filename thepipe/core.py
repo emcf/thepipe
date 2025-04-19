@@ -11,8 +11,7 @@ from PIL import Image
 from llama_index.core.schema import Document, ImageDocument
 
 HOST_IMAGES = os.getenv("HOST_IMAGES", "false").lower() == "true"
-HOST_URL = os.getenv("THEPIPE_API_URL", "https://thepipe-api.up.railway.app")
-THEPIPE_API_KEY = os.getenv("THEPIPE_API_KEY", None)
+HOST_URL = os.getenv("HOST_URL", "https://thepipe-api.up.railway.app")
 
 
 class Chunk:

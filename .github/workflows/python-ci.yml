@@ -46,7 +46,6 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with unittest and generate coverage report
         env:
-          THEPIPE_API_KEY: ${{ secrets.THEPIPE_API_KEY }}
           LLM_SERVER_BASE_URL: ${{ secrets.LLM_SERVER_BASE_URL }}
           LLM_SERVER_API_KEY: ${{ secrets.LLM_SERVER_API_KEY }}
         run: |

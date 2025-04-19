@@ -2,7 +2,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import re
 from typing import List, Dict, Union, Optional, Tuple, Callable
-from .core import HOST_URL, THEPIPE_API_KEY, Chunk, calculate_tokens
+from .core import Chunk, calculate_tokens
 from .scraper import scrape_url, scrape_file
 from .chunker import (
     chunk_by_page,
