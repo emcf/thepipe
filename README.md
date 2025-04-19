@@ -147,6 +147,8 @@ A chunk can be converted to LlamaIndex Document/ImageDocument with `.to_llamaind
 ### Structured extraction 🗂️
 
 ```python
+from thepipe.extract import extract
+
 schema = {
   "description": "string",
   "amount_usd": "float"
@@ -155,7 +157,7 @@ schema = {
 results, tokens_used = extract(
     chunks=chunks,
     schema=schema,
-    multiple_extractions=True
+    multiple_extractions=True, # extract multiple rows of data per chunk
 )
 ```
 
