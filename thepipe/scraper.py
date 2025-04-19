@@ -6,7 +6,6 @@ from io import BytesIO, StringIO
 import math
 import re
 import fnmatch
-import glob
 import os
 import tempfile
 from urllib.parse import urlparse
@@ -25,7 +24,6 @@ from .chunker import (
 import tempfile
 import mimetypes
 import dotenv
-import shutil
 from magika import Magika
 import markdownify
 import fitz
@@ -33,7 +31,6 @@ from openai import OpenAI
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 
 dotenv.load_dotenv()
-
 
 FOLDERS_TO_IGNORE = [
     "*node_modules*",
@@ -189,35 +186,45 @@ def scrape_plaintext(file_path: str) -> List[Chunk]:
 
 def scrape_directory(
     dir_path: str,
-    include_regex: Optional[str] = None,
+    inclusion_pattern: Optional[str] = None,
     verbose: bool = False,
     ai_extraction: bool = False,
 ) -> List[Chunk]:
-    verbose = True
+    """
+    inclusion_pattern: Optional regex string; only files whose path matches this pattern will be scraped.
+    By default, ignores all files in baked-in constants FOLDERS_TO_IGNORE and FILES_TO_IGNORE.
+    """
+    # compile the include pattern once
+    pattern = re.compile(inclusion_pattern) if inclusion_pattern else None
     extraction: List[Chunk] = []
 
     try:
         for entry in os.scandir(dir_path):
             path = entry.path
 
-            # if this directory matches any ignore pattern, skip it entirely
+            # skip ignored directories
             if entry.is_dir() and any(
                 fnmatch.fnmatch(entry.name, pat) for pat in FOLDERS_TO_IGNORE
             ):
                 if verbose:
-                    print(f"[thepipe] Skipping ignored directory: {entry.path}")
+                    print(f"[thepipe] Skipping ignored directory: {path}")
                 continue
 
-            # if this file matches any ignore pattern, skip it
+            # skip ignored files
             if entry.is_file() and any(
                 fnmatch.fnmatch(entry.name, pat) for pat in FILES_TO_IGNORE
             ):
                 if verbose:
-                    print(f"[thepipe] Skipping ignored file: {entry.path}")
+                    print(f"[thepipe] Skipping ignored file: {path}")
                 continue
 
             if entry.is_file():
-                # scrape this file
+                # if include_pattern is set, skip files that don't match
+                if pattern and not pattern.search(path):
+                    if verbose:
+                        print(f"[thepipe] Skipping non-matching file: {path}")
+                    continue
+
                 if verbose:
                     print(f"[thepipe] Scraping file: {path}")
                 extraction += scrape_file(
@@ -225,25 +232,27 @@ def scrape_directory(
                     ai_extraction=ai_extraction,
                     verbose=verbose,
                 )
+
             elif entry.is_dir():
                 # recurse into subdirectory
                 if verbose:
                     print(f"[thepipe] Entering directory: {path}")
                 extraction += scrape_directory(
                     dir_path=path,
-                    include_regex=include_regex,
+                    inclusion_pattern=inclusion_pattern,
                     verbose=verbose,
                     ai_extraction=ai_extraction,
                 )
     except PermissionError as e:
         if verbose:
             print(f"[thepipe] Skipping {dir_path} (permission denied): {e}")
+
     return extraction
 
 
 def scrape_zip(
     file_path: str,
-    include_regex: Optional[str] = None,
+    inclusion_pattern: Optional[str] = None,
     verbose: bool = False,
     ai_extraction: bool = False,
 ) -> List[Chunk]:
@@ -253,7 +262,7 @@ def scrape_zip(
             zip_ref.extractall(temp_dir)
         chunks = scrape_directory(
             dir_path=temp_dir,
-            include_regex=include_regex,
+            inclusion_pattern=inclusion_pattern,
             verbose=verbose,
             ai_extraction=ai_extraction,
         )
@@ -492,7 +501,6 @@ def parse_webpage_with_vlm(
 
 
 def extract_page_content(url: str, verbose: bool = False) -> Chunk:
-    from urllib.parse import urlparse
     from bs4 import BeautifulSoup
     from playwright.sync_api import sync_playwright
     import base64
@@ -767,7 +775,7 @@ def scrape_audio(file_path: str, verbose: bool = False) -> List[Chunk]:
 
 def scrape_github(
     github_url: str,
-    include_regex: Optional[str] = None,
+    inclusion_pattern: Optional[str] = None,
     ai_extraction: bool = False,
     branch: str = "main",
     verbose: bool = False,
@@ -781,7 +789,7 @@ def scrape_github(
         os.system(f"git clone {github_url} {temp_dir} --quiet")
         files_contents = scrape_directory(
             dir_path=temp_dir,
-            include_regex=include_regex,
+            inclusion_pattern=inclusion_pattern,
             verbose=verbose,
             ai_extraction=ai_extraction,
         )

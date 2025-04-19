@@ -15,7 +15,7 @@ def main() -> None:
     elif os.path.isdir(args.source):
         chunks = scrape_directory(
             args.source,
-            include_regex=args.include_regex,
+            inclusion_pattern=args.inclusion_pattern,
             ai_extraction=args.ai_extraction,
             verbose=args.verbose,
         )

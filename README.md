@@ -191,7 +191,7 @@ thepipe uses a combination of computer vision models and heuristics to scrape cl
 | Plaintext                    | `.txt`, `.md`, `.rtf`, etc                                                           | ❌         | Simple text extraction                                                                                                                                                                                                                        |
 | Image                        | `.jpg`, `.jpeg`, `.png`                                                              | ✔️         | Uses VLM for OCR in text-only mode                                                                                                                                                                                                            |
 | ZIP File                     | `.zip`                                                                               | ✔️         | Extracts and processes contained files                                                                                                                                                                                                        |
-| Directory                    | any `path/to/folder`                                                                 | ✔️         | Recursively processes all files in directory                                                                                                                                                                                                  |
+| Directory                    | any `path/to/folder`                                                                 | ✔️         | Recursively processes all files in directory. Optionally use `inclusion_pattern` to pass regex strings for file inclusion rules.                                                                                                              |
 | YouTube Video (known issues) | YouTube video URLs starting with `https://youtube.com` or `https://www.youtube.com`. | ✔️         | Uses pytube for video download and Whisper for transcription. For consistent extraction, you may need to modify your `pytube` installation to send a valid user agent header (see [this issue](https://github.com/pytube/pytube/issues/399)). |
 | Tweet                        | URLs starting with `https://twitter.com` or `https://x.com`                          | ✔️         | Uses unofficial API, may break unexpectedly                                                                                                                                                                                                   |
 | GitHub Repository            | GitHub repo URLs starting with `https://github.com` or `https://www.github.com`      | ✔️         | Requires GITHUB_TOKEN environment variable                                                                                                                                                                                                    |
@@ -225,7 +225,7 @@ thepipe <source> [options]
 # Options:
 --ai_extraction       Use AI for PDF/image/text extraction
 --text_only           Only output text (no images)
---include_regex=REGEX Only include files matching REGEX when scraping directories
+--inclusion_pattern=REGEX Only include files matching REGEX when scraping directories
 --verbose             Print detailed progress messages
 ```
 

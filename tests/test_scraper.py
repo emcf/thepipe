@@ -22,7 +22,7 @@ class test_scraper(unittest.TestCase):
     def test_scrape_directory(self):
         # verify scraping entire example directory, bar the 'unknown' file
         chunks = scraper.scrape_directory(
-            dir_path=self.files_directory, include_regex="^(?!.*unknown).*"
+            dir_path=self.files_directory, inclusion_pattern="^(?!.*unknown).*"
         )
         self.assertIsInstance(chunks, list)
         self.assertGreater(len(chunks), 0)

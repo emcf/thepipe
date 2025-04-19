@@ -256,7 +256,7 @@ def parse_arguments() -> argparse.Namespace:
         "source", type=str, help="The source file or directory to compress."
     )
     parser.add_argument(
-        "--include_regex",
+        "--inclusion_pattern",
         type=str,
         default=None,
         help="Regex pattern to match in a directory.",
