@@ -17,10 +17,10 @@ def read_git_requirements(file):
 
 setup(
     name="thepipe_api",
-    version="1.5.1",
+    version="1.5.2",
     author="Emmett McFarlane",
     author_email="emmett@thepi.pe",
-    description="Document extraction, powered by multimodal LLMs.",
+    description="Get clean data from tricky documents, powered by VLMs.",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     url="https://github.com/emcf/thepipe",

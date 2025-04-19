@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import re
-from typing import List, Dict, Union, Optional, Tuple, Callable
+from typing import Iterable, List, Dict, Union, Optional, Tuple, Callable, cast
 from .core import Chunk, calculate_tokens
 from .scraper import scrape_url, scrape_file
 from .chunker import (
@@ -14,6 +14,7 @@ from .chunker import (
 import requests
 import os
 from openai import OpenAI
+from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 
 DEFAULT_EXTRACTION_PROMPT = "Extract all the information from the given document according to the following schema: {schema}. Immediately return valid JSON formatted data. If there is missing data, you may use null, but always fill in every column as best you can. Always immediately return valid JSON. You must extract ALL the information available in the entire document."
 DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o-mini")
@@ -93,7 +94,7 @@ def extract_from_chunk(
 
         response = openrouter_client.chat.completions.create(
             model=ai_model,
-            messages=messages,
+            messages=cast(Iterable[ChatCompletionMessageParam], messages),
             response_format={"type": "json_object"},
             temperature=0,
         )
@@ -171,7 +172,8 @@ def extract(
     if multiple_extractions is None:
         multiple_extractions = False
 
-    with ThreadPoolExecutor() as executor:
+    n_threads = (os.cpu_count() or 1) * 2
+    with ThreadPoolExecutor(max_workers=n_threads) as executor:
         future_to_chunk = {
             executor.submit(
                 extract_from_chunk,
@@ -179,7 +181,7 @@ def extract(
                 chunk_index=i,
                 schema=schema,
                 ai_model=ai_model,
-                source=chunk.path,
+                source=chunk.path if chunk.path else "",
                 multiple_extractions=multiple_extractions,
                 extraction_prompt=extraction_prompt,
                 host_images=host_images,
@@ -221,7 +223,7 @@ def extract_from_url(
         url,
         ai_extraction=ai_extraction,
         verbose=verbose,
-        chunking_method=chunking_method,
+        chunking_method=chunking_method,  # type: ignore
     )
     extracted_chunks = extract(
         chunks=chunks,

@@ -24,10 +24,15 @@ class test_core(unittest.TestCase):
             os.rmdir(self.outputs_directory)
 
     def test_chunk_to_llamaindex(self):
-        chunk = core.Chunk(path="example.txt", text="Hello, World!")
-        llama_index = chunk.to_llamaindex()
-        self.assertEqual(type(llama_index), list)
-        self.assertEqual(len(llama_index), 1)
+        chunk = core.Chunk(
+            path="example.md",
+            text="This is a coloured image",
+            images=[Image.new("RGB", (32, 32), color="red")],
+        )
+        llama_index_document = chunk.to_llamaindex()
+        self.assertEqual(type(llama_index_document), list)
+        self.assertEqual(len(llama_index_document), 1)
+        self.assertEqual(type(llama_index_document[0]), core.ImageDocument)
 
     def test_chunks_to_messages(self):
         chunks = scraper.scrape_file(filepath=self.files_directory + "/example.md")

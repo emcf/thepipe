@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union, cast
 import base64
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import OrderedDict
@@ -30,6 +30,7 @@ from magika import Magika
 import markdownify
 import fitz
 from openai import OpenAI
+from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 
 dotenv.load_dotenv()
 
@@ -297,7 +298,7 @@ def scrape_pdf(
                 ]
                 response = openrouter_client.chat.completions.create(
                     model=ai_model if ai_model else DEFAULT_AI_MODEL,
-                    messages=messages,
+                    messages=cast(Iterable[ChatCompletionMessageParam], messages),
                     temperature=0,
                 )
                 try:
@@ -475,7 +476,7 @@ def parse_webpage_with_vlm(
         ]
         response = openrouter_client.chat.completions.create(
             model=ai_model if ai_model else DEFAULT_AI_MODEL,
-            messages=messages,
+            messages=cast(Iterable[ChatCompletionMessageParam], messages),
             temperature=0,
         )
         llm_response = response.choices[0].message.content
@@ -868,9 +869,10 @@ def scrape_docx(file_path: str, verbose: bool = False) -> List[Chunk]:
                 block_texts.append(table_text)
             if block_texts or block_images:
                 block_text = "\n".join(block_texts).strip()
-                chunks.append(
-                    Chunk(path=file_path, text=block_text, images=block_images)
-                )
+                if block_text or block_images:
+                    chunks.append(
+                        Chunk(path=file_path, text=block_text, images=block_images)
+                    )
 
     finally:
         # Close any open image files
