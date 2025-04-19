@@ -20,9 +20,9 @@
   </a>
 </div>
 
-### Extract clean data from tricky documents ⚡
+## Extract clean data from tricky documents ⚡
 
-thepi.pe is a package that can scrape clean markdown and multimodal media from complex documents. It uses vision-language models (VLMs) under the hood for superior output quality, and works out-of-the-box with any LLM, VLM, or vector database. It can extract well-formatted data from a wide range of sources, including PDFs, URLs, Word docs, Powerpoints, Python notebooks, videos, audio, and more.
+thepi.pe is a package that can scrape clean markdown, multimodal media, and structured data from complex documents. It uses vision-language models (VLMs) under the hood for superior output quality, and works out-of-the-box with any LLM, VLM, or vector database. It can extract well-formatted data from a wide range of sources, including PDFs, URLs, Word docs, Powerpoints, Python notebooks, videos, audio, and more.
 
 ## Features 🌟
 
@@ -57,9 +57,7 @@ python -m playwright install --with-deps chromium
 ### Scraping
 
 ```python
-from openai import OpenAI
 from thepipe.scraper import scrape_file
-from thepipe.core import chunks_to_messages
 
 # scrape clean markdown and images from a PDF
 chunks = scrape_file(filepath="paper.pdf", ai_extraction=True)
@@ -78,8 +76,7 @@ To satisfy token limit constraints, the following chunking methods are available
 For example,
 
 ```python
-from thepipe.core import chunk_by_page
-from thepipe.chunker import chunk_by_page
+from thepipe.chunker import chunk_by_doc, chunk_by_page
 
 # returns one chunk for the entire document
 doc_chunks = scrape_file(filepath="paper.pdf", chunking_method=chunk_by_doc)
@@ -94,29 +91,32 @@ page_chunks = chunk_by_page(doc_chunks)
 ### OpenAI Integration 🤖
 
 ```python
+from openai import OpenAI
+from thepipe.core import chunks_to_messages
+
 # Initialize OpenAI client
 client = OpenAI()
 
-# Example chat messages to be sent to LLM
-messages = [
-  {
-    "role": "user", "content": [
-      {"type": "text", "text": "What is the paper about?"}
-    ]
-  }
-]
+# Use OpenAI-formatted chat messages
+messages = [{
+  "role": "user",
+  "content": [{
+      "type": "text",
+      "text": "What is the paper about?"
+    }]
+}]
 
-# simply add the scraped chunks to the messages
+# Simply add the scraped chunks to the messages
 messages += chunks_to_messages(chunks)
 
-# call LLM with scraped chunks
+# Call LLM
 response = client.chat.completions.create(
     model="gpt-4o",
     messages=messages,
 )
 ```
 
-The output from thepi.pe is a list of chunks containing all content and media within the source document. These chunks can easily be converted to a prompt format that is compatible with any LLM or VLM with `thepipe.core.chunks_to_messages`, which gives the following format:
+The output from thepi.pe is a list of chunks containing all content and media within the source document(s). These chunks can easily be converted to a prompt format that is compatible with any LLM or VLM with `thepipe.core.chunks_to_messages`, which gives the following format:
 
 ```json
 [

@@ -37,9 +37,10 @@ class Chunk:
         if self.images:
             image_docs: List[ImageDocument] = []
             for img in self.images:
-                # Encode the image to PNG (or use its original format if available)
+                # Encode the image to JPEG (or use its original format if available)
                 buffer = BytesIO()
-                fmt = img.format or "PNG"
+                fmt = img.format or "JPEG"
+                img = img.convert("RGB")  # ensure RGB
                 img.save(buffer, format=fmt)
                 img_bytes = buffer.getvalue()
 
