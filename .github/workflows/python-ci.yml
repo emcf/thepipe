@@ -29,8 +29,8 @@ jobs:
         uses: actions/setup-python@v3
         with:
           python-version: "3.10"
-      - name: Install Tesseract OCR
-        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Install pip dependencies
         run: |
           python -m pip install --upgrade pip

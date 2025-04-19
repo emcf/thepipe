@@ -18,7 +18,6 @@ Pyarrow
 poppler-utils
 python-magic
 pandas
-pytesseract
 cssutils
 beautifulsoup4
 PyMuPDF
