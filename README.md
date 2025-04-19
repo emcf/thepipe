@@ -91,21 +91,6 @@ page_chunks = chunk_by_page(doc_chunks)
 > ⚠️ **It is important to be mindful of your model's token limit.**
 > Be sure your prompt is within the token limit of your model. You can use chunking to split your messages into smaller chunks.
 
-### Structured extraction 🗂️
-
-```python
-schema = {
-  "description": "string",
-  "amount_usd": "float"
-}
-
-results, tokens_used = extract(
-    chunks=chunks,
-    schema=schema,
-    multiple_extractions=True
-)
-```
-
 ### OpenAI Integration 🤖
 
 ```python
@@ -159,6 +144,21 @@ It takes in an optional `text_only` parameter to only output text from the sourc
 
 A chunk can be converted to LlamaIndex Document/ImageDocument with `.to_llamaindex`.
 
+### Structured extraction 🗂️
+
+```python
+schema = {
+  "description": "string",
+  "amount_usd": "float"
+}
+
+results, tokens_used = extract(
+    chunks=chunks,
+    schema=schema,
+    multiple_extractions=True
+)
+```
+
 ## Sponsors
 
 Visit [Cal.com](https://cal.com/) for an open source scheduling tool that helps you book meetings with ease. It's the perfect solution for busy professionals who want to streamline their scheduling process.
@@ -193,3 +193,72 @@ thepipe uses a combination of computer vision models and heuristics to scrape cl
 | YouTube Video (known issues) | YouTube video URLs starting with `https://youtube.com` or `https://www.youtube.com`. | ✔️         | Uses pytube for video download and Whisper for transcription. For consistent extraction, you may need to modify your `pytube` installation to send a valid user agent header (see [this issue](https://github.com/pytube/pytube/issues/399)). |
 | Tweet                        | URLs starting with `https://twitter.com` or `https://x.com`                          | ✔️         | Uses unofficial API, may break unexpectedly                                                                                                                                                                                                   |
 | GitHub Repository            | GitHub repo URLs starting with `https://github.com` or `https://www.github.com`      | ✔️         | Requires GITHUB_TOKEN environment variable                                                                                                                                                                                                    |
+
+## Configuration & Environment
+
+Set these environment variables to control API keys, hosting, and model defaults:
+
+```bash
+# If you want longer-term image storage and hosting (saves to ./images and serves via HOST_URL)
+export HOST_IMAGES=true
+
+# GitHub token for scraping private/public repos via `scrape_url`
+export GITHUB_TOKEN=ghp_...
+
+# Base URL + key for any custom LLM server (used in extract/scrape_pdf)
+export LLM_SERVER_BASE_URL=https://openrouter.ai
+export LLM_SERVER_API_KEY=or-...
+
+# Control PDF / attachment extraction defaults
+export DEFAULT_AI_MODEL=gpt-4o-mini
+export FILESIZE_LIMIT_MB=50
+```
+
+## CLI Reference
+
+```shell
+# Basic usage: scrape a file or URL
+thepipe <source> [options]
+
+# Options:
+--ai_extraction       Use AI for PDF/image/text extraction
+--text_only           Only output text (no images)
+--include_regex=REGEX Only include files matching REGEX when scraping directories
+--verbose             Print detailed progress messages
+```
+
+## Contributing
+
+We welcome contributions! To get started:
+
+1. Fork the repo and create a feature branch:
+
+   ```bash
+   git checkout -b feature/my-new-feature
+
+   ```
+
+2. Install dependencies & run tests:
+
+   ```bash
+   pip install -r requirements.txt
+   python -m unittest discover
+   ```
+
+3. Make your changes, format them, and commit them:
+
+   ```bash
+    black .
+    git add .
+    git commit -m "..."
+   ```
+
+4. Push to your fork and create a pull request:
+
+   ```bash
+     git push origin feature/my-new-feature
+   ```
+
+5. Submit a pull request to the main repository.
+
+6. Wait for review and feedback from the maintainers. This may take some time, so be patient!
