@@ -20,7 +20,7 @@ python-magic
 pandas
 cssutils
 beautifulsoup4
-PyMuPDF
+PyMuPDF==1.25.5
 pdf2image
 python-dotenv
 git+https://github.com/openai/whisper.git
@@ -29,10 +29,8 @@ openpyxl
 pytube
 ffmpeg-python
 python-docx
-pymupdf4llm
+pymupdf4llm==0.0.21
 pytest-playwright
 playwright
-jwt
 sentence-transformers
 marker-pdf
-modal

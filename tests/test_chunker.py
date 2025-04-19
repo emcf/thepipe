@@ -31,8 +31,8 @@ class test_chunker(unittest.TestCase):
         self.assertGreater(len(chunked_length), 0)
         for chunk in chunked_length:
             self.assertIsInstance(chunk, Chunk)
-            print(f"Chunk text: {chunk.text}")
-            self.assertTrue(any(chunk.text or chunk.images))
+            # Verify that the chunk text or images are not none
+            self.assertTrue(chunk.text or chunk.images)
             # assert length of text is less than max_tokens
             if chunk.text or chunk.images:
                 self.assertLessEqual(
@@ -70,7 +70,7 @@ class test_chunker(unittest.TestCase):
         self.assertGreater(len(chunked_pages), 0)
         for chunk in chunked_pages:
             self.assertIsInstance(chunk, Chunk)
-            self.assertTrue(any(chunk.text or chunk.images))
+            self.assertTrue(chunk.text or chunk.images)
 
     def test_chunk_by_section(self):
         chunks = self.read_markdown_file(self.example_markdown_path)
@@ -80,7 +80,7 @@ class test_chunker(unittest.TestCase):
         # Verify the output contains chunks with text or images
         for chunk in chunked_sections:
             self.assertIsInstance(chunk, Chunk)
-            self.assertTrue(any(chunk.text or chunk.images))
+            self.assertTrue(chunk.text or chunk.images)
 
     def test_chunk_by_document(self):
         chunks = self.read_markdown_file(self.example_markdown_path)
@@ -90,7 +90,7 @@ class test_chunker(unittest.TestCase):
         # Verify the output contains chunks with text or images
         chunk = chunked_documents[0]
         self.assertIsInstance(chunk, Chunk)
-        self.assertTrue(any(chunk.text or chunk.images))
+        self.assertTrue(chunk.text or chunk.images)
 
 
 if __name__ == "__main__":

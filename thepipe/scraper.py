@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union, cast
 import base64
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import OrderedDict
@@ -356,16 +356,18 @@ def scrape_pdf(
 
             return chunks
     else:
-        import pymupdf4llm
+        from pymupdf4llm.helpers.pymupdf_rag import to_markdown
 
         doc = fitz.open(file_path)
-        md_reader = pymupdf4llm.helpers.pymupdf_rag.to_markdown(doc, page_chunks=True)
-        for i, page in enumerate(doc):
+        md_reader = cast(List[Dict[str, Any]], to_markdown(file_path, page_chunks=True))
+        for i in range(doc.page_count):
+            page = doc[i]
+            # get the text from the page
             text = md_reader[i]["text"]
             # remove excessive newlines
             text = re.sub(r"\n{3,}", "\n\n", text)
             text = text.strip()
-            pix = page.get_pixmap()
+            pix = page.get_pixmap()  # type: ignore[attr-defined]
             img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
             chunks.append(Chunk(path=file_path, text=text, images=[img]))
         doc.close()
@@ -704,7 +706,7 @@ def scrape_video(
             ) as temp_audio_file:
                 audio_path = temp_audio_file.name
 
-            audio = video.subclip(start_time, end_time).audio
+            audio = video.subclip(start_time, end_time).audio  # type: ignore[attr-defined]
             transcription = None
 
             if audio is not None:
@@ -713,7 +715,7 @@ def scrape_video(
 
                 # Format transcription with timestamps
                 formatted_transcription = []
-                for segment in result["segments"]:
+                for segment in cast(List[Dict[str, Any]], result["segments"]):
                     seg_start = format_timestamp(
                         segment["start"], i, MAX_WHISPER_DURATION
                     )
@@ -761,9 +763,10 @@ def scrape_audio(file_path: str, verbose: bool = False) -> List[Chunk]:
 
     model = whisper.load_model("base")
     result = model.transcribe(audio=file_path, verbose=verbose)
-    # Format transcription with timestamps
-    transcript = []
-    for segment in result["segments"]:
+    segments = cast(List[Dict[str, Any]], result.get("segments", []))
+
+    transcript: List[str] = []
+    for segment in segments:
         start = format_timestamp(segment["start"], 0, 0)
         end = format_timestamp(segment["end"], 0, 0)
         if segment["text"].strip():
@@ -847,7 +850,7 @@ def scrape_docx(file_path: str, verbose: bool = False) -> List[Chunk]:
         for block in iter_block_items(document):
             block_texts = []
             block_images = []
-            if block.__class__.__name__ == "Paragraph":
+            if isinstance(block, Paragraph):
                 block_texts.append(block.text)
                 # "runs" are the smallest units in a paragraph
                 for run in block.runs:
@@ -872,7 +875,7 @@ def scrape_docx(file_path: str, verbose: bool = False) -> List[Chunk]:
                                     image.load()
                                     block_images.append(image)
                                     image_counter += 1
-            elif block.__class__.__name__ == "Table":
+            elif isinstance(block, Table):
                 table_text = read_docx_tables(block)
                 block_texts.append(table_text)
             if block_texts or block_images:
@@ -894,6 +897,8 @@ def scrape_docx(file_path: str, verbose: bool = False) -> List[Chunk]:
 def scrape_pptx(file_path: str, verbose: bool = False) -> List[Chunk]:
     from pptx import Presentation
     from pptx.enum.shapes import MSO_SHAPE_TYPE
+    from pptx.shapes.picture import Picture
+    from pptx.shapes.autoshape import Shape as AutoShape
 
     prs = Presentation(file_path)
     chunks = []
@@ -904,14 +909,16 @@ def scrape_pptx(file_path: str, verbose: bool = False) -> List[Chunk]:
         # iterate through each shape in the slide
         for shape in slide.shapes:
             if shape.has_text_frame:
-                for paragraph in shape.text_frame.paragraphs:
+                auto_shape = cast(AutoShape, shape)
+                for paragraph in auto_shape.text_frame.paragraphs:
                     text = paragraph.text
                     if len(slide_texts) == 0:
                         text = "# " + text  # header for first text of a slide
                     slide_texts.append(text)
             # extract images from shapes
             if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
-                image_data = shape.image.blob
+                pic = cast(Picture, shape)
+                image_data = pic.image.blob
                 image = Image.open(BytesIO(image_data))
                 slide_images.append(image)
         # add slide to chunks if it has text or images

@@ -94,7 +94,7 @@ class test_scraper(unittest.TestCase):
             any(chunk.images and len(chunk.images or []) > 0 for chunk in chunks)
         )
 
-    # requires modal token to run
+    # requires LLM server to be set up
     def test_scrape_pdf_with_ai_extraction(self):
         chunks = scraper.scrape_file(
             os.path.join(self.files_directory, "example.pdf"),
