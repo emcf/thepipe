@@ -15,9 +15,6 @@
   <a href="https://www.pepy.tech/projects/thepipe-api">
     <img src="https://static.pepy.tech/badge/thepipe-api" alt="PyPI">
   </a>
-  <a href="https://thepi.pe/">
-    <img src="https://img.shields.io/website?url=https%3A%2F%2Fthepipe-api.up.railway.app%2F&label=API%20status" alt="Website">
-  </a>
 </div>
 
 ## Extract clean data from tricky documents ⚡
@@ -119,29 +116,7 @@ response = client.chat.completions.create(
 )
 ```
 
-The output from thepi.pe is a list of chunks containing all content and media within the source document(s). These chunks can easily be converted to a prompt format that is compatible with any LLM or VLM with `thepipe.core.chunks_to_messages`, which gives the following format:
-
-```json
-[
-  {
-    "role": "user",
-    "content": [
-      {
-        "type": "text",
-        "text": "..."
-      },
-      {
-        "type": "image_url",
-        "image_url": {
-          "url": "data:image/jpeg;base64,..."
-        }
-      }
-    ]
-  }
-]
-```
-
-It takes in an optional `text_only` parameter to only output text from the source document. This is useful for downstream use with LLMs that lack multimodal capabilities.
+`chunks_to_messages` takes in an optional `text_only` parameter to only output text from the source document. This is useful for downstream use with LLMs that lack multimodal capabilities.
 
 ### LLamaIndex Integration 🦙
 
