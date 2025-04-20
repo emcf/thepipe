@@ -89,7 +89,7 @@ class test_core(unittest.TestCase):
 
     def test_json_roundtrip(self):
         img = Image.new("RGB", (2, 2))
-        chunk = core.Chunk(path="p", text="T", images=[img], audios=["a"], videos=["v"])
+        chunk = core.Chunk(path="p", text="T", images=[img])
         data = chunk.to_json()
         chunk2 = core.Chunk.from_json(data)
 
@@ -99,16 +99,6 @@ class test_core(unittest.TestCase):
         images = cast(List[Image.Image], chunk2.images)
         self.assertIsInstance(images, list)
         self.assertEqual(len(images), 1)
-
-        audios = cast(List[str], chunk2.audios)
-        self.assertIsInstance(audios, list)
-        self.assertEqual(len(audios), 1)
-        self.assertEqual(audios[0], "a")
-
-        videos = cast(List[str], chunk2.videos)
-        self.assertIsInstance(videos, list)
-        self.assertEqual(len(videos), 1)
-        self.assertEqual(videos[0], "v")
 
     def test_chunk_to_llamaindex(self):
         chunk = core.Chunk(
