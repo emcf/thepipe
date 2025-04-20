@@ -1,5 +1,6 @@
 import json
 import tempfile
+from typing import cast
 import unittest
 import os
 import sys
@@ -51,9 +52,14 @@ class test_scraper(unittest.TestCase):
             good = os.path.join(tmp, "good.txt")
             with open(good, "w") as f:
                 f.write("Y")
+
             chunks = scraper.scrape_directory(tmp, inclusion_pattern="good")
+
         self.assertEqual(len(chunks), 1)
-        self.assertIn("Y", chunks[0].text)
+
+        # cast .text to str so Pylance knows it's not None
+        text = cast(str, chunks[0].text)
+        self.assertIn("Y", text)
 
     def test_scrape_html(self):
         filepath = os.path.join(self.files_directory, "example.html")
@@ -90,7 +96,8 @@ class test_scraper(unittest.TestCase):
                 z.write(txt, arcname="a.txt")
                 z.write(imgf, arcname="i.jpg")
             chunks = scraper.scrape_file(zf)
-        self.assertTrue(any("TXT" in c.text for c in chunks))
+
+        self.assertTrue(any("TXT" in cast(str, c.text) for c in chunks))
         self.assertTrue(any(c.images for c in chunks))
 
     def test_scrape_spreadsheet(self):
@@ -101,7 +108,8 @@ class test_scraper(unittest.TestCase):
             chunks_csv = scraper.scrape_spreadsheet(csvp, "application/vnd.ms-excel")
             self.assertEqual(len(chunks_csv), 2)
             for i, c in enumerate(chunks_csv):
-                rec = json.loads(c.text)
+                self.assertIsNotNone(c.text)
+                rec = json.loads(cast(str, c.text))
                 self.assertEqual(rec["a"], i + 1)
                 self.assertEqual(rec["row index"], i)
 

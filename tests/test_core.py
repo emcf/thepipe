@@ -1,6 +1,7 @@
 import argparse
 import base64
 import shutil
+from typing import List, cast
 import unittest
 import os
 import sys
@@ -91,9 +92,23 @@ class test_core(unittest.TestCase):
         chunk = core.Chunk(path="p", text="T", images=[img], audios=["a"], videos=["v"])
         data = chunk.to_json()
         chunk2 = core.Chunk.from_json(data)
+
         self.assertEqual(chunk2.path, "p")
         self.assertEqual(chunk2.text, "T")
-        self.assertEqual(len(chunk2.images), 1)
+
+        images = cast(List[Image.Image], chunk2.images)
+        self.assertIsInstance(images, list)
+        self.assertEqual(len(images), 1)
+
+        audios = cast(List[str], chunk2.audios)
+        self.assertIsInstance(audios, list)
+        self.assertEqual(len(audios), 1)
+        self.assertEqual(audios[0], "a")
+
+        videos = cast(List[str], chunk2.videos)
+        self.assertIsInstance(videos, list)
+        self.assertEqual(len(videos), 1)
+        self.assertEqual(videos[0], "v")
 
     def test_chunk_to_llamaindex(self):
         chunk = core.Chunk(

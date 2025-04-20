@@ -57,7 +57,8 @@ def chunk_by_section(
         chunk_text = chunk.text or ""
         # Append images to current section once started
         if cur_text is not None and getattr(chunk, "images", None):
-            cur_images.extend(chunk.images)
+            if chunk.images:
+                cur_images.extend(chunk.images)
 
         for line in chunk_text.split("\n"):
             if line.startswith(section_separator):

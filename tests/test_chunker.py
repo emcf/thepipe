@@ -1,7 +1,7 @@
 import unittest
 import os
 import sys
-from typing import List
+from typing import List, cast
 
 sys.path.append("..")
 import thepipe.chunker as chunker
@@ -22,7 +22,6 @@ class test_chunker(unittest.TestCase):
         return [Chunk(path=file_path, text=text)]
 
     def test_chunk_by_keywords(self):
-
         text = "Intro line\nfoo starts here\nmiddle\nbar next\nend"
         chunk = Chunk(path="doc.md", text=text)
 
@@ -31,16 +30,19 @@ class test_chunker(unittest.TestCase):
         self.assertEqual(len(result), 3)
 
         # 1st chunk: only the intro
-        self.assertIn("Intro line", result[0].text)
-        self.assertNotIn("foo", result[0].text.lower())
+        t0 = cast(str, result[0].text)
+        self.assertIn("Intro line", t0)
+        self.assertNotIn("foo", t0.lower())
 
         # 2nd chunk: starts with foo, includes 'middle'
-        self.assertIn("foo starts here", result[1].text.lower())
-        self.assertIn("middle", result[1].text.lower())
+        t1 = cast(str, result[1].text).lower()
+        self.assertIn("foo starts here", t1)
+        self.assertIn("middle", t1)
 
         # 3rd chunk: starts with bar, includes 'end'
-        self.assertIn("bar next", result[2].text.lower())
-        self.assertIn("end", result[2].text.lower())
+        t2 = cast(str, result[2].text).lower()
+        self.assertIn("bar next", t2)
+        self.assertIn("end", t2)
 
     def test_chunk_agentic(self):
         chunks = self.read_markdown_file(self.example_markdown_path)
@@ -122,16 +124,25 @@ class test_chunker(unittest.TestCase):
         chunk1 = Chunk(text=text1)
         out1 = chunker.chunk_by_section([chunk1])
         self.assertEqual(len(out1), 2)
-        self.assertIn("Alpha", out1[0].text)
-        self.assertIn("Beta", out1[1].text)
+
+        # cast .text to str so Pylance stops complaining
+        t0 = cast(str, out1[0].text)
+        self.assertIn("Alpha", t0)
+
+        t1 = cast(str, out1[1].text)
+        self.assertIn("Beta", t1)
 
         # Custom separator "### "
         text2 = "### One\nX\n### Two\nY"
         chunk2 = Chunk(text=text2)
         out2 = chunker.chunk_by_section([chunk2], section_separator="### ")
         self.assertEqual(len(out2), 2)
-        self.assertIn("One", out2[0].text)
-        self.assertIn("Two", out2[1].text)
+
+        o0 = cast(str, out2[0].text)
+        self.assertIn("One", o0)
+
+        o1 = cast(str, out2[1].text)
+        self.assertIn("Two", o1)
 
     def test_chunk_by_document(self):
         chunks = self.read_markdown_file(self.example_markdown_path)
