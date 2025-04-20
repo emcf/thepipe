@@ -1,8 +1,20 @@
 import re
 from typing import Dict, List, Optional, Tuple, Union
-from .core import Chunk, calculate_tokens
+from .core import Chunk, calculate_tokens, LLM_SERVER_BASE_URL, LLM_SERVER_API_KEY
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
+from pydantic import BaseModel
+from openai import OpenAI
+
+
+class Section(BaseModel):
+    title: str
+    start_line: int
+    end_line: int
+
+
+class SectionList(BaseModel):
+    sections: List[Section]
 
 
 def chunk_by_document(chunks: List[Chunk]) -> List[Chunk]:
@@ -33,42 +45,52 @@ def chunk_by_page(chunks: List[Chunk]) -> List[Chunk]:
 
 
 def chunk_by_section(
-    chunks: List[Chunk], section_separator: str = "\n## "
+    chunks: List[Chunk], section_separator: str = "## "
 ) -> List[Chunk]:
-    section_chunks = []
-    current_chunk_text = ""
-    current_chunk_images = []
-    current_chunk_path = None
-    # Split the text into sections based on the markdown headers
+    section_chunks: List[Chunk] = []
+    cur_text: Optional[str] = None
+    cur_images: List = []
+    cur_path: Optional[str] = None
+
     for chunk in chunks:
-        chunk_text = "\n".join(chunk.text) if chunk.text else None
-        if chunk.images:
-            current_chunk_images.extend(chunk.images)
-        if chunk_text:
-            lines = chunk_text.split("\n")
-            for line in lines:
-                if line.startswith(section_separator):
-                    if current_chunk_text:
-                        section_chunks.append(
-                            Chunk(
-                                path=chunk.path,
-                                text=current_chunk_text,
-                                images=current_chunk_images,
-                            )
+        # Extract text (always a string or None)
+        chunk_text = chunk.text or ""
+        # Append images to current section once started
+        if cur_text is not None and getattr(chunk, "images", None):
+            cur_images.extend(chunk.images)
+
+        for line in chunk_text.split("\n"):
+            if line.startswith(section_separator):
+                # New section header found
+                if cur_text is not None:
+                    # Flush previous section
+                    section_chunks.append(
+                        Chunk(
+                            path=cur_path,
+                            text=cur_text.rstrip("\n"),
+                            images=cur_images.copy(),
                         )
-                        current_chunk_text = ""
-                        current_chunk_images = []
-                        if chunk.path:
-                            current_chunk_path = chunk.path
-                current_chunk_text += line + "\n"
-    if current_chunk_text:
+                    )
+                # Start new section
+                cur_text = line + "\n"
+                cur_images = []
+                cur_path = chunk.path
+            else:
+                if cur_text is not None:
+                    cur_text += line + "\n"
+                else:
+                    # Text before any section header: start first section
+                    if line.strip():
+                        cur_text = line + "\n"
+                        cur_path = chunk.path
+                        cur_images = []
+
+    # Flush last section if present
+    if cur_text is not None:
         section_chunks.append(
-            Chunk(
-                path=current_chunk_path,
-                text=current_chunk_text,
-                images=current_chunk_images,
-            )
+            Chunk(path=cur_path, text=cur_text.rstrip("\n"), images=cur_images.copy())
         )
+
     return section_chunks
 
 
@@ -215,3 +237,104 @@ def chunk_by_length(chunks: List[Chunk], max_tokens: int = 10000) -> List[Chunk]
         new_chunks = chunk_by_length(split_chunks, max_tokens)
 
     return new_chunks
+
+
+# LLM-based agentic semantic chunking (experimental, openai only)
+def chunk_agentic(
+    chunks: List[Chunk],
+    max_tokens: int = 50000,
+) -> List[Chunk]:
+    openai_client = OpenAI(
+        base_url=LLM_SERVER_BASE_URL,
+        api_key=LLM_SERVER_API_KEY,
+    )
+
+    # 1) Enforce a hard token limit
+    chunks = chunk_by_length(chunks, max_tokens=max_tokens)
+
+    # 2) Group by document
+    docs: Dict[str, List[Chunk]] = {}
+    for c in chunks:
+        docs.setdefault(c.path or "__no_path__", []).append(c)
+
+    final_chunks: List[Chunk] = []
+
+    for path, doc_chunks in docs.items():
+        # Flatten into numbered lines
+        lines: List[str] = []
+        line_to_chunk: List[Chunk] = []
+        for chunk in doc_chunks:
+            texts = (
+                chunk.text
+                if isinstance(chunk.text, list)
+                else ([chunk.text] if chunk.text else [])
+            )
+            for text in texts:
+                for line in text.split("\n"):
+                    lines.append(line)
+                    line_to_chunk.append(chunk)
+        if not lines:
+            continue
+
+        numbered = "\n".join(f"{i+1}: {lines[i]}" for i in range(len(lines)))
+
+        # 3) Ask the LLM for structured JSON
+        system_prompt = (
+            "Divide the following numbered document into semantically cohesive sections. "
+            "Return only a single JSON object matching the Pydantic schema `SectionList`, "
+            "e.g.:\n"
+            "{\n"
+            '  "sections": [\n'
+            '    {"title": "Introduction", "start_line": 1, "end_line": 5},\n'
+            "    ...\n"
+            "  ]\n"
+            "}\n"
+            "Ensure `start_line` and `end_line` are integers, cover every line in order, "
+            "and do not overlap or leave gaps."
+        )
+        user_prompt = numbered
+
+        completion = openai_client.beta.chat.completions.parse(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format=SectionList,
+        )
+
+        if not completion.choices[0].message.parsed:
+            raise ValueError(
+                "LLM did not return a valid response during agentic chunking."
+            )
+
+        sections: List[Section] = completion.choices[0].message.parsed.sections
+
+        # build chunks from those sections
+        for sec in sections:
+            start, end, title = sec.start_line, sec.end_line, sec.title
+            # clamp
+            start = max(1, min(start, len(lines)))
+            end = max(start, min(end, len(lines)))
+
+            sec_lines = lines[start - 1 : end]
+            seen_imgs = set()
+            sec_images = []
+            for idx in range(start - 1, end):
+                for img in getattr(line_to_chunk[idx], "images", []):
+                    if img not in seen_imgs:
+                        seen_imgs.add(img)
+                        sec_images.append(img)
+
+            # prepend header
+            text_block = "\n".join(sec_lines)
+            new_chunk = Chunk(
+                path=path if path != "__no_path__" else None,
+                text=text_block,
+                images=sec_images,
+            )
+
+            # break further by length if needed
+            final_chunks.extend(chunk_by_length([new_chunk], max_tokens=max_tokens))
+
+    return final_chunks

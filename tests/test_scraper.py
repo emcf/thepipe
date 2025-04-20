@@ -1,6 +1,11 @@
+import json
+import tempfile
 import unittest
 import os
 import sys
+import zipfile
+from PIL import Image
+import pandas as pd
 
 sys.path.append("..")
 import thepipe.core as core
@@ -28,14 +33,27 @@ class test_scraper(unittest.TestCase):
         self.assertGreater(len(chunks), 0)
         for chunk in chunks:
             self.assertIsInstance(chunk, core.Chunk)
-            print("Chunk path:", chunk.path)
-            print("Chunk text:", chunk.text)
-            print("Chunk images:", chunk.images)
             # ensure at least one of text/images is non-empty
             if not (chunk.text or chunk.images):
-                print("Empty chunk found:", chunk.path)
                 self.fail("Empty chunk found: {}".format(chunk.path))
             self.assertTrue(chunk.text or chunk.images)
+
+    def test_scrape_directory_inclusion_exclusion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            # ignored folder
+            os.makedirs(os.path.join(tmp, "node_modules"))
+            with open(os.path.join(tmp, "node_modules", "a.txt"), "w") as f:
+                f.write("x")
+            # ignored extension
+            with open(os.path.join(tmp, "bad.pyc"), "w") as f:
+                f.write("x")
+            # valid file
+            good = os.path.join(tmp, "good.txt")
+            with open(good, "w") as f:
+                f.write("Y")
+            chunks = scraper.scrape_directory(tmp, inclusion_pattern="good")
+        self.assertEqual(len(chunks), 1)
+        self.assertIn("Y", chunks[0].text)
 
     def test_scrape_html(self):
         filepath = os.path.join(self.files_directory, "example.html")
@@ -61,21 +79,39 @@ class test_scraper(unittest.TestCase):
         )
 
     def test_scrape_zip(self):
-        chunks = scraper.scrape_file(
-            os.path.join(self.files_directory, "example.zip"), verbose=True
-        )
-        # verify it scraped the zip file into chunks
-        self.assertIsInstance(chunks, list)
-        self.assertGreater(len(chunks), 0)
-        self.assertIsInstance(chunks[0], core.Chunk)
-        # verify it scraped text data
-        self.assertTrue(
-            any(chunk.text and len(chunk.text or "") > 0 for chunk in chunks)
-        )
-        # verify it scraped image data
-        self.assertTrue(
-            any(chunk.images and len(chunk.images or []) > 0 for chunk in chunks)
-        )
+        with tempfile.TemporaryDirectory() as tmp:
+            txt = os.path.join(tmp, "a.txt")
+            with open(txt, "w") as f:
+                f.write("TXT")
+            imgf = os.path.join(tmp, "i.jpg")
+            Image.new("RGB", (10, 10)).save(imgf)
+            zf = os.path.join(tmp, "test.zip")
+            with zipfile.ZipFile(zf, "w") as z:
+                z.write(txt, arcname="a.txt")
+                z.write(imgf, arcname="i.jpg")
+            chunks = scraper.scrape_file(zf)
+        self.assertTrue(any("TXT" in c.text for c in chunks))
+        self.assertTrue(any(c.images for c in chunks))
+
+    def test_scrape_spreadsheet(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            df = pd.DataFrame({"a": [1, 2]})
+            csvp = os.path.join(tmp, "t.csv")
+            df.to_csv(csvp, index=False)
+            chunks_csv = scraper.scrape_spreadsheet(csvp, "application/vnd.ms-excel")
+            self.assertEqual(len(chunks_csv), 2)
+            for i, c in enumerate(chunks_csv):
+                rec = json.loads(c.text)
+                self.assertEqual(rec["a"], i + 1)
+                self.assertEqual(rec["row index"], i)
+
+            xlsx = os.path.join(tmp, "t.xlsx")
+            df.to_excel(xlsx, index=False)
+            chunks_xlsx = scraper.scrape_spreadsheet(
+                xlsx,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+            self.assertEqual(len(chunks_xlsx), 2)
 
     def test_scrape_ipynb(self):
         chunks = scraper.scrape_file(

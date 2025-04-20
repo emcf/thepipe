@@ -13,7 +13,13 @@ import zipfile
 from PIL import Image
 import requests
 import json
-from .core import HOST_IMAGES, Chunk, make_image_url
+from .core import (
+    HOST_IMAGES,
+    Chunk,
+    make_image_url,
+    LLM_SERVER_BASE_URL,
+    LLM_SERVER_API_KEY,
+)
 from .chunker import (
     chunk_by_page,
     chunk_by_document,
@@ -32,15 +38,15 @@ from openai.types.chat.chat_completion_message_param import ChatCompletionMessag
 
 dotenv.load_dotenv()
 
-FOLDERS_TO_IGNORE = [
+FOLDERS_TO_IGNORE = {
     "*node_modules*",
     ".git",
     ".*\\.git.*",
     ".*venv.*",
     ".*\\.vscode.*",
     ".*pycache.*",
-]
-FILES_TO_IGNORE = [
+}
+FILES_TO_IGNORE = {
     "package-lock.json",
     ".gitignore",
     "*.bin",
@@ -49,29 +55,30 @@ FILES_TO_IGNORE = [
     "*.exe",
     "*.dll",
     "*.ipynb_checkpoints",
-]
+}
 GITHUB_TOKEN: Optional[str] = os.getenv("GITHUB_TOKEN", None)
 USER_AGENT_STRING: str = os.getenv(
     "USER_AGENT_STRING",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
 )
 MAX_WHISPER_DURATION = int(os.getenv("MAX_WHISPER_DURATION", 600))  # 10 minutes
-TWITTER_DOMAINS = [
+
+TWITTER_DOMAINS = {
     "https://twitter.com",
     "https://www.twitter.com",
     "https://x.com",
     "https://www.x.com",
-]
-YOUTUBE_DOMAINS = ["https://www.youtube.com", "https://youtube.com"]
-GITHUB_DOMAINS = ["https://github.com", "https://www.github.com"]
+}
+YOUTUBE_DOMAINS = {"https://www.youtube.com", "https://youtube.com"}
+GITHUB_DOMAINS = {"https://github.com", "https://www.github.com"}
 SCRAPING_PROMPT = os.getenv(
-    "EXTRACTION_PROMPT",
-    """An open source document is given. Output the entire extracted contents from the document in detailed markdown format.
-Be sure to correctly format markdown for headers, paragraphs, lists, tables, menus, equations, full text contents, etc.
+    "SCRAPING_PROMPT",
+    """An open source document is given. Please immediately output the entire extracted contents from the document in detailed markdown format.
+Be sure to correctly output a comprehensive format markdown for all the document contents (including, but not limited to, headers, paragraphs, lists, tables, menus, equations, full text contents, titles, subtitles, appendices, page breaks, columns, footers, page numbers, watermarks, footnotes, captions, annotations, images, figures, charts, shapes, form fields, content controls, signatures, etc.)
 Always reply immediately with only markdown. Do not output anything else.""",
 )
-DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o-mini")
-FILESIZE_LIMIT_MB = int(os.getenv("FILESIZE_LIMIT_MB", 50))
+DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o")
+FILESIZE_LIMIT_MB = int(os.getenv("FILESIZE_LIMIT_MB", 50))  # for url scraping only
 
 
 def detect_source_mimetype(source: str) -> str:
@@ -81,7 +88,7 @@ def detect_source_mimetype(source: str) -> str:
         if extension == ".ipynb":
             # special case for notebooks, mimetypes is not familiar
             return "application/x-ipynb+json"
-        guessed_mimetype = mimetypes.guess_type(source)[0]
+        guessed_mimetype, _ = mimetypes.guess_type(source)
         if guessed_mimetype:
             return guessed_mimetype
     # if that fails, try AI detection with Magika
@@ -282,9 +289,9 @@ def scrape_pdf(
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
             num_pages = len(doc)
 
-            openrouter_client = OpenAI(
-                base_url=os.environ.get("LLM_SERVER_BASE_URL"),
-                api_key=os.environ["LLM_SERVER_API_KEY"],
+            openai_client = OpenAI(
+                base_url=LLM_SERVER_BASE_URL,
+                api_key=LLM_SERVER_API_KEY,
             )
 
             def process_page(page_num):
@@ -305,7 +312,7 @@ def scrape_pdf(
                         ],
                     },
                 ]
-                response = openrouter_client.chat.completions.create(
+                response = openai_client.chat.completions.create(
                     model=ai_model if ai_model else DEFAULT_AI_MODEL,
                     messages=cast(Iterable[ChatCompletionMessageParam], messages),
                     temperature=0,
@@ -466,9 +473,9 @@ def parse_webpage_with_vlm(
             y_offset += img.height
 
         # Process the stacked image with VLM
-        openrouter_client = OpenAI(
-            base_url=os.environ["LLM_SERVER_BASE_URL"],
-            api_key=os.environ["LLM_SERVER_API_KEY"],
+        openai_client = OpenAI(
+            base_url=LLM_SERVER_BASE_URL,
+            api_key=LLM_SERVER_API_KEY,
         )
 
         messages = [
@@ -485,7 +492,7 @@ def parse_webpage_with_vlm(
                 ],
             },
         ]
-        response = openrouter_client.chat.completions.create(
+        response = openai_client.chat.completions.create(
             model=ai_model if ai_model else DEFAULT_AI_MODEL,
             messages=cast(Iterable[ChatCompletionMessageParam], messages),
             temperature=0,
@@ -568,7 +575,13 @@ def extract_page_content(url: str, verbose: bool = False) -> Chunk:
                 try:
                     image = Image.open(requests.get(img_path, stream=True).raw)
                     images.append(image)
-                except:
+                except Exception as e:
+                    if verbose:
+                        print(
+                            f"[thepipe] Ignoring error loading image {img_path}: {e}"
+                            "Attempting to load path with schema."
+                        )
+
                     if "https://" not in img_path and "http://" not in img_path:
                         try:
                             while img_path.startswith("/"):
@@ -578,7 +591,12 @@ def extract_page_content(url: str, verbose: bool = False) -> Chunk:
                                 requests.get(path_with_schema, stream=True).raw
                             )
                             images.append(image)
-                        except:
+                        except Exception as e:
+                            if verbose:
+                                print(
+                                    f"[thepipe] Ignoring error loading image {img_path} with schema: {e}"
+                                    "Attempting to load with schema and netloc."
+                                )
                             try:
                                 path_with_schema_and_netloc = (
                                     urlparse(url).scheme
@@ -593,10 +611,11 @@ def extract_page_content(url: str, verbose: bool = False) -> Chunk:
                                     ).raw
                                 )
                                 images.append(image)
-                            except:
+                            except Exception as e:
                                 if verbose:
                                     print(
-                                        f"[thepipe] Ignoring error loading image {img_path}"
+                                        f"[thepipe] Ignoring error loading image {img_path} with schema and netloc: {e}"
+                                        "Continuing."
                                     )
                                 continue  # Ignore incompatible image extractions
                     else:

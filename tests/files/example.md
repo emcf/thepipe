@@ -23,14 +23,14 @@ median density within the medium. For the ratio of the median to mean density wi
 for clouds where m is 1 j above or below the mean. The ratios r˜˜ ˜ ˜ /r p exp (2j ) and then gen- r /r p exp (2j ) V,- V, V,S M,- M, M,S
 erally increase with Mach number, ranging from 1.0 to 1.3.
 
-$4.2\cdot A$  . 
+$4.2\cdot A$ .
 
 ## 4.2. Driven Mhd Turbulence
 
 Figure 1 also includes the mean-Mach relation for driven strong-field MHD turbulence, where we continue to use a p 0.5. The mean-Mach pairs from the time-averaged PDFs again fall very close to these relations,
 
 $$\mu_{v}=\,-0.29\,\ln\,[1\,+\,0.5\mathcal{M}^{2}]-0.06$$
-for the volume fraction and 
+for the volume fraction and
 $$\mu_{M}=0.28\ln\,[1+0.5{\mathcal{M}}^{2}]+0.07$$
 $$(S)$$
 
@@ -51,5 +51,3 @@ $$\left(7\right)$$
 $$({\mathfrak{s}})$$
 
 As it seems likely that molecular clouds are transient entities, it may be more appropriate to study the PDF of decaying turbulence. In Figure 2, we show the evolution of the PDF in a decaying strong-field MHD turbulence run, initialized from a snapshot of fully developed turbulence from our highest Mach number driven run. Although this snapshot has a full-domain PDF mean roughly 1 j more extreme than the time-averaged driven relations, this should not affect the results. At first the small change in mean as the Mach number decreases causes a shallower slope than that of the driven relation. Once the mean begins to change appreciably, however, the slope becomes much steeper, crossing the driven relation at roughly M p 4.5. Although the slope shallows as low Mach numbers are reached, it does so only as the means become very small.
-
-The evolution of this decaying run does not parallel or asymptotically approach the driven relation at the same magnetic

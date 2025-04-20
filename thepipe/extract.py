@@ -2,7 +2,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import re
 from typing import Iterable, List, Dict, Union, Optional, Tuple, Callable, cast
-from .core import Chunk, calculate_tokens
+from .core import Chunk, calculate_tokens, LLM_SERVER_BASE_URL, LLM_SERVER_API_KEY
 from .scraper import scrape_url, scrape_file
 from .chunker import (
     chunk_by_page,
@@ -71,9 +71,9 @@ def extract_from_chunk(
     response_dict = {"chunk_index": chunk_index, "source": source}
     tokens_used = 0
     try:
-        openrouter_client = OpenAI(
-            base_url=os.environ["LLM_SERVER_BASE_URL"],
-            api_key=os.environ["LLM_SERVER_API_KEY"],
+        openai_client = OpenAI(
+            base_url=LLM_SERVER_BASE_URL,
+            api_key=LLM_SERVER_API_KEY,
         )
 
         corrected_extraction_prompt = extraction_prompt.replace("{schema}", schema)
@@ -92,7 +92,7 @@ def extract_from_chunk(
             },
         ]
 
-        response = openrouter_client.chat.completions.create(
+        response = openai_client.chat.completions.create(
             model=ai_model,
             messages=cast(Iterable[ChatCompletionMessageParam], messages),
             response_format={"type": "json_object"},

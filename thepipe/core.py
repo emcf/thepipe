@@ -10,6 +10,14 @@ import requests
 from PIL import Image
 from llama_index.core.schema import Document, ImageDocument
 
+# LLM provider info, defaults to openai
+LLM_SERVER_BASE_URL = os.environ.get(
+    "LLM_SERVER_BASE_URL", r"https://api.openai.com/v1"
+)
+LLM_SERVER_API_KEY = os.environ.get(
+    "LLM_SERVER_API_KEY", os.environ.get("OPENAI_API_KEY", None)
+)
+# for persistent images via filehosting
 HOST_IMAGES = os.getenv("HOST_IMAGES", "false").lower() == "true"
 HOST_URL = os.getenv("HOST_URL", "https://thepipe-api.up.railway.app")
 

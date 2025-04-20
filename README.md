@@ -34,25 +34,26 @@ thepi.pe is a package that can scrape clean markdown, multimodal media, and stru
 
 ## Get started in 5 minutes 🚀
 
+Thepipe can be installed via the command line:
+
 ```bash
 pip install thepipe-api
 ```
 
-Ensure you have two environment variables set: `LLM_SERVER_BASE_URL` and `LLM_SERVER_API_KEY`. For example:
-
-```bash
-LLM_SERVER_BASE_URL=https://api.openai.com
-LLM_SERVER_API_KEY=your-api-key
-```
-
-You can use any LLM server that follows OpenAI format (such as [OpenAI](https://platform.openai.com/), a locally hosted [LiteLLM](https://github.com/BerriAI/litellm) instance, or a model provider such as [OpenRouter](https://openrouter.ai/)). A `DEFAULT_AI_MODEL` environment variable can be set to your VLM of choice. For example, you could use `google/gemini-2.0-flash-001` if using OpenRouter or `gpt-4o` if using OpenAI.
-
-If you want full functionality with media-rich sources such as webpages, video, and audio, you can choose to install the following dependencies:
+If you need full functionality with media-rich sources such as webpages, video, and audio, you can choose to install the following dependencies:
 
 ```bash
 apt-get update && apt-get install -y git ffmpeg
 python -m playwright install --with-deps chromium
 ```
+
+### Default setup (OpenAI)
+
+By default, thepipe uses the [OpenAI API](https://platform.openai.com/docs/overview), so VLM features will work out of the box provided you have the `OPENAI_API_KEY` environment variable set.
+
+### Custom VLM server setup (OpenRouter, OpenLLM, etc.)
+
+If you wish to use a local vision-language model or a different cloud provider, you can set the `LLM_SERVER_BASE_URL` environment variable, for example, `https://openrouter.ai/api/v1` for [OpenRouter](https://openrouter.ai/), or `http://localhost:3000/v1` for a local server such as [OpenLLM](https://github.com/bentoml/OpenLLM). You may set the `LLM_SERVER_API_KEY` environment variable for authentication to a non-OpenAI cloud provider. You can set the `DEFAULT_AI_MODEL` environment variable to specify the model to use for VLM features (for OpenAI, this is defaulted to `gpt-4o`).
 
 ### Scraping
 
@@ -67,19 +68,21 @@ chunks = scrape_file(filepath="paper.pdf", ai_extraction=True)
 
 To satisfy token limit constraints, the following chunking methods are available to split the content into smaller chunks.
 
-- `chunk_by_document`: Returns one chunk with the entire content.
-- `chunk_by_page`: Splits the content into chunks at each page (for example: each webpage, PDF page, or powerpoint slide).
-- `chunk_by_length`: Splits the content into chunks by length.
-- `chunk_by_section`: Splits the content into chunks by markdown section.
-- `chunk_semantic`: Splits the content into chunks at spikes in semantic changes (experimental).
+- `chunk_by_document`: Returns one chunk with the entire content of the file.
+- `chunk_by_page`: Returns one chunk for each page (for example: each webpage, PDF page, or powerpoint slide).
+- `chunk_by_length`: Splits chunks by length.
+- `chunk_by_section`: Splits chunks by markdown section.
+- `chunk_by_keyword`: Splits chunks at keywords
+- `chunk_semantic` (experimental, requires [sentence transformers](https://pypi.org/project/sentence-transformers/)): Returns chunks split by spikes in semantic changes, with a configurable threshold.
+- `chunk_agentic` (experimental, requires [OpenAI](https://pypi.org/project/openai/)): Returns chunks split by an LLM agent that attempts to find semantically meaningful sections.
 
 For example,
 
 ```python
-from thepipe.chunker import chunk_by_doc, chunk_by_page
+from thepipe.chunker import chunk_by_document, chunk_by_page
 
 # returns one chunk for the entire document
-doc_chunks = scrape_file(filepath="paper.pdf", chunking_method=chunk_by_doc)
+doc_chunks = scrape_file(filepath="paper.pdf", chunking_method=chunk_by_document)
 
 # you can also re-chunk later
 page_chunks = chunk_by_page(doc_chunks)
@@ -163,14 +166,15 @@ results, tokens_used = extract(
 
 ## Sponsors
 
+Please consider supporting thepipe by [becoming a sponsor](mailto:emmett@thepi.pe).
+Your support helps me maintain and improve the project while helping the open source community discover your work.
+
 Visit [Cal.com](https://cal.com/) for an open source scheduling tool that helps you book meetings with ease. It's the perfect solution for busy professionals who want to streamline their scheduling process.
 
 <a href="https://cal.com/emmett-mcf/30min"><img alt="Book us with Cal.com" src="https://cal.com/book-with-cal-dark.svg" /></a>
 
 Looking for enterprise-ready document processing and intelligent automation? Discover
 how [Trellis AI](https://runtrellis.com/) can streamline your workflows and enhance productivity.
-
-please consider supporting thepipe by [becoming a sponsor](mailto:emmett@thepi.pe).
 
 ## How it works 🛠️
 
@@ -207,12 +211,12 @@ export HOST_IMAGES=true
 # GitHub token for scraping private/public repos via `scrape_url`
 export GITHUB_TOKEN=ghp_...
 
-# Base URL + key for any custom LLM server (used in extract/scrape_pdf)
-export LLM_SERVER_BASE_URL=https://openrouter.ai
+# Base URL + key for any custom LLM server (used in extract/scrape)
+export LLM_SERVER_BASE_URL=https://openrouter.ai/api/v1
 export LLM_SERVER_API_KEY=or-...
 
-# Control PDF / attachment extraction defaults
-export DEFAULT_AI_MODEL=gpt-4o-mini
+# Control scraping defaults
+export DEFAULT_AI_MODEL=gpt-4o
 export FILESIZE_LIMIT_MB=50
 ```
 
@@ -263,4 +267,4 @@ We welcome contributions! To get started:
 
 5. Submit a pull request to the main repository.
 
-6. Wait for review and feedback from the maintainers. This may take some time, so be patient!
+6. Wait for review and feedback from the maintainers. This may take some time, so please be patient!

@@ -21,6 +21,40 @@ class test_chunker(unittest.TestCase):
             text = f.read()
         return [Chunk(path=file_path, text=text)]
 
+    def test_chunk_by_keywords(self):
+
+        text = "Intro line\nfoo starts here\nmiddle\nbar next\nend"
+        chunk = Chunk(path="doc.md", text=text)
+
+        result = chunker.chunk_by_keywords([chunk], keywords=["foo", "bar"])
+        # There are 3 segments: before foo, between foo and bar, after bar
+        self.assertEqual(len(result), 3)
+
+        # 1st chunk: only the intro
+        self.assertIn("Intro line", result[0].text)
+        self.assertNotIn("foo", result[0].text.lower())
+
+        # 2nd chunk: starts with foo, includes 'middle'
+        self.assertIn("foo starts here", result[1].text.lower())
+        self.assertIn("middle", result[1].text.lower())
+
+        # 3rd chunk: starts with bar, includes 'end'
+        self.assertIn("bar next", result[2].text.lower())
+        self.assertIn("end", result[2].text.lower())
+
+    def test_chunk_agentic(self):
+        chunks = self.read_markdown_file(self.example_markdown_path)
+        chunked_agentic = chunker.chunk_agentic(chunks)
+        # Verify the output
+        self.assertIsInstance(chunked_agentic, list)
+        self.assertGreater(len(chunked_agentic), 0)
+        # verify there are 4 chunks corresponding to the 4 sections in the example markdown
+        self.assertEqual(len(chunked_agentic), 4)
+        # Verify the output contains chunks with text or images
+        for chunk in chunked_agentic:
+            self.assertIsInstance(chunk, Chunk)
+            self.assertTrue(chunk.text or chunk.images)
+
     def test_chunk_by_length(self):
         chunks = self.read_markdown_file(self.example_markdown_path)
         chunked_length = chunker.chunk_by_length(
@@ -76,11 +110,28 @@ class test_chunker(unittest.TestCase):
         chunks = self.read_markdown_file(self.example_markdown_path)
         chunked_sections = chunker.chunk_by_section(chunks)
         self.assertIsInstance(chunked_sections, list)
-        self.assertGreater(len(chunked_sections), 0)
+        self.assertEqual(len(chunked_sections), 4)
         # Verify the output contains chunks with text or images
         for chunk in chunked_sections:
             self.assertIsInstance(chunk, Chunk)
             self.assertTrue(chunk.text or chunk.images)
+
+    def test_chunk_by_section_first_line_and_custom_separator(self):
+        # Default separator, with first line as a header
+        text1 = "## Alpha\nContent A\n## Beta\nContent B"
+        chunk1 = Chunk(text=text1)
+        out1 = chunker.chunk_by_section([chunk1])
+        self.assertEqual(len(out1), 2)
+        self.assertIn("Alpha", out1[0].text)
+        self.assertIn("Beta", out1[1].text)
+
+        # Custom separator "### "
+        text2 = "### One\nX\n### Two\nY"
+        chunk2 = Chunk(text=text2)
+        out2 = chunker.chunk_by_section([chunk2], section_separator="### ")
+        self.assertEqual(len(out2), 2)
+        self.assertIn("One", out2[0].text)
+        self.assertIn("Two", out2[1].text)
 
     def test_chunk_by_document(self):
         chunks = self.read_markdown_file(self.example_markdown_path)
