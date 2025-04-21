@@ -650,7 +650,7 @@ def scrape_url(
     url: str,
     ai_extraction: bool = False,
     verbose: bool = False,
-    chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
+    chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_page,
 ) -> List[Chunk]:
     if any(url.startswith(domain) for domain in TWITTER_DOMAINS):
         extraction = scrape_tweet(url=url)
