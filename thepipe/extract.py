@@ -101,7 +101,6 @@ def extract_from_chunk(
             model=ai_model,
             messages=cast(Iterable[ChatCompletionMessageParam], messages),
             response_format={"type": "json_object"},
-            temperature=0,
         )
         llm_response = response.choices[0].message.content
         if not llm_response:

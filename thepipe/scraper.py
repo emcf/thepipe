@@ -91,9 +91,11 @@ YOUTUBE_DOMAINS = {"https://www.youtube.com", "https://youtube.com"}
 GITHUB_DOMAINS = {"https://github.com", "https://www.github.com"}
 SCRAPING_PROMPT = os.getenv(
     "SCRAPING_PROMPT",
-    """An open source document is given. Please immediately output the entire extracted contents from the document in detailed markdown format.
+    """A document is given. Please output the entire extracted contents from the document in detailed markdown format.
+Your accuracy is very important. Please be careful to not miss any content from the document.
 Be sure to correctly output a comprehensive format markdown for all the document contents (including, but not limited to, headers, paragraphs, lists, tables, menus, equations, full text contents, titles, subtitles, appendices, page breaks, columns, footers, page numbers, watermarks, footnotes, captions, annotations, images, figures, charts, shapes, form fields, content controls, signatures, etc.)
-Always reply immediately with only markdown. Do not output anything else.""",
+Always reply immediately with only markdown.
+Do not output anything else.""",
 )
 FILESIZE_LIMIT_MB = int(os.getenv("FILESIZE_LIMIT_MB", 50))  # for url scraping only
 
@@ -332,7 +334,6 @@ def scrape_pdf(
                 response = openai_client.chat.completions.create(
                     model=ai_model if ai_model else DEFAULT_AI_MODEL,
                     messages=cast(Iterable[ChatCompletionMessageParam], messages),
-                    temperature=0,
                 )
                 try:
                     llm_response = response.choices[0].message.content
@@ -447,7 +448,6 @@ def parse_webpage_with_vlm(
     ai_model: Optional[str] = DEFAULT_AI_MODEL,
 ) -> Chunk:
     from playwright.sync_api import sync_playwright
-    from openai import OpenAI
 
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -512,7 +512,6 @@ def parse_webpage_with_vlm(
         response = openai_client.chat.completions.create(
             model=ai_model if ai_model else DEFAULT_AI_MODEL,
             messages=cast(Iterable[ChatCompletionMessageParam], messages),
-            temperature=0,
         )
         llm_response = response.choices[0].message.content
         if not llm_response:
