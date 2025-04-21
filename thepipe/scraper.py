@@ -19,6 +19,7 @@ from .core import (
     make_image_url,
     LLM_SERVER_BASE_URL,
     LLM_SERVER_API_KEY,
+    DEFAULT_AI_MODEL,
 )
 from .chunker import (
     chunk_by_page,
@@ -40,21 +41,38 @@ dotenv.load_dotenv()
 
 FOLDERS_TO_IGNORE = {
     "*node_modules*",
-    ".git",
-    ".*\\.git.*",
-    ".*venv.*",
-    ".*\\.vscode.*",
-    ".*pycache.*",
+    "*.git*",
+    "*venv*",
+    "*.vscode*",
+    "*pycache*",
+    "*.ipynb_checkpoints",
 }
 FILES_TO_IGNORE = {
-    "package-lock.json",
     ".gitignore",
     "*.bin",
+    # Python compiled files
     "*.pyc",
     "*.pyo",
+    "*.pyd",
+    # Shared libraries and binaries
+    "*.so",
+    "*.dll",
+    "*.exe",
+    # Archives and packages
+    "*.tar",
+    "*.tar.gz",
+    "*.egg-info",
+    "package-lock.json",
+    "package.json",
+    # Lock, log, and metadata files
+    "*.lock",
+    "*.log",
+    "Pipfile.lock",
+    "requirements.lock",
     "*.exe",
     "*.dll",
-    "*.ipynb_checkpoints",
+    ".DS_Store",
+    "Thumbs.db",
 }
 GITHUB_TOKEN: Optional[str] = os.getenv("GITHUB_TOKEN", None)
 USER_AGENT_STRING: str = os.getenv(
@@ -77,7 +95,6 @@ SCRAPING_PROMPT = os.getenv(
 Be sure to correctly output a comprehensive format markdown for all the document contents (including, but not limited to, headers, paragraphs, lists, tables, menus, equations, full text contents, titles, subtitles, appendices, page breaks, columns, footers, page numbers, watermarks, footnotes, captions, annotations, images, figures, charts, shapes, form fields, content controls, signatures, etc.)
 Always reply immediately with only markdown. Do not output anything else.""",
 )
-DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o")
 FILESIZE_LIMIT_MB = int(os.getenv("FILESIZE_LIMIT_MB", 50))  # for url scraping only
 
 

@@ -76,17 +76,17 @@ To satisfy token limit constraints, the following chunking methods are available
 For example,
 
 ```python
+from thepipe.scraper import scrape_file
 from thepipe.chunker import chunk_by_document, chunk_by_page
 
-# returns one chunk for the entire document
-doc_chunks = scrape_file(filepath="paper.pdf", chunking_method=chunk_by_document)
+# optionally, pass in chunking_method
+# chunk_by_document returns one chunk for the entire document
+chunks = scrape_file(filepath="paper.pdf", chunking_method=chunk_by_document)
 
-# you can also re-chunk later
-page_chunks = chunk_by_page(doc_chunks)
+# you can also re-chunk later.
+# chunk_by_page returns one chunk for each page (for example: each webpage, PDF page, or powerpoint slide).
+chunks = chunk_by_page(chunks)
 ```
-
-> ⚠️ **It is important to be mindful of your model's token limit.**
-> Be sure your prompt is within the token limit of your model. You can use chunking to split your messages into smaller chunks.
 
 ### OpenAI Integration 🤖
 
@@ -117,6 +117,9 @@ response = client.chat.completions.create(
 ```
 
 `chunks_to_messages` takes in an optional `text_only` parameter to only output text from the source document. This is useful for downstream use with LLMs that lack multimodal capabilities.
+
+> ⚠️ **It is important to be mindful of your model's token limit.**
+> Be sure your prompt is within the token limit of your model. You can use chunking to split your messages into smaller chunks.
 
 ### LLamaIndex Integration 🦙
 

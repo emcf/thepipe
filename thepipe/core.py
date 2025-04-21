@@ -17,6 +17,8 @@ LLM_SERVER_BASE_URL = os.environ.get(
 LLM_SERVER_API_KEY = os.environ.get(
     "LLM_SERVER_API_KEY", os.environ.get("OPENAI_API_KEY", None)
 )
+DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o")
+
 # for persistent images via filehosting
 HOST_IMAGES = os.getenv("HOST_IMAGES", "false").lower() == "true"
 HOST_URL = os.getenv("HOST_URL", "https://thepipe-api.up.railway.app")
@@ -36,6 +38,28 @@ class Chunk:
         self.images = images
         self.audios = audios
         self.videos = videos
+
+    def __repr__(self) -> str:
+        parts = []
+        if self.path is not None:
+            parts.append(f"path={self.path!r}")
+        if self.text:
+            # Show a concise preview of the text
+            snippet = self.text.replace("\n", " ")
+            if len(snippet) > 50:
+                snippet = snippet[:47] + "..."
+            parts.append(f"text_snippet={snippet!r}")
+        if self.images:
+            parts.append(f"images_count={len(self.images)}")
+        if self.audios:
+            parts.append(f"audios_count={len(self.audios)}")
+        if self.videos:
+            parts.append(f"videos_count={len(self.videos)}")
+        content = ", ".join(parts) or "empty"
+        return f"Chunk({content})"
+
+    def __str__(self) -> str:
+        return self.__repr__()
 
     def to_llamaindex(self) -> Union[List[Document], List[ImageDocument]]:
         document_text = self.text if self.text else ""

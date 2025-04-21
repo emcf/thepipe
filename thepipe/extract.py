@@ -2,7 +2,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import re
 from typing import Iterable, List, Dict, Union, Optional, Tuple, Callable, cast
-from .core import Chunk, calculate_tokens, LLM_SERVER_BASE_URL, LLM_SERVER_API_KEY
+from .core import (
+    Chunk,
+    calculate_tokens,
+    LLM_SERVER_BASE_URL,
+    LLM_SERVER_API_KEY,
+    DEFAULT_AI_MODEL,
+)
 from .scraper import scrape_url, scrape_file
 from .chunker import (
     chunk_by_page,
@@ -17,7 +23,6 @@ from openai import OpenAI
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 
 DEFAULT_EXTRACTION_PROMPT = "Extract all the information from the given document according to the following schema: {schema}. Immediately return valid JSON formatted data. If there is missing data, you may use null, but always fill in every column as best you can. Always immediately return valid JSON. You must extract ALL the information available in the entire document."
-DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o-mini")
 
 
 def extract_json_from_response(llm_response: str) -> Union[Dict, List[Dict], None]:
@@ -151,26 +156,16 @@ def extract_from_chunk(
 def extract(
     chunks: List[Chunk],
     schema: Union[str, Dict],
-    ai_model: Optional[str] = "openai/gpt-4o-mini",
-    multiple_extractions: Optional[bool] = False,
-    extraction_prompt: Optional[str] = DEFAULT_EXTRACTION_PROMPT,
-    host_images: Optional[bool] = False,
+    ai_model: str = DEFAULT_AI_MODEL,
+    multiple_extractions: bool = False,
+    extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT,
+    host_images: bool = False,
 ) -> Tuple[List[Dict], int]:
     if isinstance(schema, dict):
         schema = json.dumps(schema)
 
     results = []
     total_tokens_used = 0
-
-    # Assign default values if needed
-    if ai_model is None:
-        ai_model = DEFAULT_AI_MODEL
-    if extraction_prompt is None:
-        extraction_prompt = DEFAULT_EXTRACTION_PROMPT
-    if host_images is None:
-        host_images = False
-    if multiple_extractions is None:
-        multiple_extractions = False
 
     n_threads = (os.cpu_count() or 1) * 2
     with ThreadPoolExecutor(max_workers=n_threads) as executor:
@@ -211,19 +206,19 @@ def extract(
 def extract_from_url(
     url: str,
     schema: Union[str, Dict],
-    ai_model: str = "google/gemma-2-9b-it",
+    ai_model: str = DEFAULT_AI_MODEL,
     multiple_extractions: bool = False,
     extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT,
     host_images: bool = False,
     ai_extraction: bool = False,
     verbose: bool = False,
-    chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
-) -> List[Dict]:
+    chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_page,
+) -> Tuple[List[Dict], int]:
     chunks = scrape_url(
         url,
         ai_extraction=ai_extraction,
         verbose=verbose,
-        chunking_method=chunking_method,  # type: ignore
+        chunking_method=chunking_method,
     )
     extracted_chunks = extract(
         chunks=chunks,
@@ -233,20 +228,20 @@ def extract_from_url(
         extraction_prompt=extraction_prompt,
         host_images=host_images,
     )
-    return extracted_chunks[0]
+    return extracted_chunks
 
 
 def extract_from_file(
     file_path: str,
     schema: Union[str, Dict],
-    ai_model: str = "google/gemma-2-9b-it",
+    ai_model: str = DEFAULT_AI_MODEL,
     multiple_extractions: bool = False,
     extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT,
     host_images: bool = False,
     ai_extraction: bool = False,
     verbose: bool = False,
     chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
-) -> List[Dict]:
+) -> Tuple[List[Dict], int]:
     chunks = scrape_file(
         file_path,
         ai_extraction=ai_extraction,
@@ -260,4 +255,4 @@ def extract_from_file(
         multiple_extractions=multiple_extractions,
         extraction_prompt=extraction_prompt,
         host_images=host_images,
-    )[0]
+    )

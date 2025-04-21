@@ -283,9 +283,9 @@ class test_scraper(unittest.TestCase):
             self.assertIsInstance(chunk, core.Chunk)
             self.assertEqual(chunk.path, "https://en.wikipedia.org/wiki/Piping")
         # assert if any of the texts contains 'pipe'
-        print("AI scraped webpage chunks:", [chunk.text for chunk in chunks])
+        print("test_scrape_url_with_ai_extraction chunks:", chunks)
         self.assertTrue(
-            any(chunk.text and "pipe" in (chunk.text or "") for chunk in chunks)
+            any(chunk.text and "pipe" in chunk.text.lower() for chunk in chunks)
         )
         # verify if at least one image was scraped
         self.assertTrue(

@@ -1,6 +1,12 @@
 import re
 from typing import Dict, List, Optional, Tuple, Union
-from .core import Chunk, calculate_tokens, LLM_SERVER_BASE_URL, LLM_SERVER_API_KEY
+from .core import (
+    Chunk,
+    calculate_tokens,
+    LLM_SERVER_BASE_URL,
+    LLM_SERVER_API_KEY,
+    DEFAULT_AI_MODEL,
+)
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 from pydantic import BaseModel
@@ -296,7 +302,7 @@ def chunk_agentic(
         user_prompt = numbered
 
         completion = openai_client.beta.chat.completions.parse(
-            model="gpt-4o",
+            model=DEFAULT_AI_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
