@@ -220,7 +220,7 @@ def extract_from_url(
         verbose=verbose,
         chunking_method=chunking_method,
     )
-    extracted_chunks = extract(
+    extracted_chunks, tokens_used = extract(
         chunks=chunks,
         schema=schema,
         ai_model=ai_model,
@@ -228,7 +228,7 @@ def extract_from_url(
         extraction_prompt=extraction_prompt,
         host_images=host_images,
     )
-    return extracted_chunks
+    return extracted_chunks, tokens_used
 
 
 def extract_from_file(
@@ -240,7 +240,7 @@ def extract_from_file(
     host_images: bool = False,
     ai_extraction: bool = False,
     verbose: bool = False,
-    chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
+    chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_page,
 ) -> Tuple[List[Dict], int]:
     chunks = scrape_file(
         file_path,
@@ -248,7 +248,7 @@ def extract_from_file(
         verbose=verbose,
         chunking_method=chunking_method,
     )
-    return extract(
+    extracted_chunks, tokens_used = extract(
         chunks=chunks,
         schema=schema,
         ai_model=ai_model,
@@ -256,3 +256,4 @@ def extract_from_file(
         extraction_prompt=extraction_prompt,
         host_images=host_images,
     )
+    return extracted_chunks, tokens_used

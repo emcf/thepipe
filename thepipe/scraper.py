@@ -120,7 +120,7 @@ def scrape_file(
     filepath: str,
     ai_extraction: bool = False,
     verbose: bool = False,
-    chunking_method: Optional[Callable] = chunk_by_page,
+    chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
     ai_model: Optional[str] = DEFAULT_AI_MODEL,
 ) -> List[Chunk]:
     # returns chunks of scraped content from any source (file, URL, etc.)
@@ -650,7 +650,7 @@ def scrape_url(
     url: str,
     ai_extraction: bool = False,
     verbose: bool = False,
-    chunking_method: Callable = chunk_by_page,
+    chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
 ) -> List[Chunk]:
     if any(url.startswith(domain) for domain in TWITTER_DOMAINS):
         extraction = scrape_tweet(url=url)
