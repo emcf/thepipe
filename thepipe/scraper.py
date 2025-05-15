@@ -17,8 +17,6 @@ from .core import (
     HOST_IMAGES,
     Chunk,
     make_image_url,
-    LLM_SERVER_BASE_URL,
-    LLM_SERVER_API_KEY,
     DEFAULT_AI_MODEL,
 )
 from .chunker import (
@@ -27,6 +25,8 @@ from .chunker import (
     chunk_by_section,
     chunk_semantic,
     chunk_by_keywords,
+    chunk_by_length,
+    chunk_agentic,
 )
 import tempfile
 import mimetypes
@@ -120,10 +120,10 @@ def detect_source_mimetype(source: str) -> str:
 
 def scrape_file(
     filepath: str,
-    ai_extraction: bool = False,
     verbose: bool = False,
     chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
     ai_model: Optional[str] = DEFAULT_AI_MODEL,
+    openai_client: Optional[OpenAI] = None,
 ) -> List[Chunk]:
     # returns chunks of scraped content from any source (file, URL, etc.)
     scraped_chunks = []
@@ -134,12 +134,13 @@ def scrape_file(
         return scraped_chunks
     if verbose:
         print(f"[thepipe] Scraping {source_mimetype}: {filepath}...")
+    use_ai = openai_client is not None
     if source_mimetype == "application/pdf":
         scraped_chunks = scrape_pdf(
             file_path=filepath,
-            ai_extraction=ai_extraction,
             verbose=verbose,
             ai_model=ai_model,
+            openai_client=openai_client,
         )
     elif (
         source_mimetype
@@ -170,7 +171,7 @@ def scrape_file(
         scraped_chunks = scrape_zip(
             file_path=filepath,
             verbose=verbose,
-            ai_extraction=ai_extraction,
+            openai_client=openai_client,
         )
     elif source_mimetype.startswith("video/"):
         scraped_chunks = scrape_video(file_path=filepath, verbose=verbose)
@@ -214,7 +215,7 @@ def scrape_directory(
     dir_path: str,
     inclusion_pattern: Optional[str] = None,
     verbose: bool = False,
-    ai_extraction: bool = False,
+    openai_client: Optional[OpenAI] = None,
 ) -> List[Chunk]:
     """
     inclusion_pattern: Optional regex string; only files whose path matches this pattern will be scraped.
@@ -255,8 +256,8 @@ def scrape_directory(
                     print(f"[thepipe] Scraping file: {path}")
                 extraction += scrape_file(
                     filepath=path,
-                    ai_extraction=ai_extraction,
                     verbose=verbose,
+                    openai_client=openai_client,
                 )
 
             elif entry.is_dir():
@@ -267,7 +268,7 @@ def scrape_directory(
                     dir_path=path,
                     inclusion_pattern=inclusion_pattern,
                     verbose=verbose,
-                    ai_extraction=ai_extraction,
+                    openai_client=openai_client,
                 )
     except PermissionError as e:
         if verbose:
@@ -280,7 +281,7 @@ def scrape_zip(
     file_path: str,
     inclusion_pattern: Optional[str] = None,
     verbose: bool = False,
-    ai_extraction: bool = False,
+    openai_client: Optional[OpenAI] = None,
 ) -> List[Chunk]:
     chunks = []
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -290,28 +291,23 @@ def scrape_zip(
             dir_path=temp_dir,
             inclusion_pattern=inclusion_pattern,
             verbose=verbose,
-            ai_extraction=ai_extraction,
+            openai_client=openai_client,
         )
     return chunks
 
 
 def scrape_pdf(
     file_path: str,
-    ai_extraction: Optional[bool] = False,
     ai_model: Optional[str] = DEFAULT_AI_MODEL,
     verbose: Optional[bool] = False,
+    openai_client: Optional[OpenAI] = None,
 ) -> List[Chunk]:
     chunks = []
-    if ai_extraction:
+    if openai_client is not None:
         with open(file_path, "rb") as f:
             pdf_bytes = f.read()
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
             num_pages = len(doc)
-
-            openai_client = OpenAI(
-                base_url=LLM_SERVER_BASE_URL,
-                api_key=LLM_SERVER_API_KEY,
-            )
 
             def process_page(page_num):
                 page = doc[page_num]
@@ -327,7 +323,10 @@ def scrape_pdf(
                                 "type": "text",
                                 "text": "```{} ```\n{}".format(text, SCRAPING_PROMPT),
                             },
-                            {"type": "image_url", "image_url": {"url": base64_image}},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": base64_image, "detail": "high"},
+                            },
                         ],
                     },
                 ]
@@ -446,7 +445,10 @@ def parse_webpage_with_vlm(
     url: str,
     verbose: Optional[bool] = False,
     ai_model: Optional[str] = DEFAULT_AI_MODEL,
+    openai_client: Optional[OpenAI] = None,
 ) -> Chunk:
+    if openai_client is None:
+        raise ValueError("parse_webpage_with_vlm requires an openai_client argument.")
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as p:
@@ -490,20 +492,18 @@ def parse_webpage_with_vlm(
             y_offset += img.height
 
         # Process the stacked image with VLM
-        openai_client = OpenAI(
-            base_url=LLM_SERVER_BASE_URL,
-            api_key=LLM_SERVER_API_KEY,
-        )
-
         messages = [
             {
                 "role": "user",
                 "content": [
                     {
                         "type": "image_url",
-                        "image_url": make_image_url(
-                            stacked_image, host_images=HOST_IMAGES
-                        ),
+                        "image_url": {
+                            "url": make_image_url(
+                                stacked_image, host_images=HOST_IMAGES
+                            ),
+                            "detail": "high",
+                        },
                     },
                     {"type": "text", "text": SCRAPING_PROMPT},
                 ],
@@ -647,9 +647,9 @@ def extract_page_content(url: str, verbose: bool = False) -> Chunk:
 
 def scrape_url(
     url: str,
-    ai_extraction: bool = False,
     verbose: bool = False,
     chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_page,
+    openai_client: Optional[OpenAI] = None,
 ) -> List[Chunk]:
     if any(url.startswith(domain) for domain in TWITTER_DOMAINS):
         extraction = scrape_tweet(url=url)
@@ -660,7 +660,6 @@ def scrape_url(
     elif any(url.startswith(domain) for domain in GITHUB_DOMAINS):
         extraction = scrape_github(
             github_url=url,
-            ai_extraction=ai_extraction,
             verbose=verbose,
         )
         return extraction
@@ -678,15 +677,20 @@ def scrape_url(
                 file.write(response.content)
             chunks = scrape_file(
                 filepath=file_path,
-                ai_extraction=ai_extraction,
                 verbose=verbose,
                 chunking_method=chunking_method,
+                openai_client=openai_client,
             )
         return chunks
     else:
         # if url leads to web content, scrape it directly
-        if ai_extraction:
-            chunk = parse_webpage_with_vlm(url=url, verbose=verbose)
+        if openai_client is not None:
+            chunk = parse_webpage_with_vlm(
+                url=url,
+                verbose=verbose,
+                ai_model=DEFAULT_AI_MODEL,
+                openai_client=openai_client,
+            )
         else:
             chunk = extract_page_content(url=url, verbose=verbose)
         chunks = chunking_method([chunk])
@@ -829,7 +833,6 @@ def scrape_github(
             dir_path=temp_dir,
             inclusion_pattern=inclusion_pattern,
             verbose=verbose,
-            ai_extraction=ai_extraction,
         )
     return files_contents
 

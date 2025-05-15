@@ -4,6 +4,7 @@ import unittest
 import sys
 import os
 import json
+from openai import OpenAI
 
 sys.path.append("..")
 from thepipe.extract import extract, extract_json_from_response
@@ -60,9 +61,13 @@ Total: $14.57 USD
                 self.assertEqual(result, case["expected"])
 
     def test_extract(self):
+        # provide an explicit client so we cover the new parameter
+        client = OpenAI()
+
         results, total_tokens_used = extract(
             chunks=self.chunks,  # receipt
             schema=self.schema,
+            openai_client=client,
         )
 
         # Check if we got a result

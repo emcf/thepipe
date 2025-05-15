@@ -1,6 +1,3 @@
-The values and in the table are the standard deviations j j V,S M,S
-of the means determined from the PDFs, not the width of the PDFs themselves.
-
 ## 4.1. Driven Hydrodynamic Turbulence
 
 Figure 1 shows the mean-Mach relation found from timeaveraged PDFs over the full domain for driven hydro and driven MHD turbulence. We find that a value of in the func- a p 0.5 tion gives the best linear relations for the hydro case. y(M)

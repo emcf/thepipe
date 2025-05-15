@@ -2,6 +2,7 @@ import unittest
 import os
 import sys
 from typing import List, cast
+from openai import OpenAI
 
 sys.path.append("..")
 import thepipe.chunker as chunker
@@ -45,13 +46,14 @@ class test_chunker(unittest.TestCase):
         self.assertIn("end", t2)
 
     def test_chunk_agentic(self):
+        openai_client = OpenAI()
         chunks = self.read_markdown_file(self.example_markdown_path)
-        chunked_agentic = chunker.chunk_agentic(chunks)
+        chunked_agentic = chunker.chunk_agentic(chunks, openai_client=openai_client)
         # Verify the output
         self.assertIsInstance(chunked_agentic, list)
         self.assertGreater(len(chunked_agentic), 0)
-        # verify there are 4 chunks corresponding to the 4 sections in the example markdown
-        self.assertEqual(len(chunked_agentic), 4)
+        # verify there are 3 chunks corresponding to the sections in the example markdown
+        self.assertEqual(len(chunked_agentic), 3)
         # Verify the output contains chunks with text or images
         for chunk in chunked_agentic:
             self.assertIsInstance(chunk, Chunk)
@@ -112,7 +114,7 @@ class test_chunker(unittest.TestCase):
         chunks = self.read_markdown_file(self.example_markdown_path)
         chunked_sections = chunker.chunk_by_section(chunks)
         self.assertIsInstance(chunked_sections, list)
-        self.assertEqual(len(chunked_sections), 4)
+        self.assertEqual(len(chunked_sections), 3)
         # Verify the output contains chunks with text or images
         for chunk in chunked_sections:
             self.assertIsInstance(chunk, Chunk)

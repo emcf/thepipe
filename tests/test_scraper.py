@@ -7,6 +7,7 @@ import sys
 import zipfile
 from PIL import Image
 import pandas as pd
+from openai import OpenAI
 
 sys.path.append("..")
 import thepipe.core as core
@@ -17,6 +18,8 @@ class test_scraper(unittest.TestCase):
     def setUp(self):
         self.files_directory = os.path.join(os.path.dirname(__file__), "files")
         self.outputs_directory = "outputs"
+        # create a client we can re-use for ai_extraction scenarios
+        self.client = OpenAI()
 
     def tearDown(self):
         # clean up outputs
@@ -142,8 +145,8 @@ class test_scraper(unittest.TestCase):
     def test_scrape_pdf_with_ai_extraction(self):
         chunks = scraper.scrape_file(
             os.path.join(self.files_directory, "example.pdf"),
-            ai_extraction=True,
             verbose=True,
+            openai_client=self.client,
         )
         # verify it scraped the pdf file into chunks
         self.assertIsInstance(chunks, list)
@@ -172,7 +175,6 @@ class test_scraper(unittest.TestCase):
     def test_extract_pdf_without_ai_extraction(self):
         chunks = scraper.scrape_file(
             os.path.join(self.files_directory, "example.pdf"),
-            ai_extraction=False,
             verbose=True,
         )
         # verify it scraped the pdf file into chunks
@@ -277,7 +279,7 @@ class test_scraper(unittest.TestCase):
     def test_scrape_url_with_ai_extraction(self):
         # verify web page scrape result with ai extraction
         chunks = scraper.scrape_url(
-            "https://en.wikipedia.org/wiki/Piping", ai_extraction=True
+            "https://en.wikipedia.org/wiki/Piping", openai_client=self.client
         )
         for chunk in chunks:
             self.assertIsInstance(chunk, core.Chunk)
@@ -297,3 +299,7 @@ class test_scraper(unittest.TestCase):
         chunks = scraper.scrape_url("https://github.com/emcf/thepipe")
         self.assertIsInstance(chunks, list)
         self.assertGreater(len(chunks), 0)  # should have some repo contents
+
+
+if __name__ == "__main__":
+    unittest.main()

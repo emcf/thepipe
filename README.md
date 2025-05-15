@@ -26,7 +26,7 @@ thepi.pe is a package that can scrape clean markdown, multimodal media, and stru
 - Scrape clean markdown, tables, and images from any document
 - Scrape text, images, video, and audio from any file or URL
 - Works out-of-the-box with vision-language models, vector databases, and RAG frameworks
-- AI-native filetype detection, layout analysis, and structured data extraction
+- AI-native file-type detection, layout analysis, and structured data extraction
 - Accepts a wide range of sources, including PDFs, URLs, Word docs, Powerpoints, Python notebooks, GitHub repos, videos, audio, and more
 
 ## Get started in 5 minutes 🚀
@@ -46,31 +46,44 @@ python -m playwright install --with-deps chromium
 
 ### Default setup (OpenAI)
 
-By default, thepipe uses the [OpenAI API](https://platform.openai.com/docs/overview), so VLM features will work out of the box provided you have the `OPENAI_API_KEY` environment variable set.
+By default, thepipe uses the [OpenAI API](https://platform.openai.com/docs/overview), so VLM features will work out-of-the-box provided you pass in an OpenAI client.
 
 ### Custom VLM server setup (OpenRouter, OpenLLM, etc.)
 
-If you wish to use a local vision-language model or a different cloud provider, you can set the `LLM_SERVER_BASE_URL` environment variable, for example, `https://openrouter.ai/api/v1` for [OpenRouter](https://openrouter.ai/), or `http://localhost:3000/v1` for a local server such as [OpenLLM](https://github.com/bentoml/OpenLLM). You may set the `LLM_SERVER_API_KEY` environment variable for authentication to a non-OpenAI cloud provider. You can set the `DEFAULT_AI_MODEL` environment variable to specify the model to use for VLM features (for OpenAI, this is defaulted to `gpt-4o`).
+If you wish to use a local vision-language model or a different cloud provider, you can provide a custom OpenAI client, for example, by setting the base url to `https://openrouter.ai/api/v1` for [OpenRouter](https://openrouter.ai/), or `http://localhost:3000/v1` for a local server such as [OpenLLM](https://github.com/bentoml/OpenLLM). Note that uou must also pass the api key to your non-OpenAI cloud provider into the OpenAI client. You may want to set the `DEFAULT_AI_MODEL` environment variable to specify which model to use for VLM features (for OpenAI, this is defaulted to `gpt-4o`).
 
 ### Scraping
 
 ```python
+from openai import OpenAI
 from thepipe.scraper import scrape_file
 
-# scrape clean markdown and images from a PDF
-chunks = scrape_file(filepath="paper.pdf", ai_extraction=True)
+# create an OpenAI-compatible client
+client = OpenAI()
+
+# scrape clean markdown and page images from a PDF
+chunks = scrape_file(filepath="paper.pdf", openai_client=client)
+```
+
+To use standard scraping without AI scraping features, simply pass in no client:
+
+```python
+from thepipe.scraper import scrape_file
+
+# scrape clean markdown and page images from a PDF
+chunks = scrape_file(filepath="paper.pdf")
 ```
 
 ### Chunking
 
-To satisfy token limit constraints, the following chunking methods are available to split the content into smaller chunks.
+To satisfy token-limit constraints, the following chunking methods are available to split the content into smaller chunks.
 
 - `chunk_by_document`: Returns one chunk with the entire content of the file.
-- `chunk_by_page`: Returns one chunk for each page (for example: each webpage, PDF page, or powerpoint slide).
+- `chunk_by_page`: Returns one chunk for each page (for example: each webpage, PDF page, or PowerPoint slide).
 - `chunk_by_length`: Splits chunks by length.
 - `chunk_by_section`: Splits chunks by markdown section.
-- `chunk_by_keyword`: Splits chunks at keywords
-- `chunk_semantic` (experimental, requires [sentence transformers](https://pypi.org/project/sentence-transformers/)): Returns chunks split by spikes in semantic changes, with a configurable threshold.
+- `chunk_by_keyword`: Splits chunks at keywords.
+- `chunk_semantic` (experimental, requires [sentence-transformers](https://pypi.org/project/sentence-transformers/)): Returns chunks split by spikes in semantic changes, with a configurable threshold.
 - `chunk_agentic` (experimental, requires [OpenAI](https://pypi.org/project/openai/)): Returns chunks split by an LLM agent that attempts to find semantically meaningful sections.
 
 For example,
@@ -84,7 +97,7 @@ from thepipe.chunker import chunk_by_document, chunk_by_page
 chunks = scrape_file(filepath="paper.pdf", chunking_method=chunk_by_document)
 
 # you can also re-chunk later.
-# chunk_by_page returns one chunk for each page (for example: each webpage, PDF page, or powerpoint slide).
+# chunk_by_page returns one chunk for each page (for example: each webpage, PDF page, or PowerPoint slide).
 chunks = chunk_by_page(chunks)
 ```
 
@@ -123,12 +136,15 @@ response = client.chat.completions.create(
 
 ### LLamaIndex Integration 🦙
 
-A chunk can be converted to LlamaIndex Document/ImageDocument with `.to_llamaindex`.
+A chunk can be converted to LlamaIndex `Document`/`ImageDocument` with `.to_llamaindex`.
 
 ### Structured extraction 🗂️
 
 ```python
 from thepipe.extract import extract
+from openai import OpenAI
+
+client = OpenAI()
 
 schema = {
   "description": "string",
@@ -138,32 +154,32 @@ schema = {
 results, tokens_used = extract(
     chunks=chunks,
     schema=schema,
-    multiple_extractions=True, # extract multiple rows of data per chunk
+    multiple_extractions=True,  # extract multiple rows of data per chunk
+    openai_client=client
 )
 ```
 
 ## Sponsors
 
 Please consider supporting thepipe by [becoming a sponsor](mailto:emmett@thepi.pe).
-Your support helps me maintain and improve the project while helping the open source community discover your work.
+Your support helps me maintain and improve the project while helping the open-source community discover your work.
 
-Visit [Cal.com](https://cal.com/) for an open source scheduling tool that helps you book meetings with ease. It's the perfect solution for busy professionals who want to streamline their scheduling process.
+Visit [Cal.com](https://cal.com/) for an open-source scheduling tool that helps you book meetings with ease. It's the perfect solution for busy professionals who want to streamline their scheduling process.
 
 <a href="https://cal.com/emmett-mcf/30min"><img alt="Book us with Cal.com" src="https://cal.com/book-with-cal-dark.svg" /></a>
 
-Looking for enterprise-ready document processing and intelligent automation? Discover
-how [Trellis AI](https://runtrellis.com/) can streamline your workflows and enhance productivity.
+Looking for enterprise-ready document processing and intelligent automation? Discover how [Trellis AI](https://runtrellis.com/) can streamline your workflows and enhance productivity.
 
 ## How it works 🛠️
 
-thepipe uses a combination of computer vision models and heuristics to scrape clean content from the source and process it for downstream use with [large language models](https://en.wikipedia.org/wiki/Large_language_model), or [vision-language models](https://en.wikipedia.org/wiki/Vision_transformer). You can feed these messages directly into the model, or alternatively you can chunk these messages for downstream storage in a vector database such as ChromaDB, LLamaIndex, or equivalent RAG framework.
+thepipe uses a combination of computer-vision models and heuristics to scrape clean content from the source and process it for downstream use with [large language models](https://en.wikipedia.org/wiki/Large_language_model), or [vision-language models](https://en.wikipedia.org/wiki/Vision_transformer). You can feed these messages directly into the model, or alternatively you can chunk these messages for downstream storage in a vector database such as ChromaDB, LLamaIndex, or an equivalent RAG framework.
 
 ## Supported File Types 📚
 
 | Source                       | Input types                                                                          | Multimodal | Notes                                                                                                                                                                                                                                         |
 | ---------------------------- | ------------------------------------------------------------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Webpage                      | URLs starting with `http`, `https`, `ftp`                                            | ✔️         | Scrapes markdown, images, and tables from web pages. `ai_extraction` available for AI content extraction from the webpage's screenshot                                                                                                        |
-| PDF                          | `.pdf`                                                                               | ✔️         | Extracts page markdown and page images. `ai_extraction` available to use a VLM for complex or scanned documents                                                                                                                               |
+| Webpage                      | URLs starting with `http`, `https`, `ftp`                                            | ✔️         | Scrapes markdown, images, and tables from web pages. AI extraction available by passing an OpenAI client for screenshot analysis                                                                                                              |
+| PDF                          | `.pdf`                                                                               | ✔️         | Extracts page markdown and page images. AI extraction available when an OpenAI client is supplied for complex or scanned documents                                                                                                            |
 | Word Document                | `.docx`                                                                              | ✔️         | Extracts text, tables, and images                                                                                                                                                                                                             |
 | PowerPoint                   | `.pptx`                                                                              | ✔️         | Extracts text and images from slides                                                                                                                                                                                                          |
 | Video                        | `.mp4`, `.mov`, `.wmv`                                                               | ✔️         | Uses Whisper for transcription and extracts frames                                                                                                                                                                                            |
@@ -174,9 +190,9 @@ thepipe uses a combination of computer vision models and heuristics to scrape cl
 | Image                        | `.jpg`, `.jpeg`, `.png`                                                              | ✔️         | Uses VLM for OCR in text-only mode                                                                                                                                                                                                            |
 | ZIP File                     | `.zip`                                                                               | ✔️         | Extracts and processes contained files                                                                                                                                                                                                        |
 | Directory                    | any `path/to/folder`                                                                 | ✔️         | Recursively processes all files in directory. Optionally use `inclusion_pattern` to pass regex strings for file inclusion rules.                                                                                                              |
-| YouTube Video (known issues) | YouTube video URLs starting with `https://youtube.com` or `https://www.youtube.com`. | ✔️         | Uses pytube for video download and Whisper for transcription. For consistent extraction, you may need to modify your `pytube` installation to send a valid user agent header (see [this issue](https://github.com/pytube/pytube/issues/399)). |
+| YouTube Video (known issues) | YouTube video URLs starting with `https://youtube.com` or `https://www.youtube.com`. | ✔️         | Uses pytube for video download and Whisper for transcription. For consistent extraction, you may need to modify your `pytube` installation to send a valid user-agent header (see [this issue](https://github.com/pytube/pytube/issues/399)). |
 | Tweet                        | URLs starting with `https://twitter.com` or `https://x.com`                          | ✔️         | Uses unofficial API, may break unexpectedly                                                                                                                                                                                                   |
-| GitHub Repository            | GitHub repo URLs starting with `https://github.com` or `https://www.github.com`      | ✔️         | Requires GITHUB_TOKEN environment variable                                                                                                                                                                                                    |
+| GitHub Repository            | GitHub repo URLs starting with `https://github.com` or `https://www.github.com`      | ✔️         | Requires `GITHUB_TOKEN` environment variable                                                                                                                                                                                                  |
 
 ## Configuration & Environment
 
@@ -205,9 +221,9 @@ export FILESIZE_LIMIT_MB=50
 thepipe <source> [options]
 
 # Options:
---ai_extraction       Use AI for PDF/image/text extraction
+--ai_extraction       Use AI for PDF/image/text extraction  # still accepted for backwards compatibility
 --text_only           Only output text (no images)
---inclusion_pattern=REGEX Only include files matching REGEX when scraping directories
+--inclusion_pattern=REGEX   Only include files matching REGEX when scraping directories
 --verbose             Print detailed progress messages
 ```
 
@@ -219,7 +235,6 @@ We welcome contributions! To get started:
 
    ```bash
    git checkout -b feature/my-new-feature
-
    ```
 
 2. Install dependencies & run tests:
@@ -232,15 +247,15 @@ We welcome contributions! To get started:
 3. Make your changes, format them, and commit them:
 
    ```bash
-    black .
-    git add .
-    git commit -m "..."
+   black .
+   git add .
+   git commit -m "..."
    ```
 
 4. Push to your fork and create a pull request:
 
    ```bash
-     git push origin feature/my-new-feature
+   git push origin feature/my-new-feature
    ```
 
 5. Submit a pull request to the main repository.

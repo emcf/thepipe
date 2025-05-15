@@ -3,8 +3,6 @@ from typing import Dict, List, Optional, Tuple, Union
 from .core import (
     Chunk,
     calculate_tokens,
-    LLM_SERVER_BASE_URL,
-    LLM_SERVER_API_KEY,
     DEFAULT_AI_MODEL,
 )
 from sklearn.metrics.pairwise import cosine_similarity
@@ -249,13 +247,9 @@ def chunk_by_length(chunks: List[Chunk], max_tokens: int = 10000) -> List[Chunk]
 # LLM-based agentic semantic chunking (experimental, openai only)
 def chunk_agentic(
     chunks: List[Chunk],
+    openai_client: OpenAI,
     max_tokens: int = 50000,
 ) -> List[Chunk]:
-    openai_client = OpenAI(
-        base_url=LLM_SERVER_BASE_URL,
-        api_key=LLM_SERVER_API_KEY,
-    )
-
     # 1) Enforce a hard token limit
     chunks = chunk_by_length(chunks, max_tokens=max_tokens)
 

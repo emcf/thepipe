@@ -5,8 +5,6 @@ from typing import Iterable, List, Dict, Union, Optional, Tuple, Callable, cast
 from .core import (
     Chunk,
     calculate_tokens,
-    LLM_SERVER_BASE_URL,
-    LLM_SERVER_API_KEY,
     DEFAULT_AI_MODEL,
 )
 from .scraper import scrape_url, scrape_file
@@ -16,6 +14,8 @@ from .chunker import (
     chunk_by_section,
     chunk_semantic,
     chunk_by_keywords,
+    chunk_by_length,
+    chunk_agentic,
 )
 import requests
 import os
@@ -72,15 +72,11 @@ def extract_from_chunk(
     multiple_extractions: bool,
     extraction_prompt: str,
     host_images: bool,
+    openai_client: OpenAI,
 ) -> Tuple[Dict, int]:
     response_dict = {"chunk_index": chunk_index, "source": source}
     tokens_used = 0
     try:
-        openai_client = OpenAI(
-            base_url=LLM_SERVER_BASE_URL,
-            api_key=LLM_SERVER_API_KEY,
-        )
-
         corrected_extraction_prompt = extraction_prompt.replace("{schema}", schema)
         if multiple_extractions:
             corrected_extraction_prompt += """\nIf there are multiple extractions, return each JSON dictionary in a list under the key "extraction". The list should contain each extraction dict (according to the schema) and the entire list should be set to the "extraction" key. Immediately return this extraction JSON object with the "extraction" key mapping to a list containing all the extracted data."""
@@ -159,9 +155,15 @@ def extract(
     multiple_extractions: bool = False,
     extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT,
     host_images: bool = False,
+    openai_client: Optional[OpenAI] = None,
 ) -> Tuple[List[Dict], int]:
     if isinstance(schema, dict):
         schema = json.dumps(schema)
+
+    if openai_client is None:
+        raise ValueError(
+            "OpenAI client is required for structured extraction. Please provide a valid OpenAI client."
+        )
 
     results = []
     total_tokens_used = 0
@@ -179,6 +181,7 @@ def extract(
                 multiple_extractions=multiple_extractions,
                 extraction_prompt=extraction_prompt,
                 host_images=host_images,
+                openai_client=openai_client,
             ): i
             for i, chunk in enumerate(chunks)
         }
@@ -209,15 +212,15 @@ def extract_from_url(
     multiple_extractions: bool = False,
     extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT,
     host_images: bool = False,
-    ai_extraction: bool = False,
     verbose: bool = False,
     chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_page,
+    openai_client: Optional[OpenAI] = None,
 ) -> Tuple[List[Dict], int]:
     chunks = scrape_url(
         url,
-        ai_extraction=ai_extraction,
         verbose=verbose,
         chunking_method=chunking_method,
+        openai_client=openai_client,
     )
     extracted_chunks, tokens_used = extract(
         chunks=chunks,
@@ -226,6 +229,7 @@ def extract_from_url(
         multiple_extractions=multiple_extractions,
         extraction_prompt=extraction_prompt,
         host_images=host_images,
+        openai_client=openai_client,
     )
     return extracted_chunks, tokens_used
 
@@ -237,15 +241,15 @@ def extract_from_file(
     multiple_extractions: bool = False,
     extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT,
     host_images: bool = False,
-    ai_extraction: bool = False,
     verbose: bool = False,
     chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_page,
+    openai_client: Optional[OpenAI] = None,
 ) -> Tuple[List[Dict], int]:
     chunks = scrape_file(
         file_path,
-        ai_extraction=ai_extraction,
         verbose=verbose,
         chunking_method=chunking_method,
+        openai_client=openai_client,
     )
     extracted_chunks, tokens_used = extract(
         chunks=chunks,
@@ -254,5 +258,6 @@ def extract_from_file(
         multiple_extractions=multiple_extractions,
         extraction_prompt=extraction_prompt,
         host_images=host_images,
+        openai_client=openai_client,
     )
     return extracted_chunks, tokens_used
