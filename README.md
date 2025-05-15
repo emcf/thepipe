@@ -50,9 +50,18 @@ By default, thepipe uses the [OpenAI API](https://platform.openai.com/docs/overv
 
 ### Custom VLM server setup (OpenRouter, OpenLLM, etc.)
 
-If you wish to use a local vision-language model or a different cloud provider, you can provide a custom OpenAI client, for example, by setting the base url to `https://openrouter.ai/api/v1` for [OpenRouter](https://openrouter.ai/), or `http://localhost:3000/v1` for a local server such as [OpenLLM](https://github.com/bentoml/OpenLLM). Note that uou must also pass the api key to your non-OpenAI cloud provider into the OpenAI client. You may want to set the `DEFAULT_AI_MODEL` environment variable to specify which model to use for VLM features (for OpenAI, this is defaulted to `gpt-4o`).
+If you wish to use a local vision-language model or a different cloud provider, you can provide a custom OpenAI client, for example, by setting the base url to `https://openrouter.ai/api/v1` for [OpenRouter](https://openrouter.ai/), or `http://localhost:3000/v1` for a local server such as [OpenLLM](https://github.com/bentoml/OpenLLM). Note that uou must also pass the api key to your non-OpenAI cloud provider into the OpenAI client. The model name can be changed with the `model` parameter. By default, the model will be `gpt-4o`.
 
 ### Scraping
+
+```python
+from thepipe.scraper import scrape_file
+
+# scrape text and page images from a PDF
+chunks = scrape_file(filepath="paper.pdf")
+```
+
+For enhanced scraping with a vision-language model, you can pass in an OpenAI-compatible client and a model name.
 
 ```python
 from openai import OpenAI
@@ -62,16 +71,11 @@ from thepipe.scraper import scrape_file
 client = OpenAI()
 
 # scrape clean markdown and page images from a PDF
-chunks = scrape_file(filepath="paper.pdf", openai_client=client)
-```
-
-To use standard scraping without AI scraping features, simply pass in no client:
-
-```python
-from thepipe.scraper import scrape_file
-
-# scrape clean markdown and page images from a PDF
-chunks = scrape_file(filepath="paper.pdf")
+chunks = scrape_file(
+  filepath="paper.pdf",
+  openai_client=client,
+  model="gpt-4o"
+)
 ```
 
 ### Chunking
@@ -94,7 +98,10 @@ from thepipe.chunker import chunk_by_document, chunk_by_page
 
 # optionally, pass in chunking_method
 # chunk_by_document returns one chunk for the entire document
-chunks = scrape_file(filepath="paper.pdf", chunking_method=chunk_by_document)
+chunks = scrape_file(
+  filepath="paper.pdf",
+  chunking_method=chunk_by_document
+)
 
 # you can also re-chunk later.
 # chunk_by_page returns one chunk for each page (for example: each webpage, PDF page, or PowerPoint slide).
@@ -207,6 +214,7 @@ export GITHUB_TOKEN=ghp_...
 
 # Control scraping defaults
 export DEFAULT_AI_MODEL=gpt-4o
+export DEFAULT_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 export FILESIZE_LIMIT_MB=50
 ```
 

@@ -122,8 +122,8 @@ def scrape_file(
     filepath: str,
     verbose: bool = False,
     chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
-    ai_model: Optional[str] = DEFAULT_AI_MODEL,
     openai_client: Optional[OpenAI] = None,
+    model: Optional[str] = DEFAULT_AI_MODEL,
 ) -> List[Chunk]:
     # returns chunks of scraped content from any source (file, URL, etc.)
     scraped_chunks = []
@@ -139,7 +139,7 @@ def scrape_file(
         scraped_chunks = scrape_pdf(
             file_path=filepath,
             verbose=verbose,
-            ai_model=ai_model,
+            model=model,
             openai_client=openai_client,
         )
     elif (
@@ -298,9 +298,9 @@ def scrape_zip(
 
 def scrape_pdf(
     file_path: str,
-    ai_model: Optional[str] = DEFAULT_AI_MODEL,
-    verbose: Optional[bool] = False,
     openai_client: Optional[OpenAI] = None,
+    model: Optional[str] = DEFAULT_AI_MODEL,
+    verbose: Optional[bool] = False,
 ) -> List[Chunk]:
     chunks = []
     if openai_client is not None:
@@ -331,7 +331,7 @@ def scrape_pdf(
                     },
                 ]
                 response = openai_client.chat.completions.create(
-                    model=ai_model if ai_model else DEFAULT_AI_MODEL,
+                    model=model,
                     messages=cast(Iterable[ChatCompletionMessageParam], messages),
                 )
                 try:
@@ -443,8 +443,8 @@ def scrape_spreadsheet(file_path: str, source_type: str) -> List[Chunk]:
 
 def parse_webpage_with_vlm(
     url: str,
+    model: str = DEFAULT_AI_MODEL,
     verbose: Optional[bool] = False,
-    ai_model: Optional[str] = DEFAULT_AI_MODEL,
     openai_client: Optional[OpenAI] = None,
 ) -> Chunk:
     if openai_client is None:
@@ -478,6 +478,10 @@ def parse_webpage_with_vlm(
             page.evaluate(f"window.scrollTo(0, {current_scroll_position})")
             scrolldowns += 1
             total_height = page.evaluate("document.body.scrollHeight")
+            if verbose:
+                print(
+                    f"[thepipe] Scrolled to {current_scroll_position} of {total_height}. Waiting for content to load..."
+                )
 
         browser.close()
 
@@ -510,7 +514,7 @@ def parse_webpage_with_vlm(
             },
         ]
         response = openai_client.chat.completions.create(
-            model=ai_model if ai_model else DEFAULT_AI_MODEL,
+            model=model,
             messages=cast(Iterable[ChatCompletionMessageParam], messages),
         )
         llm_response = response.choices[0].message.content
@@ -518,6 +522,8 @@ def parse_webpage_with_vlm(
             raise Exception(
                 f"Failed to receive a message content from LLM Response: {response}"
             )
+        if verbose:
+            print(f"[thepipe] LLM response: {llm_response}")
         chunk = Chunk(path=url, text=llm_response, images=[stacked_image])
     else:
         raise ValueError("Model received 0 images from webpage")
@@ -650,6 +656,7 @@ def scrape_url(
     verbose: bool = False,
     chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_page,
     openai_client: Optional[OpenAI] = None,
+    model: Optional[str] = DEFAULT_AI_MODEL,
 ) -> List[Chunk]:
     if any(url.startswith(domain) for domain in TWITTER_DOMAINS):
         extraction = scrape_tweet(url=url)
@@ -688,7 +695,7 @@ def scrape_url(
             chunk = parse_webpage_with_vlm(
                 url=url,
                 verbose=verbose,
-                ai_model=DEFAULT_AI_MODEL,
+                model=model,
                 openai_client=openai_client,
             )
         else:

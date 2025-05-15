@@ -11,13 +11,10 @@ from PIL import Image
 from llama_index.core.schema import Document, ImageDocument
 
 # LLM provider info, defaults to openai
-LLM_SERVER_BASE_URL = os.environ.get(
-    "LLM_SERVER_BASE_URL", r"https://api.openai.com/v1"
-)
-LLM_SERVER_API_KEY = os.environ.get(
-    "LLM_SERVER_API_KEY", os.environ.get("OPENAI_API_KEY", None)
-)
 DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o")
+DEFAULT_EMBEDDING_MODEL = os.getenv(
+    "DEFAULT_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
+)
 
 # for persistent images via filehosting
 HOST_IMAGES = os.getenv("HOST_IMAGES", "false").lower() == "true"

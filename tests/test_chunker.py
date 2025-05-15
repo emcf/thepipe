@@ -82,7 +82,7 @@ class test_chunker(unittest.TestCase):
         chunks = [Chunk(text=test_sentence)]
         chunked_semantic = chunker.chunk_semantic(
             chunks,
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model="sentence-transformers/all-MiniLM-L6-v2",
             buffer_size=2,
             similarity_threshold=0.5,
         )

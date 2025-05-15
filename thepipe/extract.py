@@ -151,7 +151,7 @@ def extract_from_chunk(
 def extract(
     chunks: List[Chunk],
     schema: Union[str, Dict],
-    ai_model: str = DEFAULT_AI_MODEL,
+    model: str = DEFAULT_AI_MODEL,
     multiple_extractions: bool = False,
     extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT,
     host_images: bool = False,
@@ -176,7 +176,7 @@ def extract(
                 chunk=chunk,
                 chunk_index=i,
                 schema=schema,
-                ai_model=ai_model,
+                ai_model=model,
                 source=chunk.path if chunk.path else "",
                 multiple_extractions=multiple_extractions,
                 extraction_prompt=extraction_prompt,
@@ -208,7 +208,7 @@ def extract(
 def extract_from_url(
     url: str,
     schema: Union[str, Dict],
-    ai_model: str = DEFAULT_AI_MODEL,
+    model: str = DEFAULT_AI_MODEL,
     multiple_extractions: bool = False,
     extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT,
     host_images: bool = False,
@@ -225,7 +225,7 @@ def extract_from_url(
     extracted_chunks, tokens_used = extract(
         chunks=chunks,
         schema=schema,
-        ai_model=ai_model,
+        model=model,
         multiple_extractions=multiple_extractions,
         extraction_prompt=extraction_prompt,
         host_images=host_images,
@@ -237,7 +237,7 @@ def extract_from_url(
 def extract_from_file(
     file_path: str,
     schema: Union[str, Dict],
-    ai_model: str = DEFAULT_AI_MODEL,
+    model: str = DEFAULT_AI_MODEL,
     multiple_extractions: bool = False,
     extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT,
     host_images: bool = False,
@@ -254,7 +254,7 @@ def extract_from_file(
     extracted_chunks, tokens_used = extract(
         chunks=chunks,
         schema=schema,
-        ai_model=ai_model,
+        model=model,
         multiple_extractions=multiple_extractions,
         extraction_prompt=extraction_prompt,
         host_images=host_images,

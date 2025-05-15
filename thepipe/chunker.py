@@ -4,6 +4,7 @@ from .core import (
     Chunk,
     calculate_tokens,
     DEFAULT_AI_MODEL,
+    DEFAULT_EMBEDDING_MODEL,
 )
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
@@ -101,13 +102,13 @@ def chunk_by_section(
 
 def chunk_semantic(
     chunks: List[Chunk],
-    model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+    model: str = DEFAULT_EMBEDDING_MODEL,
     buffer_size: int = 3,
     similarity_threshold: float = 0.1,
 ) -> List[Chunk]:
     from sentence_transformers import SentenceTransformer
 
-    model = SentenceTransformer(model_name)
+    model = SentenceTransformer(model)
     # Flatten the chunks into sentences
     sentences = []
     sentence_chunk_map = []
@@ -248,6 +249,7 @@ def chunk_by_length(chunks: List[Chunk], max_tokens: int = 10000) -> List[Chunk]
 def chunk_agentic(
     chunks: List[Chunk],
     openai_client: OpenAI,
+    model: str = DEFAULT_AI_MODEL,
     max_tokens: int = 50000,
 ) -> List[Chunk]:
     # 1) Enforce a hard token limit
@@ -296,7 +298,7 @@ def chunk_agentic(
         user_prompt = numbered
 
         completion = openai_client.beta.chat.completions.parse(
-            model=DEFAULT_AI_MODEL,
+            model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
