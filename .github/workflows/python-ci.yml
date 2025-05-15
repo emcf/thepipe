@@ -46,8 +46,7 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with unittest and generate coverage report
         env:
-          LLM_SERVER_BASE_URL: ${{ secrets.LLM_SERVER_BASE_URL }}
-          LLM_SERVER_API_KEY: ${{ secrets.LLM_SERVER_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           coverage run -m unittest discover
           coverage xml -i

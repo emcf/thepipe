@@ -101,7 +101,7 @@ chunks = scrape_file(filepath="paper.pdf", chunking_method=chunk_by_document)
 chunks = chunk_by_page(chunks)
 ```
 
-### OpenAI Integration 🤖
+### OpenAI Chat Integration 🤖
 
 ```python
 from openai import OpenAI
@@ -204,10 +204,6 @@ export HOST_IMAGES=true
 
 # GitHub token for scraping private/public repos via `scrape_url`
 export GITHUB_TOKEN=ghp_...
-
-# Base URL + key for any custom LLM server (used in extract/scrape)
-export LLM_SERVER_BASE_URL=https://openrouter.ai/api/v1
-export LLM_SERVER_API_KEY=or-...
 
 # Control scraping defaults
 export DEFAULT_AI_MODEL=gpt-4o
