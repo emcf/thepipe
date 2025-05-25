@@ -95,6 +95,7 @@ SCRAPING_PROMPT = os.getenv(
 Your accuracy is very important. Please be careful to not miss any content from the document.
 Be sure to correctly output a comprehensive format markdown for all the document contents (including, but not limited to, headers, paragraphs, lists, tables, menus, equations, full text contents, titles, subtitles, appendices, page breaks, columns, footers, page numbers, watermarks, footnotes, captions, annotations, images, figures, charts, shapes, form fields, content controls, signatures, etc.)
 Always reply immediately with only markdown.
+Do not give the markdown in a code block. Simply output the raw markdown immediately.
 Do not output anything else.""",
 )
 FILESIZE_LIMIT_MB = int(os.getenv("FILESIZE_LIMIT_MB", 50))  # for url scraping only
@@ -123,7 +124,7 @@ def scrape_file(
     verbose: bool = False,
     chunking_method: Optional[Callable[[List[Chunk]], List[Chunk]]] = chunk_by_page,
     openai_client: Optional[OpenAI] = None,
-    model: Optional[str] = DEFAULT_AI_MODEL,
+    model: str = DEFAULT_AI_MODEL,
 ) -> List[Chunk]:
     # returns chunks of scraped content from any source (file, URL, etc.)
     scraped_chunks = []
@@ -134,7 +135,6 @@ def scrape_file(
         return scraped_chunks
     if verbose:
         print(f"[thepipe] Scraping {source_mimetype}: {filepath}...")
-    use_ai = openai_client is not None
     if source_mimetype == "application/pdf":
         scraped_chunks = scrape_pdf(
             file_path=filepath,
@@ -299,7 +299,7 @@ def scrape_zip(
 def scrape_pdf(
     file_path: str,
     openai_client: Optional[OpenAI] = None,
-    model: Optional[str] = DEFAULT_AI_MODEL,
+    model: str = DEFAULT_AI_MODEL,
     verbose: Optional[bool] = False,
 ) -> List[Chunk]:
     chunks = []
@@ -656,7 +656,7 @@ def scrape_url(
     verbose: bool = False,
     chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_page,
     openai_client: Optional[OpenAI] = None,
-    model: Optional[str] = DEFAULT_AI_MODEL,
+    model: str = DEFAULT_AI_MODEL,
 ) -> List[Chunk]:
     if any(url.startswith(domain) for domain in TWITTER_DOMAINS):
         extraction = scrape_tweet(url=url)
@@ -825,21 +825,29 @@ def scrape_audio(file_path: str, verbose: bool = False) -> List[Chunk]:
 def scrape_github(
     github_url: str,
     inclusion_pattern: Optional[str] = None,
-    ai_extraction: bool = False,
     branch: str = "main",
     verbose: bool = False,
+    openai_client: Optional[OpenAI] = None,
 ) -> List[Chunk]:
-    files_contents = []
+    files_contents: List[Chunk] = []
     if not GITHUB_TOKEN:
         raise ValueError("GITHUB_TOKEN environment variable is not set.")
     # make new tempdir for cloned repo
     with tempfile.TemporaryDirectory() as temp_dir:
         # requires git
-        os.system(f"git clone {github_url} {temp_dir} --quiet")
+        exit_code = os.system(
+            f'git clone --branch "{branch}" --single-branch {github_url} "{temp_dir}" --quiet'
+        )
+        if exit_code != 0:
+            raise RuntimeError(
+                f"git clone failed for {github_url} at branch '{branch}'. "
+                "Verify the repository URL and branch name."
+            )
         files_contents = scrape_directory(
             dir_path=temp_dir,
             inclusion_pattern=inclusion_pattern,
             verbose=verbose,
+            openai_client=openai_client,
         )
     return files_contents
 
@@ -863,9 +871,12 @@ def scrape_docx(file_path: str, verbose: bool = False) -> List[Chunk]:
             raise ValueError("Unsupported parent type")
         # iterate through each child element in the parent element
         for child in parent_elm.iterchildren():
-            if child.__class__.__name__ == "CT_P":
+            child_elem_class_name = child.__class__.__name__
+            if verbose:
+                print(f"[thepipe] Found element in docx: {child_elem_class_name}")
+            if child_elem_class_name == "CT_P":
                 yield Paragraph(child, parent)
-            elif child.__class__.__name__ == "CT_Tbl":
+            elif child_elem_class_name == "CT_Tbl":
                 yield Table(child, parent)
 
     # helper function to read tables in the document

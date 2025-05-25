@@ -147,6 +147,8 @@ A chunk can be converted to LlamaIndex `Document`/`ImageDocument` with `.to_llam
 
 ### Structured extraction 🗂️
 
+Note that structured extraction is being deprecated and will be removed in future releases. The current implementation is a simple wrapper around OpenAI's chat API, which is not ideal for structured data extraction. We recommend OpenAI's [structured outputs](https://platform.openai.com/docs/guides/structured-outputs?api-mode=chat) for structured data extraction, or using [Trellis AI](https://runtrellis.com/) for automated workflows with structured data.
+
 ```python
 from thepipe.extract import extract
 from openai import OpenAI
@@ -218,18 +220,22 @@ export DEFAULT_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 export FILESIZE_LIMIT_MB=50
 ```
 
-## CLI Reference
+# Basic usage: scrape a file, directory, or URL
 
-```shell
-# Basic usage: scrape a file or URL
 thepipe <source> [options]
 
-# Options:
---ai_extraction       Use AI for PDF/image/text extraction  # still accepted for backwards compatibility
---text_only           Only output text (no images)
---inclusion_pattern=REGEX   Only include files matching REGEX when scraping directories
---verbose             Print detailed progress messages
-```
+# AI scraping options
+
+`--openai-api-key=KEY` To enable VLM scraping, pass in your OpenAI API key
+`--openai-model=MODEL` Model to use for scraping (default is `DEFAULT_AI_MODEL`, currently `gpt-4o`)
+`--openai-base-url=URL` Custom LLM endpoint, for local LLMs or hosted APIs like OpenRouter (default: https://api.openai.com/v1)
+`--ai_extraction` ⚠️ DEPRECATED; will get API key from `OPENAI_API_KEY` environment variable
+
+# General scraping options
+
+--text*only Output text only (suppress images)
+--inclusion_pattern=REGEX Include only files whose \_full path* matches REGEX (for dirs/zips)
+--verbose Print detailed progress messages
 
 ## Contributing
 

@@ -108,7 +108,7 @@ def chunk_semantic(
 ) -> List[Chunk]:
     from sentence_transformers import SentenceTransformer
 
-    model = SentenceTransformer(model)
+    embedding_model = SentenceTransformer(model_name_or_path=model)
     # Flatten the chunks into sentences
     sentences = []
     sentence_chunk_map = []
@@ -123,7 +123,7 @@ def chunk_semantic(
                 sentence_path_map.append(chunk.path)
 
     # Compute embeddings
-    embeddings = np.array(model.encode(sentences, convert_to_numpy=True))
+    embeddings = np.array(embedding_model.encode(sentences, convert_to_numpy=True))
 
     # Create groups based on sentence similarity
     grouped_sentences = []

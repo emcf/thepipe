@@ -157,6 +157,9 @@ def extract(
     host_images: bool = False,
     openai_client: Optional[OpenAI] = None,
 ) -> Tuple[List[Dict], int]:
+    print(
+        f"[thepipe] Extract functions will be deprecated in future versions. See the README for more information"
+    )
     if isinstance(schema, dict):
         schema = json.dumps(schema)
 
@@ -216,6 +219,9 @@ def extract_from_url(
     chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_page,
     openai_client: Optional[OpenAI] = None,
 ) -> Tuple[List[Dict], int]:
+    print(
+        f"[thepipe] Extract functions will be deprecated in future versions. See the README for more information"
+    )
     chunks = scrape_url(
         url,
         verbose=verbose,
@@ -245,6 +251,9 @@ def extract_from_file(
     chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_page,
     openai_client: Optional[OpenAI] = None,
 ) -> Tuple[List[Dict], int]:
+    print(
+        f"[thepipe] Extract functions will be deprecated in future versions. See the README for more information"
+    )
     chunks = scrape_file(
         file_path,
         verbose=verbose,
