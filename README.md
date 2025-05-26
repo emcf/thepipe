@@ -220,11 +220,11 @@ export DEFAULT_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 export FILESIZE_LIMIT_MB=50
 ```
 
-# CLI Usage
+## CLI Usage
 
 `thepipe <source> [options]`
 
-# AI scraping options
+### AI scraping options
 
 `--openai-api-key=KEY` To enable VLM scraping, pass in your OpenAI API key
 
@@ -234,7 +234,7 @@ export FILESIZE_LIMIT_MB=50
 
 `--ai_extraction` ⚠️ DEPRECATED; will get API key from `OPENAI_API_KEY` environment variable
 
-# General scraping options
+### General scraping options
 
 `--text_only` Output text only (suppress images)
 
