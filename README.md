@@ -220,22 +220,27 @@ export DEFAULT_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 export FILESIZE_LIMIT_MB=50
 ```
 
-# Basic usage: scrape a file, directory, or URL
+# CLI Usage
 
-thepipe <source> [options]
+`thepipe <source> [options]`
 
 # AI scraping options
 
 `--openai-api-key=KEY` To enable VLM scraping, pass in your OpenAI API key
+
 `--openai-model=MODEL` Model to use for scraping (default is `DEFAULT_AI_MODEL`, currently `gpt-4o`)
+
 `--openai-base-url=URL` Custom LLM endpoint, for local LLMs or hosted APIs like OpenRouter (default: https://api.openai.com/v1)
+
 `--ai_extraction` ⚠️ DEPRECATED; will get API key from `OPENAI_API_KEY` environment variable
 
 # General scraping options
 
---text*only Output text only (suppress images)
---inclusion_pattern=REGEX Include only files whose \_full path* matches REGEX (for dirs/zips)
---verbose Print detailed progress messages
+`--text_only` Output text only (suppress images)
+
+`--inclusion_pattern=REGEX` Include only files whose \_full path\* matches REGEX (for dirs/zips)
+
+`--verbose` Print detailed progress messages
 
 ## Contributing
 
