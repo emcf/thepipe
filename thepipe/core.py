@@ -229,7 +229,7 @@ def calculate_tokens(chunks: List[Chunk], text_only: bool = False) -> int:
     for chunk in chunks:
         if chunk.text:
             n_tokens += len(chunk.text) / 4
-        if chunk.images:
+        if chunk.images and not text_only:
             for image in chunk.images:
                 n_tokens += calculate_image_tokens(image)
     return int(n_tokens)
@@ -254,10 +254,13 @@ def chunks_to_messages(
 
 
 def save_outputs(
-    chunks: List[Chunk], verbose: bool = False, text_only: bool = False
+    chunks: List[Chunk],
+    output_folder: str,
+    verbose: bool = False,
+    text_only: bool = False,
 ) -> None:
-    if not os.path.exists("outputs"):
-        os.makedirs("outputs")
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
     text = ""
     # Save the text and images to the outputs directory
     for i, chunk in enumerate(chunks):
@@ -269,12 +272,12 @@ def save_outputs(
             text += f"```\n{chunk.text}\n```\n"
         if not text_only and chunk.images:
             for j, image in enumerate(chunk.images):
-                image.convert("RGB").save(f"outputs/{i}_{j}.jpg")
+                image.convert("RGB").save(f"{output_folder}/{i}_{j}.jpg")
     # Save the text
-    with open("outputs/prompt.txt", "w", encoding="utf-8") as file:
+    with open(f"{output_folder}/prompt.txt", "w", encoding="utf-8") as file:
         file.write(text)
     if verbose:
-        print(f"[thepipe] {calculate_tokens(chunks)} tokens saved to outputs folder")
+        print(f"[thepipe] {calculate_tokens(chunks)} tokens saved to {output_folder}")
 
 
 def parse_arguments() -> argparse.Namespace:

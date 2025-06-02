@@ -218,6 +218,15 @@ export GITHUB_TOKEN=ghp_...
 export DEFAULT_AI_MODEL=gpt-4o
 export DEFAULT_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 export FILESIZE_LIMIT_MB=50
+
+# Max duration (in seconds) for audio transcription
+export MAX_WHISPER_DURATION=600
+
+# Filesize limit for webpages in mb
+export FILESIZE_LIMIT_MB = 50
+
+# Credientials for scraping repositories
+export GITHUB_TOKEN=...
 ```
 
 ## CLI Usage

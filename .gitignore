@@ -5,6 +5,7 @@ thepipeapi/__pycache__/
 .vscode/
 outputs/
 logs/
+benchmarks/
 node/node_modules/
 thepipeapi/ctags.exe
 thepipe.bat
