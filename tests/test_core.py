@@ -136,7 +136,7 @@ class test_core(unittest.TestCase):
         # With image
         img = Image.new("RGB", (10, 10))
         c2 = core.Chunk(path="y", text="TXT", images=[img])
-        core.save_outputs([c2], text_only=False)
+        core.save_outputs([c2], text_only=False, output_folder="outputs")
         files = os.listdir("outputs")
         self.assertIn("prompt.txt", files)
         self.assertTrue(any(f.endswith(".jpg") for f in files))
