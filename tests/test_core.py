@@ -127,7 +127,7 @@ class test_core(unittest.TestCase):
     def test_save_outputs_text_only_and_with_images(self):
         # Text-only
         c = core.Chunk(path="x.txt", text="XYZ")
-        core.save_outputs([c], text_only=True)
+        core.save_outputs([c], text_only=True, output_folder="outputs")
         self.assertTrue(os.path.exists("outputs/prompt.txt"))
         files = os.listdir("outputs")
         self.assertEqual(files, ["prompt.txt"])

@@ -17,7 +17,7 @@ def read_git_requirements(file):
 
 setup(
     name="thepipe_api",
-    version="1.5.8",
+    version="1.5.9",
     author="Emmett McFarlane",
     author_email="emmett@thepi.pe",
     description="Get clean data from tricky documents, powered by VLMs.",
