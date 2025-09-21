@@ -634,117 +634,183 @@ def extract_page_content(
 
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        context = browser.new_context(user_agent="USER_AGENT_STRING")
+        context = browser.new_context(user_agent=USER_AGENT_STRING)
         page = context.new_page()
-        page.goto(url, wait_until="domcontentloaded")
 
-        # Scroll to the bottom of the page to load dynamic content
-        if not page.viewport_size:
-            page.set_viewport_size({"width": 800, "height": 600})
-        if not page.viewport_size:
-            raise ValueError(
-                "Failed to set viewport size after finding no viewport size"
-            )
-        viewport_height = page.viewport_size["height"]
-        total_height = page.evaluate("document.body.scrollHeight")
-        current_scroll_position = 0
-        scrolldowns, max_scrolldowns = 0, 20  # Finite to prevent infinite scroll
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=10000)
 
-        while current_scroll_position < total_height and scrolldowns < max_scrolldowns:
-            page.wait_for_timeout(200)  # Wait for dynamic content to load
-            current_scroll_position += viewport_height
-            page.evaluate(f"window.scrollTo(0, {current_scroll_position})")
-            scrolldowns += 1
+            # Wait for content to load
+            page.wait_for_timeout(1000)
+
+            # Scroll to load dynamic content
+            if not page.viewport_size:
+                page.set_viewport_size({"width": 1200, "height": 800})
+
+            viewport_height = page.viewport_size["height"]
             total_height = page.evaluate("document.body.scrollHeight")
+            current_scroll_position = 0
+            scrolldowns, max_scrolldowns = 0, 5
 
-        # Extract HTML content
-        html_content = page.content()
+            while (
+                current_scroll_position < total_height and scrolldowns < max_scrolldowns
+            ):
+                page.wait_for_timeout(500)
+                current_scroll_position += viewport_height
+                page.evaluate(f"window.scrollTo(0, {current_scroll_position})")
+                scrolldowns += 1
+                new_height = page.evaluate("document.body.scrollHeight")
+                if new_height == total_height:
+                    break
+                total_height = new_height
 
-        # Convert HTML to Markdown
-        soup = BeautifulSoup(html_content, "html.parser")
-        markdown_content = markdownify.markdownify(str(soup), heading_style="ATX")
+            # Extract HTML content
+            html_content = page.content()
 
-        # Remove excessive newlines in the markdown
-        markdown_content = re.sub(r"\n{3,}", "\n\n", markdown_content)
-        markdown_content = markdown_content.strip()
+            # Parse with BeautifulSoup and clean up
+            soup = BeautifulSoup(html_content, "html.parser")
 
-        texts.append(markdown_content)
+            # Remove script and style elements
+            for script in soup(["script", "style", "nav", "footer", "header"]):
+                script.decompose()
 
-        # Extract images from the page using heuristics
-        if include_output_images:
-            for img in page.query_selector_all("img"):
-                img_path = img.get_attribute("src")
-                if not img_path:
-                    continue
-                if img_path.startswith("data:image"):
-                    # Save base64 image to PIL Image
-                    decoded_data = base64.b64decode(img_path.split(",")[1])
-                    try:
-                        image = Image.open(BytesIO(decoded_data))
-                        images.append(image)
-                    except Exception as e:
-                        if verbose:
-                            print(
-                                f"[thepipe] Ignoring error loading image {img_path}: {e}"
-                            )
-                        continue  # Ignore incompatible image extractions
-                else:
-                    try:
-                        image = Image.open(requests.get(img_path, stream=True).raw)
-                        images.append(image)
-                    except Exception as e:
-                        if verbose:
-                            print(
-                                f"[thepipe] Ignoring error loading image {img_path}: {e}"
-                                "Attempting to load path with schema."
-                            )
+            # Convert to markdown
+            markdown_content = markdownify.markdownify(str(soup), heading_style="ATX")
 
-                        if "https://" not in img_path and "http://" not in img_path:
-                            try:
-                                while img_path.startswith("/"):
-                                    img_path = img_path[1:]
-                                path_with_schema = (
-                                    urlparse(url).scheme + "://" + img_path
+            # Clean up markdown
+            markdown_content = re.sub(r"\n{3,}", "\n\n", markdown_content)
+            markdown_content = markdown_content.strip()
+
+            if verbose:
+                print(
+                    f"[thepipe] Extracted {len(markdown_content)} characters from {url}"
+                )
+
+            texts.append(markdown_content)
+
+            # Extract images from the page using heuristics
+            if include_output_images:
+                for img in page.query_selector_all("img"):
+                    img_path = img.get_attribute("src")
+                    if not img_path:
+                        continue
+                    if img_path.startswith("data:image"):
+                        # Save base64 image to PIL Image
+                        try:
+                            decoded_data = base64.b64decode(img_path.split(",")[1])
+                            image = Image.open(BytesIO(decoded_data))
+                            images.append(image)
+                        except Exception as e:
+                            if verbose:
+                                print(
+                                    f"[thepipe] Ignoring error loading base64 image: {e}"
                                 )
-                                image = Image.open(
-                                    requests.get(path_with_schema, stream=True).raw
-                                )
-                                images.append(image)
-                            except Exception as e:
-                                if verbose:
-                                    print(
-                                        f"[thepipe] Ignoring error loading image {img_path} with schema: {e}"
-                                        "Attempting to load with schema and netloc."
-                                    )
+                            continue
+                    else:
+                        try:
+                            # Try direct URL first
+                            response = requests.get(
+                                img_path,
+                                stream=True,
+                                timeout=10,
+                                headers={"User-Agent": USER_AGENT_STRING},
+                            )
+                            response.raise_for_status()
+                            image = Image.open(BytesIO(response.content))
+                            images.append(image)
+                        except Exception as e:
+                            if verbose:
+                                print(f"[thepipe] Error loading image {img_path}: {e}")
+                                print("[thepipe] Attempting to load path with schema.")
+
+                            # Try with schema if path is relative
+                            if not img_path.startswith(("http://", "https://")):
                                 try:
-                                    path_with_schema_and_netloc = (
-                                        urlparse(url).scheme
-                                        + "://"
-                                        + urlparse(url).netloc
-                                        + "/"
-                                        + img_path
+                                    # Remove leading slashes
+                                    while img_path.startswith("/"):
+                                        img_path = img_path[1:]
+
+                                    # Try with just the scheme
+                                    parsed_url = urlparse(url)
+                                    path_with_schema = (
+                                        f"{parsed_url.scheme}://{img_path}"
                                     )
-                                    image = Image.open(
-                                        requests.get(
-                                            path_with_schema_and_netloc, stream=True
-                                        ).raw
+                                    response = requests.get(
+                                        path_with_schema,
+                                        stream=True,
+                                        timeout=10,
+                                        headers={"User-Agent": USER_AGENT_STRING},
                                     )
+                                    response.raise_for_status()
+                                    image = Image.open(BytesIO(response.content))
                                     images.append(image)
                                 except Exception as e:
                                     if verbose:
                                         print(
-                                            f"[thepipe] Ignoring error loading image {img_path} with schema and netloc: {e}"
-                                            "Continuing."
+                                            f"[thepipe] Error loading image {img_path} with schema: {e}"
                                         )
-                                    continue  # Ignore incompatible image extractions
-                        else:
-                            if verbose:
-                                print(
-                                    f"[thepipe] Ignoring error loading image {img_path}"
-                                )
-                            continue  # Ignore incompatible image extractions
+                                        print(
+                                            "[thepipe] Attempting to load with schema and netloc."
+                                        )
 
-        browser.close()
+                                    try:
+                                        # Try with scheme and netloc
+                                        path_with_schema_and_netloc = f"{parsed_url.scheme}://{parsed_url.netloc}/{img_path}"
+                                        response = requests.get(
+                                            path_with_schema_and_netloc,
+                                            stream=True,
+                                            timeout=10,
+                                            headers={"User-Agent": USER_AGENT_STRING},
+                                        )
+                                        response.raise_for_status()
+                                        image = Image.open(BytesIO(response.content))
+                                        images.append(image)
+                                    except Exception as e:
+                                        if verbose:
+                                            print(
+                                                f"[thepipe] Final attempt failed for image {img_path}: {e}"
+                                            )
+                                        continue
+                            else:
+                                if verbose:
+                                    print(
+                                        f"[thepipe] Skipping image {img_path} - all attempts failed"
+                                    )
+                                continue
+
+        except Exception as e:
+            if verbose:
+                print(f"[thepipe] Error scraping {url}: {e}")
+            # Fallback to simple requests
+            try:
+                response = requests.get(
+                    url, headers={"User-Agent": USER_AGENT_STRING}, timeout=30
+                )
+                response.raise_for_status()
+                soup = BeautifulSoup(response.content, "html.parser")
+
+                # Remove unwanted elements
+                for script in soup(["script", "style", "nav", "footer", "header"]):
+                    script.decompose()
+
+                markdown_content = markdownify.markdownify(
+                    str(soup), heading_style="ATX"
+                )
+                markdown_content = re.sub(r"\n{3,}", "\n\n", markdown_content).strip()
+                texts.append(markdown_content)
+
+                if verbose:
+                    print(
+                        f"[thepipe] Fallback extraction got {len(markdown_content)} characters"
+                    )
+
+            except Exception as fallback_e:
+                if verbose:
+                    print(f"[thepipe] Fallback also failed: {fallback_e}")
+                texts.append("")
+
+        finally:
+            browser.close()
 
     text = "\n".join(texts).strip()
     return Chunk(path=url, text=text, images=images)
