@@ -28,7 +28,6 @@ from .chunker import (
     chunk_by_length,
     chunk_agentic,
 )
-import tempfile
 import mimetypes
 import dotenv
 from magika import Magika
@@ -1048,14 +1047,18 @@ def scrape_github(
     # make new tempdir for cloned repo
     with tempfile.TemporaryDirectory() as temp_dir:
         # requires git
-        exit_code = os.system(
-            f'git clone --branch "{branch}" --single-branch {github_url} "{temp_dir}" --quiet'
-        )
-        if exit_code != 0:
+        import subprocess
+
+        try:
+            subprocess.run(
+                ["git", "clone", "--branch", branch, "--single-branch", github_url, temp_dir, "--quiet"],
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
             raise RuntimeError(
                 f"git clone failed for {github_url} at branch '{branch}'. "
                 "Verify the repository URL and branch name."
-            )
+            ) from e
         files_contents = scrape_directory(
             dir_path=temp_dir,
             inclusion_pattern=inclusion_pattern,
