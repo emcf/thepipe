@@ -9,6 +9,12 @@ from openai import OpenAI
 
 from .scraper import scrape_directory, scrape_file, scrape_url
 from .core import DEFAULT_AI_MODEL, save_outputs
+from .provider import (
+    PROVIDER_PRESETS,
+    create_provider_client,
+    detect_provider,
+    get_provider_preset,
+)
 
 
 # Argument parsing
@@ -23,7 +29,7 @@ def parse_arguments() -> argparse.Namespace:  # noqa: D401 – imperative is fin
     """
     parser = argparse.ArgumentParser(
         prog="thepipe",
-        description="Universal document/Web scraper with optional OpenAI extraction.",
+        description="Universal document/Web scraper with optional LLM extraction.",
     )
 
     # Required source (file, directory, or URL)
@@ -54,7 +60,23 @@ def parse_arguments() -> argparse.Namespace:  # noqa: D401 – imperative is fin
         help="Suppress images – output only extracted text.",
     )
 
-    # OpenAI-related flags
+    # Provider selection
+    available_providers = ", ".join(sorted(PROVIDER_PRESETS))
+    parser.add_argument(
+        "--provider",
+        default=None,
+        help=f"LLM provider to use ({available_providers}). "
+        "Auto-detected from environment variables if omitted.",
+    )
+    parser.add_argument(
+        "--api-key",
+        dest="api_key",
+        default=None,
+        help="API key for the selected provider. "
+        "Falls back to the provider's environment variable (e.g. OPENAI_API_KEY, MINIMAX_API_KEY).",
+    )
+
+    # OpenAI-related flags (kept for backwards compatibility)
     parser.add_argument(
         "--openai-api-key",
         dest="openai_api_key",
@@ -114,34 +136,46 @@ def main() -> None:
     """CLI entry point"""
     args = parse_arguments()
 
-    # Instantiate the OpenAI client if requested
-    openai_client = create_openai_client(
-        api_key=args.openai_api_key,
-        base_url=args.openai_base_url,
-        enable_vlm=args.ai_extraction,
-    )
+    # Determine model and client based on provider selection
+    if args.provider or args.api_key:
+        # New provider-based path
+        provider_name = args.provider or detect_provider()
+        preset = get_provider_preset(provider_name)
+        client, _ = create_provider_client(
+            provider=provider_name,
+            api_key=args.api_key,
+        )
+        model = args.openai_model if args.openai_model != DEFAULT_AI_MODEL else preset.default_model
+    else:
+        # Legacy OpenAI-only path
+        client = create_openai_client(
+            api_key=args.openai_api_key,
+            base_url=args.openai_base_url,
+            enable_vlm=args.ai_extraction,
+        )
+        model = args.openai_model
 
     # Delegate scraping based on source type
     if args.source.startswith(("http://", "https://")):
         chunks = scrape_url(
             args.source,
             verbose=args.verbose,
-            openai_client=openai_client,
-            model=args.openai_model,
+            openai_client=client,
+            model=model,
         )
     elif os.path.isdir(args.source):
         chunks = scrape_directory(
             dir_path=args.source,
             inclusion_pattern=args.inclusion_pattern,
             verbose=args.verbose,
-            openai_client=openai_client,
+            openai_client=client,
         )
     elif os.path.isfile(args.source):
         chunks = scrape_file(
             filepath=args.source,
             verbose=args.verbose,
-            openai_client=openai_client,
-            model=args.openai_model,
+            openai_client=client,
+            model=model,
         )
     else:
         raise ValueError(f"Invalid source: {args.source}")

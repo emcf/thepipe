@@ -1,3 +1,4 @@
+import json
 import re
 from typing import Dict, List, Optional, Tuple, Union
 from .core import (
@@ -6,6 +7,7 @@ from .core import (
     DEFAULT_AI_MODEL,
     DEFAULT_EMBEDDING_MODEL,
 )
+from .provider import strip_think_tags
 import numpy as np
 from pydantic import BaseModel
 from openai import OpenAI
@@ -303,19 +305,46 @@ def chunk_agentic(
         )
         user_prompt = numbered
 
-        completion = openai_client.beta.chat.completions.parse(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            response_format=SectionList,
-        )
-
-        if not completion.choices[0].message.parsed:
-            raise ValueError(
-                "LLM did not return a valid response during agentic chunking."
+        # Try structured output first (.beta.chat.completions.parse);
+        # fall back to json_object mode for providers that don't support it
+        # (e.g. MiniMax).
+        try:
+            completion = openai_client.beta.chat.completions.parse(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                response_format=SectionList,
             )
+            if not completion.choices[0].message.parsed:
+                raise ValueError(
+                    "LLM did not return a valid response during agentic chunking."
+                )
+        except Exception:
+            # Fallback: use json_object mode and parse manually
+            fallback = openai_client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                response_format={"type": "json_object"},
+            )
+            raw = fallback.choices[0].message.content or ""
+            raw = strip_think_tags(raw)
+            parsed_data = json.loads(raw)
+            completion = type("_Stub", (), {
+                "choices": [type("_Choice", (), {
+                    "message": type("_Msg", (), {
+                        "parsed": SectionList(**parsed_data),
+                    })(),
+                })()],
+            })()
+            if not completion.choices[0].message.parsed:
+                raise ValueError(
+                    "LLM did not return a valid response during agentic chunking."
+                )
 
         sections: List[Section] = completion.choices[0].message.parsed.sections
 
