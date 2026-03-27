@@ -75,6 +75,39 @@ pip install thepipe-api[all]
 
 By default, thepipe uses the [OpenAI API](https://platform.openai.com/docs/overview), so VLM features will work out-of-the-box provided you pass in an OpenAI client.
 
+### MiniMax setup
+
+[MiniMax](https://www.minimaxi.com/) is supported as a first-class provider. Its OpenAI-compatible API works with all of thepipe's LLM features (PDF VLM scraping, webpage analysis, agentic chunking, and structured extraction).
+
+```python
+from thepipe.provider import create_provider_client
+from thepipe.scraper import scrape_file
+
+client, preset = create_provider_client("minimax")
+
+chunks = scrape_file(
+    filepath="paper.pdf",
+    openai_client=client,
+    model="MiniMax-M2.7",  # or MiniMax-M2.5, MiniMax-M2.5-highspeed
+)
+```
+
+Or via the CLI:
+
+```bash
+export MINIMAX_API_KEY=your-key
+thepipe paper.pdf --provider minimax --verbose
+```
+
+Available MiniMax models:
+
+| Model | Context | Notes |
+|---|---|---|
+| `MiniMax-M2.7` | 1M tokens | Latest, recommended |
+| `MiniMax-M2.7-highspeed` | 1M tokens | Faster inference |
+| `MiniMax-M2.5` | 204K tokens | Previous generation |
+| `MiniMax-M2.5-highspeed` | 204K tokens | Fast inference |
+
 ### Custom VLM server setup (OpenRouter, OpenLLM, etc.)
 
 If you wish to use a local vision-language model or a different cloud provider, you can provide a custom OpenAI client, for example, by setting the base url to `https://openrouter.ai/api/v1` for [OpenRouter](https://openrouter.ai/), or `http://localhost:3000/v1` for a local server such as [OpenLLM](https://github.com/bentoml/OpenLLM). Note that uou must also pass the api key to your non-OpenAI cloud provider into the OpenAI client. The model name can be changed with the `model` parameter. By default, the model will be `gpt-4o`.
@@ -276,6 +309,12 @@ export GITHUB_TOKEN=...
 ## CLI Usage
 
 `thepipe <source> [options]`
+
+### Provider selection
+
+`--provider=NAME` LLM provider to use (`openai`, `minimax`). Auto-detected from environment variables if omitted.
+
+`--api-key=KEY` API key for the selected provider. Falls back to the provider's environment variable.
 
 ### AI scraping options
 
