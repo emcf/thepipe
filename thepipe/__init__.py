@@ -7,39 +7,28 @@ from typing import Optional
 
 from openai import OpenAI
 
-from .scraper import scrape_directory, scrape_file, scrape_url
 from .core import DEFAULT_AI_MODEL, save_outputs
+from .scraper import scrape_directory, scrape_file, scrape_url
 
 
-# Argument parsing
-def parse_arguments() -> argparse.Namespace:  # noqa: D401 – imperative is fine here
-    """
-    Parse CLI flags.
+def parse_arguments() -> argparse.Namespace:  # noqa: D401
+    """Parse CLI flags."""
 
-    Returns
-    -------
-    argparse.Namespace
-        Parsed arguments.
-    """
     parser = argparse.ArgumentParser(
         prog="thepipe",
         description="Universal document/Web scraper with optional OpenAI extraction.",
     )
 
-    # Required source (file, directory, or URL)
     parser.add_argument(
         "source",
         help="File path, directory, or URL to scrape.",
     )
-
-    # Optional flags
     parser.add_argument(
         "-i",
         "--inclusion-pattern",
         dest="inclusion_pattern",
         default=None,
-        help="Regex pattern – only files whose *full path* matches are scraped "
-        "(applies to directory/zip scraping).",
+        help="Regex pattern - only files whose full path matches are scraped (applies to directory/zip scraping).",
     )
     parser.add_argument(
         "-v",
@@ -51,15 +40,19 @@ def parse_arguments() -> argparse.Namespace:  # noqa: D401 – imperative is fin
         "--text-only",
         dest="text_only",
         action="store_true",
-        help="Suppress images – output only extracted text.",
+        help="Suppress images - output only extracted text.",
     )
-
-    # OpenAI-related flags
+    parser.add_argument(
+        "--allow-local-urls",
+        dest="allow_local_urls",
+        action="store_true",
+        help="Allow scraping localhost and private-network HTTP(S) URLs. Disabled by default for security.",
+    )
     parser.add_argument(
         "--openai-api-key",
         dest="openai_api_key",
         default=os.getenv("OPENAI_API_KEY"),
-        help="OpenAI API key.  If omitted, env variable OPENAI_API_KEY is used.",
+        help="OpenAI API key. If omitted, env variable OPENAI_API_KEY is used.",
     )
     parser.add_argument(
         "--openai-base-url",
@@ -73,18 +66,15 @@ def parse_arguments() -> argparse.Namespace:  # noqa: D401 – imperative is fin
         default=DEFAULT_AI_MODEL,
         help=f"Chat/VLM model to use (default: {DEFAULT_AI_MODEL}).",
     )
-
-    # Legacy flag (will be removed in future versions)
     parser.add_argument(
         "--ai-extraction",
         action="store_true",
-        help=argparse.SUPPRESS,  # hidden but still accepted
+        help=argparse.SUPPRESS,
     )
 
     return parser.parse_args()
 
 
-# OpenAI client factory
 def create_openai_client(
     *,
     api_key: Optional[str],
@@ -92,42 +82,37 @@ def create_openai_client(
     enable_vlm: bool,
 ) -> Optional[OpenAI]:
     if api_key:
-        # Normal path – user gave an explicit key
         return OpenAI(api_key=api_key, base_url=base_url)
 
     if enable_vlm:
-        # Old flag: fall back to env vars
         warnings.warn(
-            "--ai-extraction is deprecated; "
-            "please use --openai-api-key and --openai-model "
-            "(and optionally --openai-base-url) instead.",
+            "--ai-extraction is deprecated; please use --openai-api-key and "
+            "--openai-model (and optionally --openai-base-url) instead.",
             DeprecationWarning,
             stacklevel=2,
         )
         return OpenAI(base_url=base_url, api_key=os.getenv("OPENAI_API_KEY"))
 
-    # AI extraction disabled
     return None
 
 
 def main() -> None:
-    """CLI entry point"""
-    args = parse_arguments()
+    """CLI entry point."""
 
-    # Instantiate the OpenAI client if requested
+    args = parse_arguments()
     openai_client = create_openai_client(
         api_key=args.openai_api_key,
         base_url=args.openai_base_url,
         enable_vlm=args.ai_extraction,
     )
 
-    # Delegate scraping based on source type
     if args.source.startswith(("http://", "https://")):
         chunks = scrape_url(
             args.source,
             verbose=args.verbose,
             openai_client=openai_client,
             model=args.openai_model,
+            allow_local_urls=args.allow_local_urls,
         )
     elif os.path.isdir(args.source):
         chunks = scrape_directory(
@@ -146,7 +131,6 @@ def main() -> None:
     else:
         raise ValueError(f"Invalid source: {args.source}")
 
-    # Persist results
     save_outputs(
         chunks=chunks,
         verbose=args.verbose,
@@ -155,9 +139,8 @@ def main() -> None:
     )
 
     if args.verbose:
-        print(f"Scraping complete. Outputs saved to 'thepipe_output/'.")
+        print("Scraping complete. Outputs saved to 'thepipe_output/'.")
 
 
-# Entry-point shim
 if __name__ == "__main__":
     main()

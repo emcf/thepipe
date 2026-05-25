@@ -218,6 +218,7 @@ def extract_from_url(
     verbose: bool = False,
     chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_page,
     openai_client: Optional[OpenAI] = None,
+    allow_local_urls: bool = False,
 ) -> Tuple[List[Dict], int]:
     print(
         f"[thepipe] Extract functions will be deprecated in future versions. See the README for more information"
@@ -227,6 +228,7 @@ def extract_from_url(
         verbose=verbose,
         chunking_method=chunking_method,
         openai_client=openai_client,
+        allow_local_urls=allow_local_urls,
     )
     extracted_chunks, tokens_used = extract(
         chunks=chunks,

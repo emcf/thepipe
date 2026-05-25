@@ -3,12 +3,14 @@ import base64
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import OrderedDict
 from io import BytesIO, StringIO
+import ipaddress
 import math
 import re
 import fnmatch
 import os
+import socket
 import tempfile
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 import zipfile
 from PIL import Image
 import requests
@@ -80,14 +82,11 @@ USER_AGENT_STRING: str = os.getenv(
 )
 MAX_WHISPER_DURATION = int(os.getenv("MAX_WHISPER_DURATION", 600))  # 10 minutes
 
-TWITTER_DOMAINS = {
-    "https://twitter.com",
-    "https://www.twitter.com",
-    "https://x.com",
-    "https://www.x.com",
-}
-YOUTUBE_DOMAINS = {"https://www.youtube.com", "https://youtube.com"}
-GITHUB_DOMAINS = {"https://github.com", "https://www.github.com"}
+TWITTER_HOSTS = {"twitter.com", "www.twitter.com", "x.com", "www.x.com"}
+YOUTUBE_HOSTS = {"www.youtube.com", "youtube.com"}
+GITHUB_HOSTS = {"github.com", "www.github.com"}
+ALLOWED_REMOTE_SCHEMES = {"http", "https"}
+HTML_EXTENSIONS = {".html", ".htm", ".php", ".asp", ".aspx"}
 SCRAPING_PROMPT = os.getenv(
     "SCRAPING_PROMPT",
     """A document is given. Please output the entire extracted contents from the document in detailed markdown format.
@@ -110,6 +109,110 @@ def _load_whisper():
         ) from exc
 
     return whisper
+
+
+def _is_public_ip_address(ip_text: str) -> bool:
+    ip = ipaddress.ip_address(ip_text)
+    return ip.is_global
+
+
+def _hostname_resolves_publicly(hostname: str) -> bool:
+    try:
+        addrinfo = socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
+    except socket.gaierror:
+        # Let the underlying request/browser surface resolution failures.
+        return True
+
+    found_ip = False
+    for _, _, _, _, sockaddr in addrinfo:
+        ip_text = sockaddr[0]
+        try:
+            if not _is_public_ip_address(ip_text):
+                return False
+            found_ip = True
+        except ValueError:
+            continue
+    return found_ip
+
+
+def _validate_remote_url(
+    url: str,
+    allow_local_urls: bool = False,
+    allowed_hosts: Optional[set[str]] = None,
+) -> str:
+    parsed = urlparse(url)
+    scheme = parsed.scheme.lower()
+    if scheme not in ALLOWED_REMOTE_SCHEMES:
+        raise ValueError(
+            f"Unsupported URL scheme for scrape_url: '{scheme or 'missing'}'. "
+            "Only http:// and https:// URLs are allowed. Use scrape_file() for local files."
+        )
+
+    hostname = (parsed.hostname or "").lower()
+    if not hostname:
+        raise ValueError(f"URL must include a hostname: {url}")
+
+    if allowed_hosts is not None and hostname not in allowed_hosts:
+        raise ValueError(
+            f"URL hostname '{hostname}' is not supported for this scraper."
+        )
+
+    if allow_local_urls:
+        return url
+
+    if hostname == "localhost" or hostname.endswith(".localhost"):
+        raise ValueError(
+            f"Local and private-network URLs are blocked by default: {url}"
+        )
+
+    try:
+        hostname_ip = ipaddress.ip_address(hostname)
+    except ValueError:
+        hostname_ip = None
+
+    if hostname_ip is not None:
+        if not hostname_ip.is_global:
+            raise ValueError(
+                f"Local and private-network URLs are blocked by default: {url}"
+            )
+    elif not _hostname_resolves_publicly(hostname):
+        raise ValueError(
+            f"Local and private-network URLs are blocked by default: {url}"
+        )
+
+    return url
+
+
+def _request_remote_url(
+    url: str,
+    *,
+    timeout: int,
+    allow_local_urls: bool = False,
+    allowed_hosts: Optional[set[str]] = None,
+    headers: Optional[Dict[str, str]] = None,
+) -> requests.Response:
+    _validate_remote_url(
+        url,
+        allow_local_urls=allow_local_urls,
+        allowed_hosts=allowed_hosts,
+    )
+    response = requests.get(url, timeout=timeout, headers=headers)
+    response.raise_for_status()
+    return response
+
+
+def _safe_image_request(
+    image_url: str,
+    *,
+    allow_local_urls: bool = False,
+) -> Image.Image:
+    response = _request_remote_url(
+        image_url,
+        timeout=10,
+        allow_local_urls=allow_local_urls,
+        headers={"User-Agent": USER_AGENT_STRING},
+    )
+    return Image.open(BytesIO(response.content))
 
 
 def detect_source_mimetype(source: str) -> str:
@@ -494,7 +597,9 @@ def scrape_pdf(
     return chunks
 
 
-def get_images_from_markdown(text: str) -> List[Image.Image]:
+def get_images_from_markdown(
+    text: str, allow_local_urls: bool = False
+) -> List[Image.Image]:
     image_urls = re.findall(r"!\[.*?\]\((.*?)\)", text)
     images = []
     for url in image_urls:
@@ -504,16 +609,10 @@ def get_images_from_markdown(text: str) -> List[Image.Image]:
             continue
 
         try:
-            response = requests.get(
-                url,
-                timeout=10,
-                headers={"User-Agent": USER_AGENT_STRING},
-            )
-            response.raise_for_status()
+            img = _safe_image_request(url, allow_local_urls=allow_local_urls)
         except Exception:
             continue
 
-        img = Image.open(BytesIO(response.content))
         images.append(img)
     return images
 
@@ -553,9 +652,11 @@ def parse_webpage_with_vlm(
     verbose: Optional[bool] = False,
     openai_client: Optional[OpenAI] = None,
     include_output_images: bool = True,
+    allow_local_urls: bool = False,
 ) -> Chunk:
     if openai_client is None:
         raise ValueError("parse_webpage_with_vlm requires an openai_client argument.")
+    _validate_remote_url(url, allow_local_urls=allow_local_urls)
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as p:
@@ -643,13 +744,17 @@ def parse_webpage_with_vlm(
 
 
 def extract_page_content(
-    url: str, verbose: bool = False, include_output_images: bool = True
+    url: str,
+    verbose: bool = False,
+    include_output_images: bool = True,
+    allow_local_urls: bool = False,
 ) -> Chunk:
     from bs4 import BeautifulSoup
     from playwright.sync_api import sync_playwright
     import base64
     import requests
 
+    _validate_remote_url(url, allow_local_urls=allow_local_urls)
     texts: List[str] = []
     images: List[Image.Image] = []
 
@@ -728,83 +833,29 @@ def extract_page_content(
                                 )
                             continue
                     else:
+                        candidate_urls = [urljoin(url, img_path)]
                         try:
-                            # Try direct URL first
-                            response = requests.get(
-                                img_path,
-                                timeout=10,
-                                headers={"User-Agent": USER_AGENT_STRING},
+                            image = _safe_image_request(
+                                candidate_urls[0],
+                                allow_local_urls=allow_local_urls,
                             )
-                            response.raise_for_status()
-                            image = Image.open(BytesIO(response.content))
                             images.append(image)
                         except Exception as e:
                             if verbose:
-                                print(f"[thepipe] Error loading image {img_path}: {e}")
-                                print("[thepipe] Attempting to load path with schema.")
-
-                            # Try with schema if path is relative
-                            if not img_path.startswith(("http://", "https://")):
-                                try:
-                                    # Remove leading slashes
-                                    while img_path.startswith("/"):
-                                        img_path = img_path[1:]
-
-                                    # Try with just the scheme
-                                    parsed_url = urlparse(url)
-                                    path_with_schema = (
-                                        f"{parsed_url.scheme}://{img_path}"
-                                    )
-                                    response = requests.get(
-                                        path_with_schema,
-                                        timeout=10,
-                                        headers={"User-Agent": USER_AGENT_STRING},
-                                    )
-                                    response.raise_for_status()
-                                    image = Image.open(BytesIO(response.content))
-                                    images.append(image)
-                                except Exception as e:
-                                    if verbose:
-                                        print(
-                                            f"[thepipe] Error loading image {img_path} with schema: {e}"
-                                        )
-                                        print(
-                                            "[thepipe] Attempting to load with schema and netloc."
-                                        )
-
-                                    try:
-                                        # Try with scheme and netloc
-                                        path_with_schema_and_netloc = f"{parsed_url.scheme}://{parsed_url.netloc}/{img_path}"
-                                        response = requests.get(
-                                            path_with_schema_and_netloc,
-                                            timeout=10,
-                                            headers={"User-Agent": USER_AGENT_STRING},
-                                        )
-                                        response.raise_for_status()
-                                        image = Image.open(BytesIO(response.content))
-                                        images.append(image)
-                                    except Exception as e:
-                                        if verbose:
-                                            print(
-                                                f"[thepipe] Final attempt failed for image {img_path}: {e}"
-                                            )
-                                        continue
-                            else:
-                                if verbose:
-                                    print(
-                                        f"[thepipe] Skipping image {img_path} - all attempts failed"
-                                    )
-                                continue
+                                print(f"[thepipe] Skipping image {img_path}: {e}")
+                            continue
 
         except Exception as e:
             if verbose:
                 print(f"[thepipe] Error scraping {url}: {e}")
             # Fallback to simple requests
             try:
-                response = requests.get(
-                    url, headers={"User-Agent": USER_AGENT_STRING}, timeout=30
+                response = _request_remote_url(
+                    url,
+                    headers={"User-Agent": USER_AGENT_STRING},
+                    timeout=30,
+                    allow_local_urls=allow_local_urls,
                 )
-                response.raise_for_status()
                 soup = BeautifulSoup(response.content, "html.parser")
 
                 # Remove unwanted elements
@@ -842,18 +893,21 @@ def scrape_url(
     model: str = DEFAULT_AI_MODEL,
     include_input_images: bool = True,
     include_output_images: bool = True,
+    allow_local_urls: bool = False,
 ) -> List[Chunk]:
-    if any(url.startswith(domain) for domain in TWITTER_DOMAINS):
+    parsed_url = urlparse(url)
+    hostname = (parsed_url.hostname or "").lower()
+    if hostname in TWITTER_HOSTS:
         extraction = scrape_tweet(url=url, include_output_images=include_output_images)
         return extraction
-    elif any(url.startswith(domain) for domain in YOUTUBE_DOMAINS):
+    elif hostname in YOUTUBE_HOSTS:
         extraction = scrape_youtube(
             youtube_url=url,
             verbose=verbose,
             include_output_images=include_output_images,
         )
         return extraction
-    elif any(url.startswith(domain) for domain in GITHUB_DOMAINS):
+    elif hostname in GITHUB_HOSTS:
         extraction = scrape_github(
             github_url=url,
             verbose=verbose,
@@ -863,12 +917,18 @@ def scrape_url(
             include_output_images=include_output_images,
         )
         return extraction
-    _, extension = os.path.splitext(urlparse(url).path)
-    if extension and extension not in {".html", ".htm", ".php", ".asp", ".aspx"}:
+    _validate_remote_url(url, allow_local_urls=allow_local_urls)
+    _, extension = os.path.splitext(parsed_url.path)
+    if extension and extension not in HTML_EXTENSIONS:
         # if url leads to a file, attempt to download it and scrape it
         with tempfile.TemporaryDirectory() as temp_dir:
-            file_path = os.path.join(temp_dir, os.path.basename(url))
-            response = requests.get(url)
+            filename = os.path.basename(parsed_url.path) or "downloaded_file"
+            file_path = os.path.join(temp_dir, filename)
+            response = _request_remote_url(
+                url,
+                timeout=30,
+                allow_local_urls=allow_local_urls,
+            )
             # verify the ingress/egress with be within limits, if there are any set
             response_length = int(response.headers.get("Content-Length", 0))
             if FILESIZE_LIMIT_MB and response_length > FILESIZE_LIMIT_MB * 1024 * 1024:
@@ -894,10 +954,14 @@ def scrape_url(
                 model=model,
                 openai_client=openai_client,
                 include_output_images=include_output_images,
+                allow_local_urls=allow_local_urls,
             )
         else:
             chunk = extract_page_content(
-                url=url, verbose=verbose, include_output_images=include_output_images
+                url=url,
+                verbose=verbose,
+                include_output_images=include_output_images,
+                allow_local_urls=allow_local_urls,
             )
         chunks = chunking_method([chunk])
         # if no text or images were extracted, return error
@@ -1042,6 +1106,7 @@ def scrape_github(
     include_output_images: bool = True,
 ) -> List[Chunk]:
     files_contents: List[Chunk] = []
+    _validate_remote_url(github_url, allowed_hosts=GITHUB_HOSTS)
     if not GITHUB_TOKEN:
         raise ValueError("GITHUB_TOKEN environment variable is not set.")
     # make new tempdir for cloned repo

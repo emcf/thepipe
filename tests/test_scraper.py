@@ -1,10 +1,13 @@
 import json
 import tempfile
+import threading
 from typing import cast
 import unittest
 import os
+import socket
 import sys
 import zipfile
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from PIL import Image
 import pandas as pd
 
@@ -32,7 +35,9 @@ class test_scraper(unittest.TestCase):
         self.files_directory = os.path.join(os.path.dirname(__file__), "files")
         self.outputs_directory = "outputs"
         # create a client we can re-use for ai_extraction scenarios
-        self.client = OpenAI() if OpenAI is not None else None
+        self.client = (
+            OpenAI() if OpenAI is not None and os.getenv("OPENAI_API_KEY") else None
+        )
 
     def tearDown(self):
         # clean up outputs
@@ -76,6 +81,64 @@ class test_scraper(unittest.TestCase):
         # cast .text to str so Pylance knows it's not None
         text = cast(str, chunks[0].text)
         self.assertIn("Y", text)
+
+    def test_scrape_url_rejects_file_scheme(self):
+        with self.assertRaisesRegex(ValueError, "Only http:// and https:// URLs"):
+            scraper.scrape_url("file:///tmp/secret.html")
+
+    def test_scrape_url_rejects_localhost_html(self):
+        with self.assertRaisesRegex(
+            ValueError, "Local and private-network URLs are blocked by default"
+        ):
+            scraper.scrape_url("http://127.0.0.1:8000/internal.html")
+
+    def test_scrape_url_rejects_localhost_download(self):
+        with self.assertRaisesRegex(
+            ValueError, "Local and private-network URLs are blocked by default"
+        ):
+            scraper.scrape_url("http://127.0.0.1:8000/secret.txt")
+
+    def test_scrape_url_allows_localhost_with_opt_in(self):
+        canary = "LOCALHOST_DOWNLOAD_ALLOWED"
+        request_log = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                request_log.append(self.path)
+                body = canary.encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, format, *args):
+                return
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = cast(int, sock.getsockname()[1])
+
+        server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            chunks = scraper.scrape_url(
+                f"http://127.0.0.1:{port}/secret.txt",
+                allow_local_urls=True,
+            )
+        finally:
+            server.shutdown()
+            thread.join(timeout=5)
+            server.server_close()
+
+        self.assertEqual(request_log, ["/secret.txt"])
+        self.assertEqual(len(chunks), 1)
+        self.assertIn(canary, cast(str, chunks[0].text))
+
+    def test_scrape_github_rejects_confusable_host(self):
+        with self.assertRaisesRegex(ValueError, "hostname 'evil.example'"):
+            scraper.scrape_github("https://github.com@evil.example/owner/repo")
 
     def test_scrape_html(self):
         filepath = os.path.join(self.files_directory, "example.html")
