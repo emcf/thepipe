@@ -60,6 +60,7 @@ Total: $14.57 USD
                 result = extract_json_from_response(case["input"])
                 self.assertEqual(result, case["expected"])
 
+    @unittest.skipIf(not os.getenv("OPENAI_API_KEY"), "OpenAI API key required")
     def test_extract(self):
         # provide an explicit client so we cover the new parameter
         client = OpenAI()
