@@ -130,6 +130,13 @@ def detect_source_mimetype(source: str) -> str:
     return mimetype
 
 
+def _is_within_directory(root_path: str, candidate_path: str) -> bool:
+    try:
+        return os.path.commonpath([root_path, candidate_path]) == root_path
+    except ValueError:
+        return False
+
+
 def scrape_file(
     filepath: str,
     verbose: bool = False,
@@ -284,6 +291,8 @@ def scrape_directory(
     model: str = DEFAULT_AI_MODEL,
     include_input_images: bool = True,
     include_output_images: bool = True,
+    _root_dir: Optional[str] = None,
+    _visited_dirs: Optional[set[str]] = None,
 ) -> List[Chunk]:
     """
     inclusion_pattern: Optional regex string; only files whose path matches this pattern will be scraped.
@@ -292,10 +301,30 @@ def scrape_directory(
     # compile the include pattern once
     pattern = re.compile(inclusion_pattern) if inclusion_pattern else None
     extraction: List[Chunk] = []
+    canonical_root = os.path.realpath(_root_dir or dir_path)
+    current_dir = os.path.realpath(dir_path)
+    visited_dirs = _visited_dirs if _visited_dirs is not None else set()
+
+    if not _is_within_directory(canonical_root, current_dir):
+        if verbose:
+            print(f"[thepipe] Skipping path outside root: {dir_path}")
+        return extraction
+
+    if current_dir in visited_dirs:
+        if verbose:
+            print(f"[thepipe] Skipping already visited directory: {current_dir}")
+        return extraction
+    visited_dirs.add(current_dir)
 
     try:
         for entry in os.scandir(dir_path):
             path = entry.path
+            resolved_path = os.path.realpath(path)
+
+            if not _is_within_directory(canonical_root, resolved_path):
+                if verbose:
+                    print(f"[thepipe] Skipping path outside root: {path}")
+                continue
 
             # skip ignored directories
             if entry.is_dir() and any(
@@ -321,9 +350,9 @@ def scrape_directory(
                     continue
 
                 if verbose:
-                    print(f"[thepipe] Scraping file: {path}")
+                    print(f"[thepipe] Scraping file: {resolved_path}")
                 extraction += scrape_file(
-                    filepath=path,
+                    filepath=resolved_path,
                     verbose=verbose,
                     openai_client=openai_client,
                     model=model,
@@ -334,15 +363,17 @@ def scrape_directory(
             elif entry.is_dir():
                 # recurse into subdirectory
                 if verbose:
-                    print(f"[thepipe] Entering directory: {path}")
+                    print(f"[thepipe] Entering directory: {resolved_path}")
                 extraction += scrape_directory(
-                    dir_path=path,
+                    dir_path=resolved_path,
                     inclusion_pattern=inclusion_pattern,
                     verbose=verbose,
                     openai_client=openai_client,
                     model=model,
                     include_input_images=include_input_images,
                     include_output_images=include_output_images,
+                    _root_dir=canonical_root,
+                    _visited_dirs=visited_dirs,
                 )
     except PermissionError as e:
         if verbose:
