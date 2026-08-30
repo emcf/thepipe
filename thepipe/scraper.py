@@ -73,21 +73,12 @@ FILES_TO_IGNORE = {
     ".DS_Store",
     "Thumbs.db",
 }
-GITHUB_TOKEN: Optional[str] = os.getenv("GITHUB_TOKEN", None)
 USER_AGENT_STRING: str = os.getenv(
     "USER_AGENT_STRING",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
 )
 MAX_WHISPER_DURATION = int(os.getenv("MAX_WHISPER_DURATION", 600))  # 10 minutes
 
-TWITTER_DOMAINS = {
-    "https://twitter.com",
-    "https://www.twitter.com",
-    "https://x.com",
-    "https://www.x.com",
-}
-YOUTUBE_DOMAINS = {"https://www.youtube.com", "https://youtube.com"}
-GITHUB_DOMAINS = {"https://github.com", "https://www.github.com"}
 SCRAPING_PROMPT = os.getenv(
     "SCRAPING_PROMPT",
     """A document is given. Please output the entire extracted contents from the document in detailed markdown format.
@@ -97,7 +88,6 @@ Always reply immediately with only markdown.
 Do not give the markdown in a code block. Simply output the raw markdown immediately.
 Do not output anything else.""",
 )
-FILESIZE_LIMIT_MB = int(os.getenv("FILESIZE_LIMIT_MB", 50))  # for url scraping only
 
 
 def _load_whisper():
@@ -163,7 +153,7 @@ def scrape_file(
     List[Chunk]
         A list of Chunk objects containing the scraped content.
     """
-    # returns chunks of scraped content from any source (file, URL, etc.)
+    # returns chunks of scraped content from the given file
     scraped_chunks = []
     source_mimetype = detect_source_mimetype(filepath)
     if source_mimetype is None:
@@ -385,7 +375,7 @@ def scrape_pdf(
 ) -> List[Chunk]:
     chunks: List[Chunk] = []
 
-    # Branch 1 – VLM path (OpenAI client supplied)
+    # Branch 1 â€“ VLM path (OpenAI client supplied)
     if openai_client is not None:
         with open(file_path, "rb") as fp:
             pdf_bytes = fp.read()
@@ -398,7 +388,7 @@ def scrape_pdf(
                 f"({num_pages} pages) with model {model}"
             )
 
-        # Inner worker – processes one page
+        # Inner worker â€“ processes one page
         def _process_page(page_num: int) -> Tuple[int, str, Optional[Image.Image]]:
             page = doc[page_num]
             text = page.get_text()  # type: ignore[attr-defined]
@@ -473,7 +463,7 @@ def scrape_pdf(
 
         return chunks
 
-    # Branch 2 – no OpenAI client – text-only offline mode
+    # Branch 2 â€“ no OpenAI client â€“ text-only offline mode
     from pymupdf4llm.helpers.pymupdf_rag import to_markdown  # local import
 
     doc = fitz.open(file_path)
@@ -545,367 +535,6 @@ def scrape_spreadsheet(file_path: str, source_type: str) -> List[Chunk]:
         item_json = json.dumps(item, indent=4)
         chunks.append(Chunk(path=file_path, text=item_json))
     return chunks
-
-
-def parse_webpage_with_vlm(
-    url: str,
-    model: str = DEFAULT_AI_MODEL,
-    verbose: Optional[bool] = False,
-    openai_client: Optional[OpenAI] = None,
-    include_output_images: bool = True,
-) -> Chunk:
-    if openai_client is None:
-        raise ValueError("parse_webpage_with_vlm requires an openai_client argument.")
-    from playwright.sync_api import sync_playwright
-
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        context = browser.new_context(user_agent=USER_AGENT_STRING)
-        page = context.new_page()
-        page.goto(url, wait_until="domcontentloaded")
-        if not page.viewport_size:
-            page.set_viewport_size({"width": 800, "height": 600})
-        if not page.viewport_size:
-            raise ValueError(
-                "Failed to set viewport size after finding no viewport size"
-            )
-        viewport_height = page.viewport_size.get("height", 800)
-        total_height = page.evaluate("document.body.scrollHeight")
-        current_scroll_position = 0
-        scrolldowns, max_scrolldowns = 0, 3
-        images: List[Image.Image] = []
-
-        while current_scroll_position < total_height and scrolldowns < max_scrolldowns:
-            page.wait_for_timeout(200)  # wait for content to load
-            screenshot = page.screenshot(full_page=False)
-            img = Image.open(BytesIO(screenshot))
-            images.append(img)
-
-            current_scroll_position += viewport_height
-            page.evaluate(f"window.scrollTo(0, {current_scroll_position})")
-            scrolldowns += 1
-            total_height = page.evaluate("document.body.scrollHeight")
-            if verbose:
-                print(
-                    f"[thepipe] Scrolled to {current_scroll_position} of {total_height}. Waiting for content to load..."
-                )
-
-        browser.close()
-
-    if images:
-        # Vertically stack the images
-        total_height = sum(img.height for img in images)
-        max_width = max(img.width for img in images)
-        stacked_image = Image.new("RGB", (max_width, total_height))
-        y_offset = 0
-        for img in images:
-            stacked_image.paste(img, (0, y_offset))
-            y_offset += img.height
-
-        # Process the stacked image with VLM
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": make_image_url(
-                                stacked_image, host_images=HOST_IMAGES
-                            ),
-                            "detail": "high",
-                        },
-                    },
-                    {"type": "text", "text": SCRAPING_PROMPT},
-                ],
-            },
-        ]
-        response = openai_client.chat.completions.create(
-            model=model,
-            messages=cast(Iterable[ChatCompletionMessageParam], messages),
-        )
-        llm_response = response.choices[0].message.content
-        if not llm_response:
-            raise Exception(
-                f"Failed to receive a message content from LLM Response: {response}"
-            )
-        if verbose:
-            print(f"[thepipe] LLM response: {llm_response}")
-        chunk = Chunk(
-            path=url,
-            text=llm_response,
-            images=[stacked_image] if include_output_images else [],
-        )
-    else:
-        raise ValueError("Model received 0 images from webpage")
-
-    return chunk
-
-
-def extract_page_content(
-    url: str, verbose: bool = False, include_output_images: bool = True
-) -> Chunk:
-    from bs4 import BeautifulSoup
-    from playwright.sync_api import sync_playwright
-    import base64
-    import requests
-
-    texts: List[str] = []
-    images: List[Image.Image] = []
-
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        context = browser.new_context(user_agent=USER_AGENT_STRING)
-        page = context.new_page()
-
-        try:
-            page.goto(url, wait_until="domcontentloaded", timeout=10000)
-
-            # Wait for content to load
-            page.wait_for_timeout(1000)
-
-            # Scroll to load dynamic content
-            if not page.viewport_size:
-                page.set_viewport_size({"width": 1200, "height": 800})
-
-            viewport_height = page.viewport_size["height"]
-            total_height = page.evaluate("document.body.scrollHeight")
-            current_scroll_position = 0
-            scrolldowns, max_scrolldowns = 0, 5
-
-            while (
-                current_scroll_position < total_height and scrolldowns < max_scrolldowns
-            ):
-                page.wait_for_timeout(500)
-                current_scroll_position += viewport_height
-                page.evaluate(f"window.scrollTo(0, {current_scroll_position})")
-                scrolldowns += 1
-                new_height = page.evaluate("document.body.scrollHeight")
-                if new_height == total_height:
-                    break
-                total_height = new_height
-
-            # Extract HTML content
-            html_content = page.content()
-
-            # Parse with BeautifulSoup and clean up
-            soup = BeautifulSoup(html_content, "html.parser")
-
-            # Remove script and style elements
-            for script in soup(["script", "style", "nav", "footer", "header"]):
-                script.decompose()
-
-            # Convert to markdown
-            markdown_content = markdownify.markdownify(str(soup), heading_style="ATX")
-
-            # Clean up markdown
-            markdown_content = re.sub(r"\n{3,}", "\n\n", markdown_content)
-            markdown_content = markdown_content.strip()
-
-            if verbose:
-                print(
-                    f"[thepipe] Extracted {len(markdown_content)} characters from {url}"
-                )
-
-            texts.append(markdown_content)
-
-            # Extract images from the page using heuristics
-            if include_output_images:
-                for img in page.query_selector_all("img"):
-                    img_path = img.get_attribute("src")
-                    if not img_path:
-                        continue
-                    if img_path.startswith("data:image"):
-                        # Save base64 image to PIL Image
-                        try:
-                            decoded_data = base64.b64decode(img_path.split(",")[1])
-                            image = Image.open(BytesIO(decoded_data))
-                            images.append(image)
-                        except Exception as e:
-                            if verbose:
-                                print(
-                                    f"[thepipe] Ignoring error loading base64 image: {e}"
-                                )
-                            continue
-                    else:
-                        try:
-                            # Try direct URL first
-                            response = requests.get(
-                                img_path,
-                                timeout=10,
-                                headers={"User-Agent": USER_AGENT_STRING},
-                            )
-                            response.raise_for_status()
-                            image = Image.open(BytesIO(response.content))
-                            images.append(image)
-                        except Exception as e:
-                            if verbose:
-                                print(f"[thepipe] Error loading image {img_path}: {e}")
-                                print("[thepipe] Attempting to load path with schema.")
-
-                            # Try with schema if path is relative
-                            if not img_path.startswith(("http://", "https://")):
-                                try:
-                                    # Remove leading slashes
-                                    while img_path.startswith("/"):
-                                        img_path = img_path[1:]
-
-                                    # Try with just the scheme
-                                    parsed_url = urlparse(url)
-                                    path_with_schema = (
-                                        f"{parsed_url.scheme}://{img_path}"
-                                    )
-                                    response = requests.get(
-                                        path_with_schema,
-                                        timeout=10,
-                                        headers={"User-Agent": USER_AGENT_STRING},
-                                    )
-                                    response.raise_for_status()
-                                    image = Image.open(BytesIO(response.content))
-                                    images.append(image)
-                                except Exception as e:
-                                    if verbose:
-                                        print(
-                                            f"[thepipe] Error loading image {img_path} with schema: {e}"
-                                        )
-                                        print(
-                                            "[thepipe] Attempting to load with schema and netloc."
-                                        )
-
-                                    try:
-                                        # Try with scheme and netloc
-                                        path_with_schema_and_netloc = f"{parsed_url.scheme}://{parsed_url.netloc}/{img_path}"
-                                        response = requests.get(
-                                            path_with_schema_and_netloc,
-                                            timeout=10,
-                                            headers={"User-Agent": USER_AGENT_STRING},
-                                        )
-                                        response.raise_for_status()
-                                        image = Image.open(BytesIO(response.content))
-                                        images.append(image)
-                                    except Exception as e:
-                                        if verbose:
-                                            print(
-                                                f"[thepipe] Final attempt failed for image {img_path}: {e}"
-                                            )
-                                        continue
-                            else:
-                                if verbose:
-                                    print(
-                                        f"[thepipe] Skipping image {img_path} - all attempts failed"
-                                    )
-                                continue
-
-        except Exception as e:
-            if verbose:
-                print(f"[thepipe] Error scraping {url}: {e}")
-            # Fallback to simple requests
-            try:
-                response = requests.get(
-                    url, headers={"User-Agent": USER_AGENT_STRING}, timeout=30
-                )
-                response.raise_for_status()
-                soup = BeautifulSoup(response.content, "html.parser")
-
-                # Remove unwanted elements
-                for script in soup(["script", "style", "nav", "footer", "header"]):
-                    script.decompose()
-
-                markdown_content = markdownify.markdownify(
-                    str(soup), heading_style="ATX"
-                )
-                markdown_content = re.sub(r"\n{3,}", "\n\n", markdown_content).strip()
-                texts.append(markdown_content)
-
-                if verbose:
-                    print(
-                        f"[thepipe] Fallback extraction got {len(markdown_content)} characters"
-                    )
-
-            except Exception as fallback_e:
-                if verbose:
-                    print(f"[thepipe] Fallback also failed: {fallback_e}")
-                texts.append("")
-
-        finally:
-            browser.close()
-
-    text = "\n".join(texts).strip()
-    return Chunk(path=url, text=text, images=images)
-
-
-def scrape_url(
-    url: str,
-    verbose: bool = False,
-    chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_page,
-    openai_client: Optional[OpenAI] = None,
-    model: str = DEFAULT_AI_MODEL,
-    include_input_images: bool = True,
-    include_output_images: bool = True,
-) -> List[Chunk]:
-    if any(url.startswith(domain) for domain in TWITTER_DOMAINS):
-        extraction = scrape_tweet(url=url, include_output_images=include_output_images)
-        return extraction
-    elif any(url.startswith(domain) for domain in YOUTUBE_DOMAINS):
-        extraction = scrape_youtube(
-            youtube_url=url,
-            verbose=verbose,
-            include_output_images=include_output_images,
-        )
-        return extraction
-    elif any(url.startswith(domain) for domain in GITHUB_DOMAINS):
-        extraction = scrape_github(
-            github_url=url,
-            verbose=verbose,
-            openai_client=openai_client,
-            model=model,
-            include_input_images=include_input_images,
-            include_output_images=include_output_images,
-        )
-        return extraction
-    _, extension = os.path.splitext(urlparse(url).path)
-    if extension and extension not in {".html", ".htm", ".php", ".asp", ".aspx"}:
-        # if url leads to a file, attempt to download it and scrape it
-        with tempfile.TemporaryDirectory() as temp_dir:
-            file_path = os.path.join(temp_dir, os.path.basename(url))
-            response = requests.get(url)
-            # verify the ingress/egress with be within limits, if there are any set
-            response_length = int(response.headers.get("Content-Length", 0))
-            if FILESIZE_LIMIT_MB and response_length > FILESIZE_LIMIT_MB * 1024 * 1024:
-                raise ValueError(f"File size exceeds {FILESIZE_LIMIT_MB} MB limit.")
-            with open(file_path, "wb") as file:
-                file.write(response.content)
-            chunks = scrape_file(
-                filepath=file_path,
-                verbose=verbose,
-                chunking_method=chunking_method,
-                openai_client=openai_client,
-                model=model,
-                include_input_images=include_input_images,
-                include_output_images=include_output_images,
-            )
-        return chunks
-    else:
-        # if url leads to web content, scrape it directly
-        if openai_client and include_input_images:
-            chunk = parse_webpage_with_vlm(
-                url=url,
-                verbose=verbose,
-                model=model,
-                openai_client=openai_client,
-                include_output_images=include_output_images,
-            )
-        else:
-            chunk = extract_page_content(
-                url=url, verbose=verbose, include_output_images=include_output_images
-            )
-        chunks = chunking_method([chunk])
-        # if no text or images were extracted, return error
-        if not any(chunk.text for chunk in chunks) and not any(
-            chunk.images for chunk in chunks
-        ):
-            raise ValueError("No content extracted from URL.")
-        return chunks
 
 
 def format_timestamp(seconds, chunk_index, chunk_duration):
@@ -990,29 +619,6 @@ def scrape_video(
     return chunks
 
 
-def scrape_youtube(
-    youtube_url: str,
-    verbose: bool = False,
-    include_output_images: bool = True,
-) -> List[Chunk]:
-    from pytube import YouTube
-
-    with tempfile.TemporaryDirectory() as temp_dir:
-        filename = "temp_video.mp4"
-        yt = YouTube(youtube_url)
-        stream = yt.streams.filter(progressive=True, file_extension="mp4").first()
-        if stream is None:
-            raise ValueError("No progressive stream for video found.")
-        stream.download(temp_dir, filename=filename)
-        video_path = os.path.join(temp_dir, filename)
-        chunks = scrape_video(
-            file_path=video_path,
-            verbose=verbose,
-            include_output_images=include_output_images,
-        )
-    return chunks
-
-
 def scrape_audio(file_path: str, verbose: bool = False) -> List[Chunk]:
     whisper = _load_whisper()
 
@@ -1029,46 +635,6 @@ def scrape_audio(file_path: str, verbose: bool = False) -> List[Chunk]:
     # join the formatted transcription into a single string
     transcript_text = "\n".join(transcript)
     return [Chunk(path=file_path, text=transcript_text)]
-
-
-def scrape_github(
-    github_url: str,
-    inclusion_pattern: Optional[str] = None,
-    branch: str = "main",
-    verbose: bool = False,
-    openai_client: Optional[OpenAI] = None,
-    model: str = DEFAULT_AI_MODEL,
-    include_input_images: bool = True,
-    include_output_images: bool = True,
-) -> List[Chunk]:
-    files_contents: List[Chunk] = []
-    if not GITHUB_TOKEN:
-        raise ValueError("GITHUB_TOKEN environment variable is not set.")
-    # make new tempdir for cloned repo
-    with tempfile.TemporaryDirectory() as temp_dir:
-        # requires git
-        import subprocess
-
-        try:
-            subprocess.run(
-                ["git", "clone", "--branch", branch, "--single-branch", github_url, temp_dir, "--quiet"],
-                check=True,
-            )
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(
-                f"git clone failed for {github_url} at branch '{branch}'. "
-                "Verify the repository URL and branch name."
-            ) from e
-        files_contents = scrape_directory(
-            dir_path=temp_dir,
-            inclusion_pattern=inclusion_pattern,
-            verbose=verbose,
-            openai_client=openai_client,
-            model=model,
-            include_input_images=include_input_images,
-            include_output_images=include_output_images,
-        )
-    return files_contents
 
 
 def scrape_docx(
@@ -1257,44 +823,3 @@ def scrape_ipynb(
             text = "\n".join(texts).strip()
             chunks.append(Chunk(path=file_path, text=text, images=images))
     return chunks
-
-
-def scrape_tweet(url: str, include_output_images: bool = True) -> List[Chunk]:
-    """
-    Magic function from https://github.com/vercel/react-tweet/blob/main/packages/react-tweet/src/api/fetch-tweet.ts
-    unofficial, could break at any time
-    """
-
-    def get_token(id: str) -> str:
-        result = (float(id) / 1e15) * math.pi
-        base_36_result = ""
-        characters = "0123456789abcdefghijklmnopqrstuvwxyz"
-        while result > 0:
-            remainder = int(result % (6**2))
-            base_36_result = characters[remainder] + base_36_result
-            result = (result - remainder) // (6**2)
-        base_36_result = re.sub(r"(0+|\.)", "", base_36_result)
-        return base_36_result
-
-    tweet_id = url.split("status/")[-1].split("?")[0]
-    token = get_token(tweet_id)
-    tweet_api_url = "https://cdn.syndication.twimg.com/tweet-result"
-    params = {"id": tweet_id, "language": "en", "token": token}
-    response = requests.get(tweet_api_url, params=params)
-    if response.status_code != 200:
-        raise ValueError(f"Failed to fetch tweet. Status code: {response.status_code}")
-    tweet_data = response.json()
-    # Extract tweet text
-    tweet_text = tweet_data.get("text", "")
-    # Extract images from tweet
-    images: List[Image.Image] = []
-    if include_output_images and "mediaDetails" in tweet_data:
-        for media in tweet_data["mediaDetails"]:
-            image_url = media.get("media_url_https")
-            if image_url:
-                image_response = requests.get(image_url)
-                img = Image.open(BytesIO(image_response.content))
-                images.append(img)
-    # Create chunks for text and images
-    chunk = Chunk(path=url, text=tweet_text, images=images)
-    return [chunk]

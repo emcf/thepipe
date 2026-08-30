@@ -7,7 +7,7 @@ from typing import Optional
 
 from openai import OpenAI
 
-from .scraper import scrape_directory, scrape_file, scrape_url
+from .scraper import scrape_directory, scrape_file
 from .core import DEFAULT_AI_MODEL, save_outputs
 
 
@@ -23,13 +23,13 @@ def parse_arguments() -> argparse.Namespace:  # noqa: D401 – imperative is fin
     """
     parser = argparse.ArgumentParser(
         prog="thepipe",
-        description="Universal document/Web scraper with optional OpenAI extraction.",
+        description="Universal document scraper with optional OpenAI extraction.",
     )
 
-    # Required source (file, directory, or URL)
+    # Required source (file or directory)
     parser.add_argument(
         "source",
-        help="File path, directory, or URL to scrape.",
+        help="File path or directory to scrape.",
     )
 
     # Optional flags
@@ -122,14 +122,7 @@ def main() -> None:
     )
 
     # Delegate scraping based on source type
-    if args.source.startswith(("http://", "https://")):
-        chunks = scrape_url(
-            args.source,
-            verbose=args.verbose,
-            openai_client=openai_client,
-            model=args.openai_model,
-        )
-    elif os.path.isdir(args.source):
+    if os.path.isdir(args.source):
         chunks = scrape_directory(
             dir_path=args.source,
             inclusion_pattern=args.inclusion_pattern,

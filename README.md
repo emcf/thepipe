@@ -19,15 +19,15 @@
 
 ## Extract clean data from tricky documents ⚡
 
-thepi.pe is a package that can scrape clean markdown, multimodal media, and structured data from complex documents. It uses vision-language models (VLMs) under the hood for superior output quality, and works out-of-the-box with any LLM, VLM, or vector database. It can extract well-formatted data from a wide range of sources, including PDFs, URLs, Word docs, Powerpoints, Python notebooks, videos, audio, and more.
+thepi.pe is a package that can scrape clean markdown, multimodal media, and structured data from complex documents. It uses vision-language models (VLMs) under the hood for superior output quality, and works out-of-the-box with any LLM, VLM, or vector database. It can extract well-formatted data from a wide range of sources, including PDFs, Word docs, Powerpoints, Python notebooks, videos, audio, and more.
 
 ## Features 🌟
 
 - Scrape clean markdown, tables, and images from any document
-- Scrape text, images, video, and audio from any file or URL
+- Scrape text, images, video, and audio from any file
 - Works out-of-the-box with vision-language models, vector databases, and RAG frameworks
 - AI-native file-type detection, layout analysis, and structured data extraction
-- Accepts a wide range of sources, including PDFs, URLs, Word docs, Powerpoints, Python notebooks, GitHub repos, videos, audio, and more
+- Accepts a wide range of sources, including PDFs, Word docs, Powerpoints, Python notebooks, videos, audio, and more
 
 ## Get started in 5 minutes 🚀
 
@@ -58,11 +58,10 @@ pip install torch==2.5.1+cpu torchvision==0.20.1+cpu torchaudio==2.5.1+cpu \
 pip install thepipe-api[semantic]
 ```
 
-If you need full functionality with media-rich sources such as webpages, video, and audio, you can choose to install the following system dependencies:
+If you need full functionality with media-rich sources such as video and audio, you can choose to install the following system dependencies:
 
 ```bash
-apt-get update && apt-get install -y git ffmpeg
-python -m playwright install --with-deps chromium
+apt-get update && apt-get install -y ffmpeg
 ```
 
 and use the global installation with pip:
@@ -110,7 +109,7 @@ chunks = scrape_file(
 To satisfy token-limit constraints, the following chunking methods are available to split the content into smaller chunks.
 
 - `chunk_by_document`: Returns one chunk with the entire content of the file.
-- `chunk_by_page`: Returns one chunk for each page (for example: each webpage, PDF page, or PowerPoint slide).
+- `chunk_by_page`: Returns one chunk for each page (for example: each PDF page or PowerPoint slide).
 - `chunk_by_length`: Splits chunks by length.
 - `chunk_by_section`: Splits chunks by markdown section.
 - `chunk_by_keyword`: Splits chunks at keywords.
@@ -131,7 +130,7 @@ chunks = scrape_file(
 )
 
 # you can also re-chunk later.
-# chunk_by_page returns one chunk for each page (for example: each webpage, PDF page, or PowerPoint slide).
+# chunk_by_page returns one chunk for each page (for example: each PDF page or PowerPoint slide).
 chunks = chunk_by_page(chunks)
 ```
 
@@ -231,7 +230,6 @@ thepipe uses a combination of computer-vision models and heuristics to scrape cl
 
 | Source                       | Input types                                                                          | Multimodal | Notes                                                                                                                                                                                                                                         |
 | ---------------------------- | ------------------------------------------------------------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Webpage                      | URLs starting with `http`, `https`, `ftp`                                            | ✔️         | Scrapes markdown, images, and tables from web pages. AI extraction available by passing an OpenAI client for screenshot analysis                                                                                                              |
 | PDF                          | `.pdf`                                                                               | ✔️         | Extracts page markdown and page images. AI extraction available when an OpenAI client is supplied for complex or scanned documents                                                                                                            |
 | Word Document                | `.docx`                                                                              | ✔️         | Extracts text, tables, and images                                                                                                                                                                                                             |
 | PowerPoint                   | `.pptx`                                                                              | ✔️         | Extracts text and images from slides                                                                                                                                                                                                          |
@@ -243,9 +241,6 @@ thepipe uses a combination of computer-vision models and heuristics to scrape cl
 | Image                        | `.jpg`, `.jpeg`, `.png`                                                              | ✔️         | Uses VLM for OCR in text-only mode                                                                                                                                                                                                            |
 | ZIP File                     | `.zip`                                                                               | ✔️         | Extracts and processes contained files                                                                                                                                                                                                        |
 | Directory                    | any `path/to/folder`                                                                 | ✔️         | Recursively processes all files in directory. Optionally use `inclusion_pattern` to pass regex strings for file inclusion rules.                                                                                                              |
-| YouTube Video (known issues) | YouTube video URLs starting with `https://youtube.com` or `https://www.youtube.com`. | ✔️         | Uses pytube for video download and Whisper for transcription. For consistent extraction, you may need to modify your `pytube` installation to send a valid user-agent header (see [this issue](https://github.com/pytube/pytube/issues/399)). |
-| Tweet                        | URLs starting with `https://twitter.com` or `https://x.com`                          | ✔️         | Uses unofficial API, may break unexpectedly                                                                                                                                                                                                   |
-| GitHub Repository            | GitHub repo URLs starting with `https://github.com` or `https://www.github.com`      | ✔️         | Requires `GITHUB_TOKEN` environment variable                                                                                                                                                                                                  |
 
 ## Configuration & Environment
 
@@ -255,22 +250,12 @@ Set these environment variables to control API keys, hosting, and model defaults
 # If you want longer-term image storage and hosting (saves to ./images and serves via HOST_URL)
 export HOST_IMAGES=true
 
-# GitHub token for scraping private/public repos via `scrape_url`
-export GITHUB_TOKEN=ghp_...
-
 # Control scraping defaults
 export DEFAULT_AI_MODEL=gpt-4o
 export DEFAULT_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
-export FILESIZE_LIMIT_MB=50
 
 # Max duration (in seconds) for audio transcription
 export MAX_WHISPER_DURATION=600
-
-# Filesize limit for webpages in mb
-export FILESIZE_LIMIT_MB = 50
-
-# Credientials for scraping repositories
-export GITHUB_TOKEN=...
 ```
 
 ## CLI Usage

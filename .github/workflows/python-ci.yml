@@ -16,15 +16,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 18
-      - name: Install playwright
-        run: |
-          npm install playwright
-          npm install playwright-core
-      - name: Install Playwright
-        run: npx playwright install --with-deps
       - name: Set up Python 3.10
         uses: actions/setup-python@v3
         with:
@@ -37,8 +28,6 @@ jobs:
           pip install flake8 coverage
           pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu
           pip install -e .[all]
-      - name: Install playwright browsers
-        run: python -m playwright install
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names

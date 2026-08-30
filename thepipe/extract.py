@@ -7,7 +7,7 @@ from .core import (
     calculate_tokens,
     DEFAULT_AI_MODEL,
 )
-from .scraper import scrape_url, scrape_file
+from .scraper import scrape_file
 from .chunker import (
     chunk_by_page,
     chunk_by_document,
@@ -17,7 +17,6 @@ from .chunker import (
     chunk_by_length,
     chunk_agentic,
 )
-import requests
 import os
 from openai import OpenAI
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
@@ -206,38 +205,6 @@ def extract(
 
     results.sort(key=lambda x: x["chunk_index"])
     return results, total_tokens_used
-
-
-def extract_from_url(
-    url: str,
-    schema: Union[str, Dict],
-    model: str = DEFAULT_AI_MODEL,
-    multiple_extractions: bool = False,
-    extraction_prompt: str = DEFAULT_EXTRACTION_PROMPT,
-    host_images: bool = False,
-    verbose: bool = False,
-    chunking_method: Callable[[List[Chunk]], List[Chunk]] = chunk_by_page,
-    openai_client: Optional[OpenAI] = None,
-) -> Tuple[List[Dict], int]:
-    print(
-        f"[thepipe] Extract functions will be deprecated in future versions. See the README for more information"
-    )
-    chunks = scrape_url(
-        url,
-        verbose=verbose,
-        chunking_method=chunking_method,
-        openai_client=openai_client,
-    )
-    extracted_chunks, tokens_used = extract(
-        chunks=chunks,
-        schema=schema,
-        model=model,
-        multiple_extractions=multiple_extractions,
-        extraction_prompt=extraction_prompt,
-        host_images=host_images,
-        openai_client=openai_client,
-    )
-    return extracted_chunks, tokens_used
 
 
 def extract_from_file(

@@ -23,7 +23,7 @@ EXTRAS["all"] = sorted({pkg for deps in EXTRAS.values() for pkg in deps})
 
 setup(
     name="thepipe_api",
-    version="1.7.2",
+    version="1.7.3",
     author="Emmett McFarlane",
     author_email="emmett@thepi.pe",
     description="Get clean data from tricky documents, powered by VLMs.",
