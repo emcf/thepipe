@@ -327,12 +327,12 @@ def chunk_agentic(
             end = max(start, min(end, len(lines)))
 
             sec_lines = lines[start - 1 : end]
-            seen_imgs = set()
+            seen_imgs = []
             sec_images = []
             for idx in range(start - 1, end):
                 for img in getattr(line_to_chunk[idx], "images", []):
                     if img not in seen_imgs:
-                        seen_imgs.add(img)
+                        seen_imgs.append(img)
                         sec_images.append(img)
 
             # prepend header
