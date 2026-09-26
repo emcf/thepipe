@@ -21,13 +21,6 @@
 
 thepi.pe is a package that can scrape clean markdown, multimodal media, and structured data from complex files. It uses vision-language models (VLMs) under the hood for superior output quality, and works out-of-the-box with any LLM, VLM, or vector database. It can extract well-formatted data from a wide range of sources, including PDFs, Word docs, Powerpoints, Python notebooks, videos, audio, and more. If you've tried PyMuPDF, Markitdown, Azure Document Intelligence, and Docling, this will be the last library you try.
 
-<div align="center">
-  <p><b>Scrape</b> — <code>scrape_file()</code> returns page markdown plus detected figures with bounding boxes</p>
-  <img src="https://rpnutzemutbrumczwvue.supabase.co/storage/v1/object/public/assets/thepipe_scrape_demo.png" alt="scrape output: markdown and figure bounding boxes" width="100%">
-  <p><b>Extract</b> — <code>extract()</code> fills a Pydantic schema from the scraped chunks</p>
-  <img src="https://rpnutzemutbrumczwvue.supabase.co/storage/v1/object/public/assets/thepipe_demo.png" alt="extract output: structured fleet schedule" width="100%">
-</div>
-
 ## Features 🌟
 
 - Get clean markdown, tables, and images from any file
