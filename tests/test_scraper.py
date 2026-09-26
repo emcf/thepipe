@@ -5,7 +5,7 @@ import unittest
 import os
 import sys
 import zipfile
-from PIL import Image
+from PIL import Image, ImageStat
 import pandas as pd
 
 try:
@@ -188,7 +188,7 @@ class test_scraper(unittest.TestCase):
     }
 
     def _make_figure_pdf(self, path: str) -> None:
-        import fitz
+        import pymupdf
         from io import BytesIO
 
         def solid_png(colour):
@@ -196,7 +196,7 @@ class test_scraper(unittest.TestCase):
             Image.new("RGB", (480, 320), colour).save(buf, format="PNG")
             return buf.getvalue()
 
-        doc = fitz.open()
+        doc = pymupdf.open()
         page = doc.new_page(width=612, height=792)
         page.insert_text((50, 70), "Quarterly Widget Report", fontsize=22)
         page.insert_text(
@@ -210,7 +210,7 @@ class test_scraper(unittest.TestCase):
             fontsize=11,
         )
         for colour, rect in self.FIGURE_RECTS.items():
-            page.insert_image(fitz.Rect(*rect), stream=solid_png(colour))
+            page.insert_image(pymupdf.Rect(*rect), stream=solid_png(colour))
         page.insert_text((50, 372), "Figure 1: Northern market", fontsize=9)
         page.insert_text((322, 372), "Figure 2: Southern market", fontsize=9)
         # table: 3 columns x 3 rows with ruled lines
@@ -254,10 +254,7 @@ class test_scraper(unittest.TestCase):
         matched = set()
         for crop, figure in zip(chunk.images, figures):
             self.assertTrue(figure["description"])
-            r, g, b = (
-                sum(band) / len(band)
-                for band in zip(*crop.convert("RGB").resize((32, 32)).getdata())
-            )
+            r, g, b = ImageStat.Stat(crop.convert("RGB")).mean
             colour = min(
                 self.FIGURE_RECTS,
                 key=lambda c: abs(c[0] - r) + abs(c[1] - g) + abs(c[2] - b),

@@ -35,7 +35,7 @@ import mimetypes
 import dotenv
 from magika import Magika
 import markdownify
-import fitz
+import pymupdf
 from openai import OpenAI
 from openai.types.chat import ChatCompletionContentPartParam
 from openai.types.shared_params import ReasoningEffort
@@ -521,7 +521,7 @@ def scrape_pdf(
     if openai_client is not None:
         with open(file_path, "rb") as fp:
             pdf_bytes = fp.read()
-        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
         num_pages = len(doc)
 
         if verbose:
@@ -538,7 +538,7 @@ def scrape_pdf(
             if max_input_image_size is not None:
                 rect = page.rect
                 scale = min(scale, max_input_image_size / max(rect.width, rect.height))
-            pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)  # type: ignore[attr-defined]
+            pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)  # type: ignore[attr-defined]
             page_image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
 
             msg_content: List[ChatCompletionContentPartParam] = [
@@ -606,10 +606,14 @@ def scrape_pdf(
         return chunks
 
     # Branch 2 – no OpenAI client – text-only offline mode
-    from pymupdf4llm.helpers.pymupdf_rag import to_markdown  # local import
+    import pymupdf4llm  # local import
 
-    doc = fitz.open(file_path)
-    md_pages = cast(List[Dict[str, Any]], to_markdown(file_path, page_chunks=True))
+    doc = pymupdf.open(file_path)
+    # OCR off: it depends on a system Tesseract install and prints to stdout
+    md_pages = cast(
+        List[Dict[str, Any]],
+        pymupdf4llm.to_markdown(doc, page_chunks=True, use_ocr=False),
+    )
 
     for i in range(doc.page_count):
         text = re.sub(r"\n{3,}", "\n\n", md_pages[i]["text"]).strip()

@@ -7,15 +7,13 @@ def read_requirements(file):
 
 
 EXTRAS = {
-    "audio": ["openai-whisper>=20231117"],
-    "semantic": ["sentence-transformers>=2.2.2"],
-    "llama-index": ["llama-index>=0.10.50,<0.11"],
+    "audio": ["openai-whisper>=20250625"],
+    "semantic": ["sentence-transformers>=5.1"],
+    "llama-index": ["llama-index-core>=0.14"],
     "gpu": [
-        "torch>=2.5,<2.6",
-        "torchvision>=0.20,<0.21",
-        "torchaudio>=2.5,<2.6",
-        "sentence-transformers>=2.2.2",
-        "openai-whisper>=20231117",
+        "torch>=2.8",
+        "sentence-transformers>=5.1",
+        "openai-whisper>=20250625",
     ],
 }
 EXTRAS["all"] = sorted({pkg for deps in EXTRAS.values() for pkg in deps})
@@ -36,7 +34,7 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     install_requires=read_requirements("requirements.txt"),
     extras_require=EXTRAS,
     include_package_data=True,

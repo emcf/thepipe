@@ -45,14 +45,13 @@ The package exposes a set of extras so you can opt-in to heavier dependencies on
 | -------------------------- | ----------------------------------------- | ----------------------------------------------------- |
 | `thepipe-api[audio]`       | `openai-whisper`                          | Local audio/video transcription via Whisper.          |
 | `thepipe-api[semantic]`    | `sentence-transformers`                   | Semantic chunking with transformer embeddings.        |
-| `thepipe-api[llama-index]` | `llama-index`                             | `Chunk.to_llamaindex()` conversions.                  |
+| `thepipe-api[llama-index]` | `llama-index-core`                        | `Chunk.to_llamaindex()` conversions.                  |
 | `thepipe-api[gpu]`         | PyTorch + Whisper + Sentence Transformers | Full GPU acceleration with VLM fine-tuning workloads. |
 
 If you are targeting CPU-only machines but still need the extras that depend on PyTorch, install the CPU wheels directly from the PyTorch index first and then add the extra. For example:
 
 ```bash
-pip install torch==2.5.1+cpu torchvision==0.20.1+cpu torchaudio==2.5.1+cpu \
-  --index-url https://download.pytorch.org/whl/cpu
+pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install thepipe-api[semantic]
 ```
 
