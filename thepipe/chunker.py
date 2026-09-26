@@ -1,10 +1,13 @@
 import re
+from functools import lru_cache
 from typing import Dict, List, Optional, Tuple, Union
 from .core import (
     Chunk,
     calculate_tokens,
+    merge_metadata,
     DEFAULT_AI_MODEL,
     DEFAULT_EMBEDDING_MODEL,
+    llm_parse,
 )
 import numpy as np
 from pydantic import BaseModel
@@ -39,7 +42,14 @@ def chunk_by_document(chunks: List[Chunk]) -> List[Chunk]:
             doc_texts.append(chunk.text)
             doc_images.extend(chunk.images)
         text = "\n".join(doc_texts) if doc_texts else None
-        new_chunks.append(Chunk(path=doc_chunks[0].path, text=text, images=doc_images))
+        new_chunks.append(
+            Chunk(
+                path=doc_chunks[0].path,
+                text=text,
+                images=doc_images,
+                metadata=merge_metadata(doc_chunks),
+            )
+        )
     return new_chunks
 
 
@@ -55,31 +65,41 @@ def chunk_by_section(
     cur_text: Optional[str] = None
     cur_images: List = []
     cur_path: Optional[str] = None
+    cur_sources: List[Chunk] = []
+
+    def flush() -> None:
+        assert cur_text is not None
+        header = cur_text.split("\n", 1)[0]
+        metadata = merge_metadata(cur_sources)
+        if header.startswith(section_separator):
+            metadata["section"] = header[len(section_separator) :].strip()
+        section_chunks.append(
+            Chunk(
+                path=cur_path,
+                text=cur_text.rstrip("\n"),
+                images=cur_images.copy(),
+                metadata=metadata,
+            )
+        )
 
     for chunk in chunks:
         # Extract text (always a string or None)
         chunk_text = chunk.text or ""
         # Append images to current section once started
-        if cur_text is not None and getattr(chunk, "images", None):
-            if chunk.images:
-                cur_images.extend(chunk.images)
+        if cur_text is not None:
+            cur_images.extend(chunk.images)
+            cur_sources.append(chunk)
 
         for line in chunk_text.split("\n"):
             if line.startswith(section_separator):
                 # New section header found
                 if cur_text is not None:
-                    # Flush previous section
-                    section_chunks.append(
-                        Chunk(
-                            path=cur_path,
-                            text=cur_text.rstrip("\n"),
-                            images=cur_images.copy(),
-                        )
-                    )
+                    flush()
                 # Start new section
                 cur_text = line + "\n"
                 cur_images = []
                 cur_path = chunk.path
+                cur_sources = [chunk]
             else:
                 if cur_text is not None:
                     cur_text += line + "\n"
@@ -89,14 +109,25 @@ def chunk_by_section(
                         cur_text = line + "\n"
                         cur_path = chunk.path
                         cur_images = []
+                        cur_sources = [chunk]
 
     # Flush last section if present
     if cur_text is not None:
-        section_chunks.append(
-            Chunk(path=cur_path, text=cur_text.rstrip("\n"), images=cur_images.copy())
-        )
+        flush()
 
     return section_chunks
+
+
+@lru_cache(maxsize=4)
+def _get_embedding_model(model: str):
+    try:
+        from sentence_transformers import SentenceTransformer
+    except ImportError as exc:  # pragma: no cover - exercised via runtime usage
+        raise ImportError(
+            "`chunk_semantic` requires the optional dependency `sentence-transformers`. "
+            "Install it with `pip install thepipe-api[semantic]` or include the `gpu` extra."
+        ) from exc
+    return SentenceTransformer(model_name_or_path=model)
 
 
 def chunk_semantic(
@@ -105,15 +136,7 @@ def chunk_semantic(
     buffer_size: int = 3,
     similarity_threshold: float = 0.1,
 ) -> List[Chunk]:
-    try:
-        from sentence_transformers import SentenceTransformer
-    except ImportError as exc:  # pragma: no cover - exercised via runtime usage
-        raise ImportError(
-            "`chunk_semantic` requires the optional dependency `sentence-transformers`. "
-            "Install it with `pip install thepipe-api[semantic]` or include the `gpu` extra."
-        ) from exc
-
-    embedding_model = SentenceTransformer(model_name_or_path=model)
+    embedding_model = _get_embedding_model(model)
     # Flatten the chunks into sentences
     sentences = []
     sentence_chunk_map = []
@@ -160,12 +183,23 @@ def chunk_semantic(
         group_images = []
         group_path = sentence_path_map[group[0]]
         seen_images = []
+        sources: List[Chunk] = []
         for i in group:
-            for image in sentence_chunk_map[i].images:
+            source = sentence_chunk_map[i]
+            if source not in sources:
+                sources.append(source)
+            for image in source.images:
                 if image not in seen_images:
                     group_images.append(image)
                     seen_images.append(image)
-        new_chunks.append(Chunk(path=group_path, text=group_text, images=group_images))
+        new_chunks.append(
+            Chunk(
+                path=group_path,
+                text=group_text,
+                images=group_images,
+                metadata=merge_metadata(sources),
+            )
+        )
 
     return new_chunks
 
@@ -178,23 +212,27 @@ def chunk_by_keywords(
     current_chunk_text = ""
     current_chunk_images = []
     current_chunk_path = chunks[0].path
+    current_sources: List[Chunk] = []
     for chunk in chunks:
         if chunk.images:
             current_chunk_images.extend(chunk.images)
+        current_sources.append(chunk)
         lines = chunk.text.split("\n") if chunk.text else []
         for line in lines:
             if any(keyword.lower() in line.lower() for keyword in keywords):
                 if current_chunk_text:
                     new_chunks.append(
                         Chunk(
-                            path=chunk.path,
+                            path=current_chunk_path,
                             text=current_chunk_text,
                             images=current_chunk_images,
+                            metadata=merge_metadata(current_sources),
                         )
                     )
                     current_chunk_text = ""
                     current_chunk_images = []
                     current_chunk_path = chunk.path
+                    current_sources = [chunk]
             current_chunk_text += line + "\n"
     if current_chunk_text:
         new_chunks.append(
@@ -202,6 +240,7 @@ def chunk_by_keywords(
                 path=current_chunk_path,
                 text=current_chunk_text,
                 images=current_chunk_images,
+                metadata=merge_metadata(current_sources),
             )
         )
     return new_chunks
@@ -210,43 +249,42 @@ def chunk_by_keywords(
 def chunk_by_length(chunks: List[Chunk], max_tokens: int = 10000) -> List[Chunk]:
     new_chunks = []
     for chunk in chunks:
-        total_tokens = calculate_tokens([chunk])
-        if total_tokens < max_tokens:
+        if calculate_tokens([chunk]) < max_tokens:
             new_chunks.append(chunk)
             continue
         text_halfway_index = len(chunk.text) // 2 if chunk.text else 0
         images_halfway_index = len(chunk.images) // 2 if chunk.images else 0
         if text_halfway_index == 0 and images_halfway_index == 0:
-            if chunk.images:
-                # can't be split further: try to reduce the size of the images
-                # by resizing each image to half its size
-                new_images = []
-                for image in chunk.images:
-                    new_width = image.width // 2
-                    new_height = image.height // 2
-                    resized_image = image.resize((new_width, new_height))
-                    new_images.append(resized_image)
-            else:
+            if not chunk.images:
                 # throw error to prevent downstream errors with LLM inference
                 raise ValueError(
                     "Chunk cannot be split further. Please increase the max_tokens limit."
                 )
-
-            return new_chunks
+            # a lone oversized image: halve its resolution and retry
+            image = chunk.images[0]
+            halved = Chunk(
+                path=chunk.path,
+                text=chunk.text,
+                images=[image.resize((image.width // 2, image.height // 2))],
+                metadata=chunk.metadata,
+            )
+            new_chunks.extend(chunk_by_length([halved], max_tokens))
+            continue
         split_chunks = [
             Chunk(
                 path=chunk.path,
                 text=chunk.text[:text_halfway_index] if chunk.text else None,
                 images=chunk.images[:images_halfway_index] if chunk.images else None,
+                metadata=chunk.metadata,
             ),
             Chunk(
                 path=chunk.path,
                 text=chunk.text[text_halfway_index:] if chunk.text else None,
                 images=chunk.images[images_halfway_index:] if chunk.images else None,
+                metadata=chunk.metadata,
             ),
         ]
-        # recursive call
-        new_chunks = chunk_by_length(split_chunks, max_tokens)
+        new_chunks.extend(chunk_by_length(split_chunks, max_tokens))
 
     return new_chunks
 
@@ -303,7 +341,8 @@ def chunk_agentic(
         )
         user_prompt = numbered
 
-        completion = openai_client.beta.chat.completions.parse(
+        section_list, _ = llm_parse(
+            openai_client,
             model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -311,13 +350,7 @@ def chunk_agentic(
             ],
             response_format=SectionList,
         )
-
-        if not completion.choices[0].message.parsed:
-            raise ValueError(
-                "LLM did not return a valid response during agentic chunking."
-            )
-
-        sections: List[Section] = completion.choices[0].message.parsed.sections
+        sections: List[Section] = section_list.sections
 
         # build chunks from those sections
         for sec in sections:
@@ -327,20 +360,23 @@ def chunk_agentic(
             end = max(start, min(end, len(lines)))
 
             sec_lines = lines[start - 1 : end]
+            sources: List[Chunk] = []
             seen_imgs = []
             sec_images = []
             for idx in range(start - 1, end):
-                for img in getattr(line_to_chunk[idx], "images", []):
+                source = line_to_chunk[idx]
+                if source not in sources:
+                    sources.append(source)
+                for img in source.images:
                     if img not in seen_imgs:
                         seen_imgs.append(img)
                         sec_images.append(img)
 
-            # prepend header
-            text_block = "\n".join(sec_lines)
             new_chunk = Chunk(
                 path=path if path != "__no_path__" else None,
-                text=text_block,
+                text="\n".join(sec_lines),
                 images=sec_images,
+                metadata={**merge_metadata(sources), "section": title},
             )
 
             # break further by length if needed

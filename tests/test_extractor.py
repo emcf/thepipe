@@ -1,95 +1,58 @@
-# test_extractor.py
-
-import unittest
-import sys
 import os
-import json
+import sys
+import unittest
+from typing import Optional
+
 from openai import OpenAI
+from pydantic import BaseModel
 
 sys.path.append("..")
-from thepipe.extract import extract, extract_json_from_response
+from thepipe.extract import extract
 from thepipe.core import Chunk
 
 
+class Receipt(BaseModel):
+    store_name: Optional[str]
+    subtotal_usd: Optional[float]
+    tax_usd: Optional[float]
+    total_usd: Optional[float]
+
+
+@unittest.skipIf(not os.getenv("OPENAI_API_KEY"), "OpenAI API key required")
 class TestExtractor(unittest.TestCase):
     def setUp(self):
-        self.example_receipt = """# Receipt
+        self.client = OpenAI()
+        self.chunks = [
+            Chunk(
+                path="receipt.md",
+                text="""# Receipt
 Store Name: Grocery Mart
 ## Total
 Subtotal: $13.49 USD
 Tax (8%): $1.08 USD
 Total: $14.57 USD
-"""
-
-        self.schema = {
-            "store_name": "string",
-            "subtotal_usd": "float",
-            "tax_usd": "float",
-            "total_usd": "float",
-        }
-
-        self.chunks = [Chunk(path="receipt.md", text=self.example_receipt)]
-
-    def test_extract_json_from_response(self):
-        # List of test cases with expected results
-        test_cases = [
-            # Case 1: JSON enclosed in triple backticks
-            {
-                "input": '```json\n{"key1": "value1", "key2": 2}\n```',
-                "expected": {"key1": "value1", "key2": 2},
-            },
-            # Case 2: JSON directly in the response
-            {
-                "input": '{"key1": "value1", "key2": 2}',
-                "expected": {"key1": "value1", "key2": 2},
-            },
-            # Case 3: Response contains multiple JSON objects
-            {
-                "input": 'Random text {"key1": "value1"} and another {"key2": 2}',
-                "expected": [{"key1": "value1"}, {"key2": 2}],
-            },
-            # Case 4: Response contains incomplete JSON
-            {
-                "input": 'Random text {"key1": "value1"} and another {"key2": 2',
-                "expected": {"key1": "value1"},
-            },
+""",
+            )
         ]
 
-        for i, case in enumerate(test_cases):
-            with self.subTest(i=i):
-                result = extract_json_from_response(case["input"])
-                self.assertEqual(result, case["expected"])
-
-    @unittest.skipIf(not os.getenv("OPENAI_API_KEY"), "OpenAI API key required")
-    def test_extract(self):
-        # provide an explicit client so we cover the new parameter
-        client = OpenAI()
-
-        results, total_tokens_used = extract(
-            chunks=self.chunks,  # receipt
-            schema=self.schema,
-            openai_client=client,
-        )
-
-        # Check if we got a result
-        self.assertEqual(len(results), 1)
-        result = results[0]
-
-        print("test_extract result:", json.dumps(result, indent=2))
-
-        # Check if all expected fields are present
-        expected_fields = ["store_name", "subtotal_usd", "tax_usd", "total_usd"]
-        for field in expected_fields:
-            self.assertIn(field, result)
-
-        # Check some specific values
+    def _assert_receipt(self, result):
         self.assertEqual(result["store_name"], "Grocery Mart")
         self.assertEqual(result["subtotal_usd"], 13.49)
         self.assertEqual(result["tax_usd"], 1.08)
         self.assertEqual(result["total_usd"], 14.57)
 
-        # Check if tokens were used
-        self.assertGreater(total_tokens_used, 0)
+    def test_extract(self):
+        results, tokens_used = extract(self.chunks, Receipt, openai_client=self.client)
+        self.assertEqual(len(results), 1)
+        self._assert_receipt(results[0])
+        self.assertGreater(tokens_used, 0)
+
+    def test_extract_multiple(self):
+        results, _ = extract(
+            self.chunks, Receipt, multiple_extractions=True, openai_client=self.client
+        )
+        self.assertEqual(len(results[0]["extraction"]), 1)
+        self._assert_receipt(results[0]["extraction"][0])
 
 
 if __name__ == "__main__":

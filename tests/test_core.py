@@ -89,16 +89,31 @@ class test_core(unittest.TestCase):
 
     def test_json_roundtrip(self):
         img = Image.new("RGB", (2, 2))
-        chunk = core.Chunk(path="p", text="T", images=[img])
+        chunk = core.Chunk(path="p", text="T", images=[img], metadata={"page": 3})
         data = chunk.to_json()
         chunk2 = core.Chunk.from_json(data)
 
         self.assertEqual(chunk2.path, "p")
         self.assertEqual(chunk2.text, "T")
+        self.assertEqual(chunk2.metadata, {"page": 3})
 
         images = cast(List[Image.Image], chunk2.images)
         self.assertIsInstance(images, list)
         self.assertEqual(len(images), 1)
+
+    def test_merge_metadata(self):
+        a = core.Chunk(metadata={"page": 1, "model": "m", "figures": [{"bbox": [0, 0, 1, 1]}]})
+        b = core.Chunk(metadata={"page": 2, "model": "m", "figures": [{"bbox": [0, 0, 0.5, 0.5]}]})
+        c = core.Chunk(metadata={"page": 2})
+        merged = core.merge_metadata([a, b, c])
+        # equal scalars collapse, differing scalars become a de-duplicated list
+        self.assertEqual(merged["model"], "m")
+        self.assertEqual(merged["page"], [1, 2])
+        # lists concatenate
+        self.assertEqual(len(merged["figures"]), 2)
+        # sources are not mutated
+        self.assertEqual(a.metadata["page"], 1)
+        self.assertEqual(len(a.metadata["figures"]), 1)
 
     @unittest.skipUnless(core.has_llama_index(), "llama-index extra is not installed")
     def test_chunk_to_llamaindex(self):
@@ -185,6 +200,10 @@ class test_core(unittest.TestCase):
         image_data = base64.b64decode(remove_prefix)
         image = Image.open(BytesIO(image_data))
         self.assertEqual(image.format, "JPEG")
-        # verify it hosts the image correctly
+        # hosting requires HOST_URL
+        core.HOST_URL = ""
+        with self.assertRaises(ValueError):
+            core.make_image_url(image, host_images=True)
+        core.HOST_URL = "http://test-host"
         url = core.make_image_url(image, host_images=True)
-        self.assertTrue(url.startswith(core.HOST_URL))
+        self.assertTrue(url.startswith("http://test-host/images/"))

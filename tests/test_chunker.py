@@ -133,6 +133,22 @@ class test_chunker(unittest.TestCase):
             self.assertIsInstance(chunk, Chunk)
             self.assertTrue(chunk.text or chunk.images)
 
+    def test_chunkers_carry_provenance(self):
+        pages = [
+            Chunk(path="d.pdf", text="## A\none", metadata={"page": 1}),
+            Chunk(path="d.pdf", text="two\n## B\nthree", metadata={"page": 2}),
+        ]
+        by_doc = chunker.chunk_by_document(pages)
+        self.assertEqual(by_doc[0].metadata, {"page": [1, 2]})
+
+        sections = chunker.chunk_by_section(pages)
+        self.assertEqual(sections[0].metadata, {"page": [1, 2], "section": "A"})
+        self.assertEqual(sections[1].metadata, {"page": 2, "section": "B"})
+
+        halves = chunker.chunk_by_length([Chunk(text="x" * 400, metadata={"page": 7})], max_tokens=50)
+        self.assertGreater(len(halves), 1)
+        self.assertTrue(all(h.metadata == {"page": 7} for h in halves))
+
     def test_chunk_by_section_first_line_and_custom_separator(self):
         # Default separator, with first line as a header
         text1 = "## Alpha\nContent A\n## Beta\nContent B"
@@ -146,6 +162,9 @@ class test_chunker(unittest.TestCase):
 
         t1 = cast(str, out1[1].text)
         self.assertIn("Beta", t1)
+
+        self.assertEqual(out1[0].metadata["section"], "Alpha")
+        self.assertEqual(out1[1].metadata["section"], "Beta")
 
         # Custom separator "### "
         text2 = "### One\nX\n### Two\nY"

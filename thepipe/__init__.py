@@ -53,6 +53,15 @@ def parse_arguments() -> argparse.Namespace:  # noqa: D401 – imperative is fin
         action="store_true",
         help="Suppress images – output only extracted text.",
     )
+    parser.add_argument(
+        "--max-input-image-size",
+        dest="max_input_image_size",
+        type=int,
+        default=None,
+        help="Max size in pixels of the largest axis of images sent to the "
+        "VLM during scraping (e.g. 500 = at most 500x500). Does not affect "
+        "output images.",
+    )
 
     # OpenAI-related flags
     parser.add_argument(
@@ -128,6 +137,8 @@ def main() -> None:
             inclusion_pattern=args.inclusion_pattern,
             verbose=args.verbose,
             openai_client=openai_client,
+            model=args.openai_model,
+            max_input_image_size=args.max_input_image_size,
         )
     elif os.path.isfile(args.source):
         chunks = scrape_file(
@@ -135,6 +146,7 @@ def main() -> None:
             verbose=args.verbose,
             openai_client=openai_client,
             model=args.openai_model,
+            max_input_image_size=args.max_input_image_size,
         )
     else:
         raise ValueError(f"Invalid source: {args.source}")

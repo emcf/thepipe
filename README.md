@@ -19,15 +19,20 @@
 
 ## Extract clean data from tricky documents ⚡
 
-thepi.pe is a package that can scrape clean markdown, multimodal media, and structured data from complex documents. It uses vision-language models (VLMs) under the hood for superior output quality, and works out-of-the-box with any LLM, VLM, or vector database. It can extract well-formatted data from a wide range of sources, including PDFs, Word docs, Powerpoints, Python notebooks, videos, audio, and more.
+thepi.pe is a package that can scrape clean markdown, multimodal media, and structured data from complex files. It uses vision-language models (VLMs) under the hood for superior output quality, and works out-of-the-box with any LLM, VLM, or vector database. It can extract well-formatted data from a wide range of sources, including PDFs, Word docs, Powerpoints, Python notebooks, videos, audio, and more. If you've tried PyMuPDF, Markitdown, Azure Document Intelligence, and Docling, this will be the last library you try.
+
+<div align="center">
+  <p><b>Scrape</b> — <code>scrape_file()</code> returns page markdown plus detected figures with bounding boxes</p>
+  <img src="https://rpnutzemutbrumczwvue.supabase.co/storage/v1/object/public/assets/thepipe_scrape_demo.png" alt="scrape output: markdown and figure bounding boxes" width="100%">
+  <p><b>Extract</b> — <code>extract()</code> fills a Pydantic schema from the scraped chunks</p>
+  <img src="https://rpnutzemutbrumczwvue.supabase.co/storage/v1/object/public/assets/thepipe_demo.png" alt="extract output: structured fleet schedule" width="100%">
+</div>
 
 ## Features 🌟
 
-- Scrape clean markdown, tables, and images from any document
-- Scrape text, images, video, and audio from any file
-- Works out-of-the-box with vision-language models, vector databases, and RAG frameworks
-- AI-native file-type detection, layout analysis, and structured data extraction
-- Accepts a wide range of sources, including PDFs, Word docs, Powerpoints, Python notebooks, videos, audio, and more
+- Get clean markdown, tables, and images from any file
+- Document AI that works out-of-the-box with any multimodal LLM
+- AI-native file type detection, layout analysis, and structured data extraction
 
 ## Get started in 5 minutes 🚀
 
@@ -76,33 +81,58 @@ By default, thepipe uses the [OpenAI API](https://platform.openai.com/docs/overv
 
 ### Custom VLM server setup (OpenRouter, OpenLLM, etc.)
 
-If you wish to use a local vision-language model or a different cloud provider, you can provide a custom OpenAI client, for example, by setting the base url to `https://openrouter.ai/api/v1` for [OpenRouter](https://openrouter.ai/), or `http://localhost:3000/v1` for a local server such as [OpenLLM](https://github.com/bentoml/OpenLLM). Note that uou must also pass the api key to your non-OpenAI cloud provider into the OpenAI client. The model name can be changed with the `model` parameter. By default, the model will be `gpt-4o`.
+If you wish to use a local vision-language model or a different cloud provider, you can provide a custom OpenAI client, for example, by setting the base url to `https://openrouter.ai/api/v1` for [OpenRouter](https://openrouter.ai/), or `http://localhost:3000/v1` for a local server such as [OpenLLM](https://github.com/bentoml/OpenLLM). Note that uou must also pass the api key to your non-OpenAI cloud provider into the OpenAI client. The model name can be changed with the `model` parameter. By default, the model will be `gpt-5.6-luna`.
 
 ### Scraping
+
+Scraping clean markdown from a file is simple:
 
 ```python
 from thepipe.scraper import scrape_file
 
-# scrape text and page images from a PDF
-chunks = scrape_file(filepath="paper.pdf")
+chunks = scrape_file("paper.pdf")
+
+for c in chunks:
+  print(c.text)
 ```
 
-For enhanced scraping with a vision-language model, you can pass in an OpenAI-compatible client and a model name.
+For enhanced scraping, you can pass in an OpenAI-compatible client and a vision-language model:
 
 ```python
 from openai import OpenAI
 from thepipe.scraper import scrape_file
 
-# create an OpenAI-compatible client
 client = OpenAI()
 
-# scrape clean markdown and page images from a PDF
 chunks = scrape_file(
   filepath="paper.pdf",
-  openai_client=client,
-  model="gpt-4o"
+  openai_client=client, # openai-like client; enables AI scraping
+  model="gpt-5.6-luna" # vision-capable model
 )
 ```
+
+All available options are shown below:
+
+```python
+from thepipe.scraper import scrape_file
+
+chunks = scrape_file(
+  filepath="paper.pdf", # path to the file to scrape
+  verbose=True, # print progress logs
+  chunking_method=chunk_by_page, # chunking function
+  openai_client=client, # openai-like client; enables AI scraping
+  model="gpt-5.6-luna", # vision-capable model (default: DEFAULT_AI_MODEL)
+  include_input_images=True, # sends page images to VLM for enhanced scraping
+  include_output_images=True, # include scraped images in the returned chunks
+  max_input_image_size=1024, # max pixel size of the largest axis of images sent to the VLM (does not affect output images)
+)
+```
+
+AI scraping works well when you need visual figures, bounding boxes, and OCR on image-only scans. Below, a skewed, stained scanned document with no text layer is scraped into clean markdown, with its tables and figures located:
+
+<p align="center">
+  <img src="https://rpnutzemutbrumczwvue.supabase.co/storage/v1/object/public/assets/thepipe_scrape_demo_scanned.png" alt="scrape output on a scanned document" width="100%">
+</p>
 
 ### Chunking
 
@@ -157,7 +187,7 @@ messages += chunks_to_messages(chunks)
 
 # Call LLM
 response = client.chat.completions.create(
-    model="gpt-4o",
+    model="gpt-5.6-luna",
     messages=messages,
 )
 ```
@@ -179,22 +209,22 @@ After installation, a chunk can be converted to LlamaIndex `Document`/`ImageDocu
 
 ### Structured extraction 🗂️
 
-Note that structured extraction is being deprecated and will be removed in future releases. The current implementation is a simple wrapper around OpenAI's chat API, which is not ideal for structured data extraction. We recommend OpenAI's [structured outputs](https://platform.openai.com/docs/guides/structured-outputs?api-mode=chat) for structured data extraction, or using [Trellis AI](https://runtrellis.com/) for automated workflows with structured data.
+Extraction uses OpenAI [structured outputs](https://platform.openai.com/docs/guides/structured-outputs?api-mode=chat), so results always conform to your pydantic schema.
 
 ```python
 from thepipe.extract import extract
 from openai import OpenAI
+from pydantic import BaseModel
 
 client = OpenAI()
 
-schema = {
-  "description": "string",
-  "amount_usd": "float"
-}
+class LineItem(BaseModel):
+    description: str
+    amount_usd: float
 
 results, tokens_used = extract(
     chunks=chunks,
-    schema=schema,
+    schema=LineItem,
     multiple_extractions=True,  # extract multiple rows of data per chunk
     openai_client=client
 )
@@ -205,11 +235,8 @@ results, tokens_used = extract(
 Install the base requirements plus any extras you rely on, then execute:
 
 ```bash
-pip install -r requirements.txt
 python -m unittest discover
 ```
-
-Tests that depend on optional extras (Whisper, Sentence Transformers, LlamaIndex) or an OpenAI API key are skipped automatically when the corresponding dependency is unavailable.
 
 ## Sponsors
 
@@ -224,13 +251,13 @@ Looking for enterprise-ready document processing and intelligent automation? Dis
 
 ## How it works 🛠️
 
-thepipe uses a combination of computer-vision models and heuristics to scrape clean content from the source and process it for downstream use with [large language models](https://en.wikipedia.org/wiki/Large_language_model), or [vision-language models](https://en.wikipedia.org/wiki/Vision_transformer). You can feed these messages directly into the model, or alternatively you can chunk these messages for downstream storage in a vector database such as ChromaDB, LLamaIndex, or an equivalent RAG framework.
+thepipe uses a combination of computer-vision models and heuristics to scrape clean content from the source for downstream use with [large language models](https://en.wikipedia.org/wiki/Large_language_model), or [vision-language models](https://en.wikipedia.org/wiki/Vision_transformer). You can feed the resulting markdown chunks directly into a model, or store them in a vector database such as ChromaDB, LLamaIndex, or an equivalent RAG framework.
 
 ## Supported File Types 📚
 
 | Source                       | Input types                                                                          | Multimodal | Notes                                                                                                                                                                                                                                         |
 | ---------------------------- | ------------------------------------------------------------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PDF                          | `.pdf`                                                                               | ✔️         | Extracts page markdown and page images. AI extraction available when an OpenAI client is supplied for complex or scanned documents                                                                                                            |
+| PDF                          | `.pdf`                                                                               | ✔️         | Extracts page markdown and page images. With an OpenAI client, a VLM transcribes each page to markdown and returns cropped images/diagrams/charts instead of full page renders                                                                  |
 | Word Document                | `.docx`                                                                              | ✔️         | Extracts text, tables, and images                                                                                                                                                                                                             |
 | PowerPoint                   | `.pptx`                                                                              | ✔️         | Extracts text and images from slides                                                                                                                                                                                                          |
 | Video                        | `.mp4`, `.mov`, `.wmv`                                                               | ✔️         | Uses Whisper for transcription and extracts frames                                                                                                                                                                                            |
@@ -247,16 +274,22 @@ thepipe uses a combination of computer-vision models and heuristics to scrape cl
 Set these environment variables to control API keys, hosting, and model defaults:
 
 ```bash
-# If you want longer-term image storage and hosting (saves to ./images and serves via HOST_URL)
+# Image hosting: instead of embedding base64 data URLs in LLM messages, save
+# images to ./images and reference them as {HOST_URL}/images/{id}.jpg.
+# HOST_URL must serve that folder (e.g. via your own API) and is required
+# when HOST_IMAGES is true.
 export HOST_IMAGES=true
+export HOST_URL=https://your-domain.com
 
 # Control scraping defaults
-export DEFAULT_AI_MODEL=gpt-4o
+export DEFAULT_AI_MODEL=gpt-5.6-luna
 export DEFAULT_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 
-# Max duration (in seconds) for audio transcription
+# Window length (in seconds) for splitting audio/video transcripts into chunks
 export MAX_WHISPER_DURATION=600
 ```
+
+Audio and video scraping (`pip install thepipe-api[audio]`) require the `ffmpeg` binary on your PATH.
 
 ## CLI Usage
 
@@ -266,7 +299,7 @@ export MAX_WHISPER_DURATION=600
 
 `--openai-api-key=KEY` To enable VLM scraping, pass in your OpenAI API key
 
-`--openai-model=MODEL` Model to use for scraping (default is `DEFAULT_AI_MODEL`, currently `gpt-4o`)
+`--openai-model=MODEL` Model to use for scraping (default is `DEFAULT_AI_MODEL`, currently `gpt-5.6-luna`)
 
 `--openai-base-url=URL` Custom LLM endpoint, for local LLMs or hosted APIs like OpenRouter (default: https://api.openai.com/v1)
 

@@ -1,6 +1,5 @@
 markdownify==0.12.1
 magika>=0.5.0
-moviepy==1.0.3
 numpy>=1.23
 openai>=1.51.0
 openpyxl>=3.1

@@ -1,13 +1,15 @@
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union, cast
 import base64
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from collections import OrderedDict
+from functools import lru_cache
 from io import BytesIO, StringIO
 import math
 import re
 import fnmatch
 import os
+import subprocess
 import tempfile
+import threading
 from urllib.parse import urlparse
 import zipfile
 from PIL import Image
@@ -18,6 +20,7 @@ from .core import (
     Chunk,
     make_image_url,
     DEFAULT_AI_MODEL,
+    llm_parse,
 )
 from .chunker import (
     chunk_by_page,
@@ -34,7 +37,9 @@ from magika import Magika
 import markdownify
 import fitz
 from openai import OpenAI
-from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
+from openai.types.chat import ChatCompletionContentPartParam
+from openai.types.shared_params import ReasoningEffort
+from pydantic import BaseModel, Field
 
 dotenv.load_dotenv()
 
@@ -78,16 +83,58 @@ USER_AGENT_STRING: str = os.getenv(
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
 )
 MAX_WHISPER_DURATION = int(os.getenv("MAX_WHISPER_DURATION", 600))  # 10 minutes
+PDF_RENDER_SCALE = float(os.getenv("PDF_RENDER_SCALE", "1.0"))
+DIRECTORY_SCRAPE_WORKERS = int(os.getenv("DIRECTORY_SCRAPE_WORKERS", str(min(8, (os.cpu_count() or 1) * 2))))
+PDF_PAGE_WORKERS = int(os.getenv("PDF_PAGE_WORKERS", str((os.cpu_count() or 1) * 2)))
+SCRAPE_REASONING_EFFORT = cast(ReasoningEffort, os.getenv("SCRAPE_REASONING_EFFORT", "none"))
 
 SCRAPING_PROMPT = os.getenv(
     "SCRAPING_PROMPT",
-    """A document is given. Please output the entire extracted contents from the document in detailed markdown format.
-Your accuracy is very important. Please be careful to not miss any content from the document.
-Be sure to correctly output a comprehensive format markdown for all the document contents (including, but not limited to, headers, paragraphs, lists, tables, menus, equations, full text contents, titles, subtitles, appendices, page breaks, columns, footers, page numbers, watermarks, footnotes, captions, annotations, images, figures, charts, shapes, form fields, content controls, signatures, etc.)
-Always reply immediately with only markdown.
-Do not give the markdown in a code block. Simply output the raw markdown immediately.
-Do not output anything else.""",
+    """A document page is given. Please output the entire extracted contents from the page in detailed markdown format.
+Your accuracy is very important. Please be careful to not miss any content from the page.
+Be sure to correctly output a comprehensive format markdown for all the page contents (including, but not limited to, headers, paragraphs, lists, tables, menus, equations, full text contents, titles, subtitles, appendices, page breaks, columns, footers, page numbers, watermarks, footnotes, captions, annotations, form fields, content controls, signatures, etc.)
+Additionally, list the bounding box of every image, figure, diagram, chart, photo, or illustration on the page.
+Do NOT include tables in the bounding boxes - tables must be transcribed into the markdown instead.
+Coordinates are fractions of the page width and height in the range 0.0 to 1.0, with the origin at the top-left corner.
+Each box should tightly enclose one visual element, including its embedded labels but not its caption text.""",
 )
+
+# Ignore figure boxes smaller than this fraction of the page along either axis
+MIN_FIGURE_FRACTION = 0.02
+
+
+class FigureBox(BaseModel):
+    description: str = Field(description="Short description of the visual element")
+    x_min: float = Field(description="Left edge as a fraction of page width (0-1)")
+    y_min: float = Field(description="Top edge as a fraction of page height (0-1)")
+    x_max: float = Field(description="Right edge as a fraction of page width (0-1)")
+    y_max: float = Field(description="Bottom edge as a fraction of page height (0-1)")
+
+    @property
+    def bbox(self) -> Tuple[float, float, float, float]:
+        clamp = lambda v: min(max(v, 0.0), 1.0)
+        return clamp(self.x_min), clamp(self.y_min), clamp(self.x_max), clamp(self.y_max)
+
+    @property
+    def is_valid(self) -> bool:
+        x0, y0, x1, y1 = self.bbox
+        return x1 - x0 >= MIN_FIGURE_FRACTION and y1 - y0 >= MIN_FIGURE_FRACTION
+
+
+class PageExtraction(BaseModel):
+    markdown: str = Field(description="Complete markdown transcription of the page")
+    figures: List[FigureBox] = Field(
+        description="Bounding boxes of images, diagrams, charts, and photos (not tables)"
+    )
+
+
+def crop_figures(page_image: Image.Image, figures: List[FigureBox]) -> List[Image.Image]:
+    """Crop each figure box out of a rendered page image."""
+    width, height = page_image.size
+    return [
+        page_image.crop((int(x0 * width), int(y0 * height), int(x1 * width), int(y1 * height)))
+        for x0, y0, x1, y1 in (fig.bbox for fig in figures)
+    ]
 
 
 def _load_whisper():
@@ -102,6 +149,26 @@ def _load_whisper():
     return whisper
 
 
+@lru_cache(maxsize=None)
+def _get_whisper_model(name: str = "base"):
+    return _load_whisper().load_model(name)
+
+
+_whisper_lock = threading.Lock()  # whisper.transcribe is not thread-safe
+
+
+def _transcribe(file_path: str, verbose: bool = False) -> List[Dict[str, Any]]:
+    model = _get_whisper_model("base")
+    with _whisper_lock:
+        result = model.transcribe(audio=file_path, verbose=verbose)
+    return cast(List[Dict[str, Any]], result.get("segments", []))
+
+
+@lru_cache(maxsize=1)
+def _get_magika() -> Magika:
+    return Magika()
+
+
 def detect_source_mimetype(source: str) -> str:
     # try to detect the file type by its extension
     _, extension = os.path.splitext(source)
@@ -113,7 +180,7 @@ def detect_source_mimetype(source: str) -> str:
         if guessed_mimetype:
             return guessed_mimetype
     # if that fails, try AI detection with Magika
-    magika = Magika()
+    magika = _get_magika()
     with open(source, "rb") as file:
         result = magika.identify_bytes(file.read())
     mimetype = result.output.mime_type
@@ -135,6 +202,8 @@ def scrape_file(
     model: str = DEFAULT_AI_MODEL,
     include_input_images: bool = True,
     include_output_images: bool = True,
+    max_input_image_size: Optional[int] = None,
+    max_workers: Optional[int] = None,
 ) -> List[Chunk]:
     """
     Scrapes a file and returns a list of Chunk objects containing the text and images extracted from the file.
@@ -155,6 +224,14 @@ def scrape_file(
         If ``True``, includes input images in the messages sent to the LLM.
     include_output_images : bool, optional
         If ``True``, includes output images in the returned chunks.
+    max_input_image_size : int, optional
+        Maximum size in pixels of the largest axis of any image sent to the
+        VLM during scraping. For example, ``500`` guarantees every image sent
+        to the VLM fits within 500x500 pixels. Does not affect the images in
+        the returned chunks. If ``None``, images are sent at their native size.
+    max_workers : int, optional
+        Thread count for PDF pages (VLM path) or files inside a zip. Defaults to
+        ``PDF_PAGE_WORKERS`` / ``DIRECTORY_SCRAPE_WORKERS``.
     Returns
     -------
     List[Chunk]
@@ -177,6 +254,8 @@ def scrape_file(
             openai_client=openai_client,
             include_input_images=include_input_images,
             include_output_images=include_output_images,
+            max_input_image_size=max_input_image_size,
+            max_workers=max_workers,
         )
     elif (
         source_mimetype
@@ -199,7 +278,7 @@ def scrape_file(
     elif source_mimetype.startswith("image/"):
         scraped_chunks = scrape_image(file_path=filepath)
     elif (
-        source_mimetype.startswith("application/vnd.ms-excel")
+        source_mimetype in ("text/csv", "application/vnd.ms-excel")
         or source_mimetype
         == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     ):
@@ -222,6 +301,8 @@ def scrape_file(
             openai_client=openai_client,
             include_input_images=include_input_images,
             include_output_images=include_output_images,
+            max_input_image_size=max_input_image_size,
+            max_workers=max_workers,
         )
     elif source_mimetype.startswith("video/"):
         scraped_chunks = scrape_video(
@@ -273,37 +354,25 @@ def scrape_plaintext(file_path: str) -> List[Chunk]:
     return [Chunk(path=file_path, text=text)]
 
 
-def scrape_directory(
+def _collect_directory_files(
     dir_path: str,
-    inclusion_pattern: Optional[str] = None,
-    verbose: bool = False,
-    openai_client: Optional[OpenAI] = None,
-    model: str = DEFAULT_AI_MODEL,
-    include_input_images: bool = True,
-    include_output_images: bool = True,
-    _root_dir: Optional[str] = None,
-    _visited_dirs: Optional[set[str]] = None,
-) -> List[Chunk]:
-    """
-    inclusion_pattern: Optional regex string; only files whose path matches this pattern will be scraped.
-    By default, ignores all files in baked-in constants FOLDERS_TO_IGNORE and FILES_TO_IGNORE.
-    """
-    # compile the include pattern once
-    pattern = re.compile(inclusion_pattern) if inclusion_pattern else None
-    extraction: List[Chunk] = []
-    canonical_root = os.path.realpath(_root_dir or dir_path)
+    pattern: Optional["re.Pattern[str]"],
+    canonical_root: str,
+    visited_dirs: set,
+    verbose: bool,
+) -> List[str]:
+    files: List[str] = []
     current_dir = os.path.realpath(dir_path)
-    visited_dirs = _visited_dirs if _visited_dirs is not None else set()
 
     if not _is_within_directory(canonical_root, current_dir):
         if verbose:
             print(f"[thepipe] Skipping path outside root: {dir_path}")
-        return extraction
+        return files
 
     if current_dir in visited_dirs:
         if verbose:
             print(f"[thepipe] Skipping already visited directory: {current_dir}")
-        return extraction
+        return files
     visited_dirs.add(current_dir)
 
     try:
@@ -338,38 +407,61 @@ def scrape_directory(
                     if verbose:
                         print(f"[thepipe] Skipping non-matching file: {path}")
                     continue
-
-                if verbose:
-                    print(f"[thepipe] Scraping file: {resolved_path}")
-                extraction += scrape_file(
-                    filepath=resolved_path,
-                    verbose=verbose,
-                    openai_client=openai_client,
-                    model=model,
-                    include_input_images=include_input_images,
-                    include_output_images=include_output_images,
-                )
+                files.append(resolved_path)
 
             elif entry.is_dir():
-                # recurse into subdirectory
                 if verbose:
                     print(f"[thepipe] Entering directory: {resolved_path}")
-                extraction += scrape_directory(
-                    dir_path=resolved_path,
-                    inclusion_pattern=inclusion_pattern,
-                    verbose=verbose,
-                    openai_client=openai_client,
-                    model=model,
-                    include_input_images=include_input_images,
-                    include_output_images=include_output_images,
-                    _root_dir=canonical_root,
-                    _visited_dirs=visited_dirs,
+                files.extend(
+                    _collect_directory_files(
+                        resolved_path, pattern, canonical_root, visited_dirs, verbose
+                    )
                 )
     except PermissionError as e:
         if verbose:
             print(f"[thepipe] Skipping {dir_path} (permission denied): {e}")
 
-    return extraction
+    return files
+
+
+def scrape_directory(
+    dir_path: str,
+    inclusion_pattern: Optional[str] = None,
+    verbose: bool = False,
+    openai_client: Optional[OpenAI] = None,
+    model: str = DEFAULT_AI_MODEL,
+    include_input_images: bool = True,
+    include_output_images: bool = True,
+    max_input_image_size: Optional[int] = None,
+    max_workers: Optional[int] = None,
+) -> List[Chunk]:
+    """
+    inclusion_pattern: Optional regex string; only files whose path matches this pattern will be scraped.
+    By default, ignores all files in baked-in constants FOLDERS_TO_IGNORE and FILES_TO_IGNORE.
+    """
+    pattern = re.compile(inclusion_pattern) if inclusion_pattern else None
+    canonical_root = os.path.realpath(dir_path)
+    files = _collect_directory_files(dir_path, pattern, canonical_root, set(), verbose)
+    if not files:
+        return []
+
+    def _scrape(path: str) -> List[Chunk]:
+        if verbose:
+            print(f"[thepipe] Scraping file: {path}")
+        return scrape_file(
+            filepath=path,
+            verbose=verbose,
+            openai_client=openai_client,
+            model=model,
+            include_input_images=include_input_images,
+            include_output_images=include_output_images,
+            max_input_image_size=max_input_image_size,
+        )
+
+    workers = max(1, min(max_workers or DIRECTORY_SCRAPE_WORKERS, len(files)))
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        results = list(executor.map(_scrape, files))
+    return [chunk for chunks in results for chunk in chunks]
 
 
 def scrape_zip(
@@ -379,8 +471,9 @@ def scrape_zip(
     openai_client: Optional[OpenAI] = None,
     include_input_images: bool = True,
     include_output_images: bool = True,
+    max_input_image_size: Optional[int] = None,
+    max_workers: Optional[int] = None,
 ) -> List[Chunk]:
-    chunks = []
     with tempfile.TemporaryDirectory() as temp_dir:
         with zipfile.ZipFile(file_path, "r") as zip_ref:
             zip_ref.extractall(temp_dir)
@@ -391,7 +484,15 @@ def scrape_zip(
             openai_client=openai_client,
             include_input_images=include_input_images,
             include_output_images=include_output_images,
+            max_input_image_size=max_input_image_size,
+            max_workers=max_workers,
         )
+        # temp paths mean nothing to the caller: point at the archive and record the member
+        root = os.path.realpath(temp_dir)
+        for chunk in chunks:
+            member = os.path.relpath(chunk.path or root, root).replace(os.sep, "/")
+            chunk.metadata["archive_member"] = member
+            chunk.path = file_path
     return chunks
 
 
@@ -402,11 +503,21 @@ def scrape_pdf(
     verbose: Optional[bool] = False,
     include_input_images: bool = True,
     include_output_images: bool = True,
-    image_scale: float = 1.0,
+    max_input_image_size: Optional[int] = None,
+    max_workers: Optional[int] = None,
 ) -> List[Chunk]:
+    """
+    max_input_image_size caps the largest axis (in pixels) of page images sent to the
+    VLM during scraping. It does not affect the images in the returned chunks.
+
+    With an OpenAI client, each page is transcribed to markdown via structured
+    outputs, and any images/diagrams/charts the VLM locates are cropped out of the
+    page render and returned as the chunk's images. A page whose LLM call fails
+    falls back to its plain text with the error in ``metadata["error"]``.
+    """
     chunks: List[Chunk] = []
 
-    # Branch 1 â€“ VLM path (OpenAI client supplied)
+    # Branch 1 – VLM path (OpenAI client supplied)
     if openai_client is not None:
         with open(file_path, "rb") as fp:
             pdf_bytes = fp.read()
@@ -419,82 +530,82 @@ def scrape_pdf(
                 f"({num_pages} pages) with model {model}"
             )
 
-        # Inner worker â€“ processes one page
-        def _process_page(page_num: int) -> Tuple[int, str, Optional[Image.Image]]:
+        def _process_page(page_num: int) -> Chunk:
             page = doc[page_num]
             text = page.get_text()  # type: ignore[attr-defined]
 
-            # Build message for the LLM
-            msg_content: List[Dict[str, Union[Dict[str, str], str]]] = [
-                {
-                    "type": "text",
-                    "text": f"```\n{text}\n```\n{SCRAPING_PROMPT}",
-                }
+            scale = PDF_RENDER_SCALE
+            if max_input_image_size is not None:
+                rect = page.rect
+                scale = min(scale, max_input_image_size / max(rect.width, rect.height))
+            pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)  # type: ignore[attr-defined]
+            page_image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+
+            msg_content: List[ChatCompletionContentPartParam] = [
+                {"type": "text", "text": f"```\n{text}\n```\n{SCRAPING_PROMPT}"}
             ]
+            if include_input_images:
+                encoded = make_image_url(
+                    page_image,
+                    host_images=HOST_IMAGES,
+                    max_resolution=max_input_image_size,
+                )
+                msg_content.append(
+                    {"type": "image_url", "image_url": {"url": encoded, "detail": "high"}}
+                )
 
-            image: Optional[Image.Image] = None
-            if include_input_images or include_output_images:
-                mat = fitz.Matrix(image_scale, image_scale)
-                pix = page.get_pixmap(matrix=mat, alpha=False)  # type: ignore[attr-defined]  # noqa: E501
-                image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-
-                if include_input_images:
-                    encoded = make_image_url(image, host_images=HOST_IMAGES)
-                    msg_content.append(
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": encoded, "detail": "high"},
-                        }
-                    )
-
-            messages = cast(
-                Iterable[ChatCompletionMessageParam],
-                [{"role": "user", "content": msg_content}],
+            parsed, _ = llm_parse(
+                openai_client,
+                model=model,
+                messages=[{"role": "user", "content": msg_content}],
+                response_format=PageExtraction,
+                reasoning_effort=SCRAPE_REASONING_EFFORT,
             )
 
-            response = openai_client.chat.completions.create(
-                model=model, messages=messages
+            figures = [fig for fig in parsed.figures if fig.is_valid]
+            images = (
+                crop_figures(page_image, figures)
+                if include_output_images and figures
+                else []
+            )
+            return Chunk(
+                path=file_path,
+                text=parsed.markdown.strip(),
+                images=images,
+                metadata={
+                    "page": page_num + 1,
+                    "model": model,
+                    "figures": [
+                        {"description": fig.description, "bbox": list(fig.bbox)}
+                        for fig in figures
+                    ],
+                },
             )
 
-            llm_response = response.choices[0].message.content
-            if not llm_response:
-                raise RuntimeError("Empty LLM response.")
+        def _safe_process_page(page_num: int) -> Chunk:
+            try:
+                return _process_page(page_num)
+            except Exception as e:
+                if verbose:
+                    print(f"[thepipe] Page {page_num + 1} failed, using plain text: {e}")
+                text = doc[page_num].get_text().strip()  # type: ignore[attr-defined]
+                return Chunk(
+                    path=file_path,
+                    text=text,
+                    metadata={"page": page_num + 1, "model": None, "error": str(e)},
+                )
 
-            llm_response = llm_response.strip()
-            if llm_response.startswith("```markdown"):
-                llm_response = llm_response[len("```markdown") :]
-            elif llm_response.startswith("```"):
-                llm_response = llm_response[len("```") :]
-            if llm_response.endswith("```"):
-                llm_response = llm_response[: -len("```")]
-
-            return (
-                page_num,
-                llm_response,
-                image if include_output_images else None,
-            )
-
-        # Parallel extraction
-        max_workers = (os.cpu_count() or 1) * 2
+        workers = max(1, max_workers or PDF_PAGE_WORKERS)
         if verbose:
-            print(f"[thepipe] Using {max_workers} threads for PDF extraction")
+            print(f"[thepipe] Using {workers} threads for PDF extraction")
 
-        page_results: OrderedDict[int, Tuple[str, Optional[Image.Image]]] = (
-            OrderedDict()
-        )
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(_process_page, p) for p in range(num_pages)]
-            for fut in as_completed(futures):
-                pg, txt, img = fut.result()
-                page_results[pg] = (txt, img)
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            chunks = list(executor.map(_safe_process_page, range(num_pages)))
 
-        for pg in sorted(page_results):
-            txt, img = page_results[pg]
-            chunks.append(Chunk(path=file_path, text=txt, images=[img] if img else []))
-
+        doc.close()
         return chunks
 
-    # Branch 2 â€“ no OpenAI client â€“ text-only offline mode
+    # Branch 2 – no OpenAI client – text-only offline mode
     from pymupdf4llm.helpers.pymupdf_rag import to_markdown  # local import
 
     doc = fitz.open(file_path)
@@ -505,11 +616,12 @@ def scrape_pdf(
 
         images: List[Image.Image] = []
         if include_output_images:
-            mat = fitz.Matrix(image_scale, image_scale)
-            pix = doc[i].get_pixmap(matrix=mat, alpha=False)  # type: ignore[attr-defined]  # noqa: E501
+            pix = doc[i].get_pixmap(alpha=False)  # type: ignore[attr-defined]  # noqa: E501
             images.append(Image.frombytes("RGB", [pix.width, pix.height], pix.samples))
 
-        chunks.append(Chunk(path=file_path, text=text, images=images))
+        chunks.append(
+            Chunk(path=file_path, text=text, images=images, metadata={"page": i + 1})
+        )
 
     doc.close()
     return chunks
@@ -549,7 +661,7 @@ def scrape_image(file_path: str) -> List[Chunk]:
 def scrape_spreadsheet(file_path: str, source_type: str) -> List[Chunk]:
     import pandas as pd
 
-    if source_type == "application/vnd.ms-excel":
+    if source_type in ("text/csv", "application/vnd.ms-excel"):
         df = pd.read_csv(file_path)
     elif (
         source_type
@@ -564,18 +676,39 @@ def scrape_spreadsheet(file_path: str, source_type: str) -> List[Chunk]:
         # format each row as json along with the row index
         item["row index"] = i
         item_json = json.dumps(item, indent=4)
-        chunks.append(Chunk(path=file_path, text=item_json))
+        chunks.append(Chunk(path=file_path, text=item_json, metadata={"row": i}))
     return chunks
 
 
-def format_timestamp(seconds, chunk_index, chunk_duration):
-    # helper function to format the timestamp.
-    total_seconds = chunk_index * chunk_duration + seconds
-    hours = int(total_seconds // 3600)
-    minutes = int((total_seconds % 3600) // 60)
-    seconds = total_seconds % 60
-    milliseconds = int((seconds - int(seconds)) * 1000)
-    return f"{hours:02}:{minutes:02}:{int(seconds):02}.{milliseconds:03}"
+def format_timestamp(seconds: float) -> str:
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = seconds % 60
+    milliseconds = int((secs - int(secs)) * 1000)
+    return f"{hours:02}:{minutes:02}:{int(secs):02}.{milliseconds:03}"
+
+
+def _ffmpeg_duration(file_path: str) -> float:
+    """Media duration in seconds, parsed from ffmpeg's probe output (ffmpeg is required by whisper)."""
+    probe = subprocess.run(
+        ["ffmpeg", "-i", file_path], capture_output=True, text=True, errors="ignore"
+    )
+    match = re.search(r"Duration: (\d+):(\d+):(\d+\.?\d*)", probe.stderr)
+    if not match:
+        raise ValueError(f"Could not determine duration of {file_path}")
+    h, m, s = match.groups()
+    return int(h) * 3600 + int(m) * 60 + float(s)
+
+
+def _ffmpeg_frame(file_path: str, seconds: float) -> Image.Image:
+    """Grab a single frame at ``seconds`` as a PIL image."""
+    png = subprocess.run(
+        ["ffmpeg", "-loglevel", "error", "-ss", str(seconds), "-i", file_path,
+         "-frames:v", "1", "-f", "image2pipe", "-c:v", "png", "-"],
+        capture_output=True,
+        check=True,
+    ).stdout
+    return Image.open(BytesIO(png))
 
 
 def scrape_video(
@@ -583,89 +716,52 @@ def scrape_video(
     verbose: bool = False,
     include_output_images: bool = True,
 ) -> List[Chunk]:
-    whisper = _load_whisper()
-    from moviepy.editor import VideoFileClip
+    """
+    Transcribes the whole video with whisper, then emits one chunk per
+    MAX_WHISPER_DURATION window with the transcript segments falling in that
+    window and a frame from the window's start.
+    """
+    duration = _ffmpeg_duration(file_path)
+    segments = _transcribe(file_path, verbose=verbose)
 
-    # Splits the video into chunks of length MAX_WHISPER_DURATION, extracts
-    # one representative frame from the start of each chunk, and then transcribes
-    # that chunk.
-    model = whisper.load_model("base")
-    video = VideoFileClip(file_path)
-    num_chunks = math.ceil(video.duration / MAX_WHISPER_DURATION)
     chunks = []
+    for i in range(math.ceil(duration / MAX_WHISPER_DURATION)):
+        start_time = i * MAX_WHISPER_DURATION
+        end_time = min(start_time + MAX_WHISPER_DURATION, duration)
 
-    try:
-        for i in range(num_chunks):
-            # Calculate the start and end time of the chunk
-            start_time = i * MAX_WHISPER_DURATION
-            end_time = start_time + MAX_WHISPER_DURATION
-            if end_time > video.duration:
-                end_time = video.duration
+        transcript = "\n".join(
+            f"[{format_timestamp(seg['start'])} --> {format_timestamp(seg['end'])}]  {seg['text']}"
+            for seg in segments
+            if start_time <= seg["start"] < end_time and seg["text"].strip()
+        )
+        image = _ffmpeg_frame(file_path, start_time) if include_output_images else None
 
-            # Extract a frame from the start of the chunk
-            image = None
-            if include_output_images:
-                frame = video.get_frame(start_time)
-                image = Image.fromarray(frame)
-
-            # Save the audio to a temporary .wav file
-            with tempfile.NamedTemporaryFile(
-                suffix=".wav", delete=False
-            ) as temp_audio_file:
-                audio_path = temp_audio_file.name
-
-            audio = video.subclip(start_time, end_time).audio  # type: ignore[attr-defined]
-            transcription = None
-
-            if audio is not None:
-                audio.write_audiofile(audio_path, codec="pcm_s16le")
-                result = model.transcribe(audio=audio_path, verbose=verbose)
-
-                # Format transcription with timestamps
-                formatted_transcription = []
-                for segment in cast(List[Dict[str, Any]], result["segments"]):
-                    seg_start = format_timestamp(
-                        segment["start"], i, MAX_WHISPER_DURATION
-                    )
-                    seg_end = format_timestamp(segment["end"], i, MAX_WHISPER_DURATION)
-                    formatted_transcription.append(
-                        f"[{seg_start} --> {seg_end}]  {segment['text']}"
-                    )
-
-                transcription = "\n".join(formatted_transcription)
-                os.remove(audio_path)
-
-            # Only add chunks if there is either text or images
-            if transcription or image:
-                chunks.append(
-                    Chunk(
-                        path=file_path,
-                        text=transcription if transcription else None,
-                        images=[image] if image else [],
-                    )
+        if transcript or image:
+            chunks.append(
+                Chunk(
+                    path=file_path,
+                    text=transcript or None,
+                    images=[image] if image else [],
+                    metadata={"start": start_time, "end": end_time},
                 )
-    finally:
-        video.close()
+            )
 
     return chunks
 
 
 def scrape_audio(file_path: str, verbose: bool = False) -> List[Chunk]:
-    whisper = _load_whisper()
-
-    model = whisper.load_model("base")
-    result = model.transcribe(audio=file_path, verbose=verbose)
-    segments = cast(List[Dict[str, Any]], result.get("segments", []))
+    segments = _transcribe(file_path, verbose=verbose)
 
     transcript: List[str] = []
     for segment in segments:
-        start = format_timestamp(segment["start"], 0, 0)
-        end = format_timestamp(segment["end"], 0, 0)
+        start = format_timestamp(segment["start"])
+        end = format_timestamp(segment["end"])
         if segment["text"].strip():
             transcript.append(f"[{start} --> {end}]  {segment['text']}")
     # join the formatted transcription into a single string
     transcript_text = "\n".join(transcript)
-    return [Chunk(path=file_path, text=transcript_text)]
+    metadata = {"start": 0.0, "end": segments[-1]["end"]} if segments else {}
+    return [Chunk(path=file_path, text=transcript_text, metadata=metadata)]
 
 
 def scrape_docx(
@@ -723,7 +819,7 @@ def scrape_docx(
     try:
         # scrape each block in the document to create chunks
         # A block can be a paragraph, table, or image
-        for block in iter_block_items(document):
+        for block_index, block in enumerate(iter_block_items(document)):
             block_texts = []
             block_images = []
             if isinstance(block, Paragraph):
@@ -758,7 +854,15 @@ def scrape_docx(
                 block_text = "\n".join(block_texts).strip()
                 if block_text or block_images:
                     chunks.append(
-                        Chunk(path=file_path, text=block_text, images=block_images)
+                        Chunk(
+                            path=file_path,
+                            text=block_text,
+                            images=block_images,
+                            metadata={
+                                "block": block_index,
+                                "block_type": "table" if isinstance(block, Table) else "paragraph",
+                            },
+                        )
                     )
     except Exception as e:
         raise ValueError(f"Error processing DOCX file {file_path}: {e}")
@@ -778,7 +882,7 @@ def scrape_pptx(
     prs = Presentation(file_path)
     chunks = []
     # iterate through each slide in the presentation
-    for slide in prs.slides:
+    for slide_index, slide in enumerate(prs.slides):
         slide_texts = []
         slide_images = []
         # iterate through each shape in the slide
@@ -801,7 +905,14 @@ def scrape_pptx(
             text = "\n".join(slide_texts).strip()
             if not include_output_images:
                 slide_images = []
-            chunks.append(Chunk(path=file_path, text=text, images=slide_images))
+            chunks.append(
+                Chunk(
+                    path=file_path,
+                    text=text,
+                    images=slide_images,
+                    metadata={"slide": slide_index + 1},
+                )
+            )
     # return all chunks
     return chunks
 
@@ -815,7 +926,7 @@ def scrape_ipynb(
         notebook = json.load(file)
     chunks = []
     # parse cells in the notebook
-    for cell in notebook["cells"]:
+    for cell_index, cell in enumerate(notebook["cells"]):
         texts = []
         images: List[Image.Image] = []
         cell_type = cell["cell_type"]
@@ -852,5 +963,12 @@ def scrape_ipynb(
             texts.append(text)
         if texts or images:
             text = "\n".join(texts).strip()
-            chunks.append(Chunk(path=file_path, text=text, images=images))
+            chunks.append(
+                Chunk(
+                    path=file_path,
+                    text=text,
+                    images=images,
+                    metadata={"cell": cell_index, "cell_type": cell_type},
+                )
+            )
     return chunks

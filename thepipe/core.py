@@ -1,13 +1,23 @@
-import argparse
 import base64
 from io import BytesIO
 import json
 import os
 import re
+import threading
 import time
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union
 import requests
 from PIL import Image
+from openai import OpenAI
+from openai.types.chat import (
+    ChatCompletionContentPartParam,
+    ChatCompletionMessageParam,
+    ChatCompletionUserMessageParam,
+)
+from openai.types.shared_params import ReasoningEffort
+from pydantic import BaseModel
+
+T = TypeVar("T", bound=BaseModel)
 
 try:  # Optional LlamaIndex dependency
     from llama_index.core.schema import Document as _LlamaDocument
@@ -21,14 +31,62 @@ Document = _LlamaDocument  # type: ignore[assignment]
 ImageDocument = _LlamaImageDocument  # type: ignore[assignment]
 
 # LLM provider info, defaults to openai
-DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-4o")
+DEFAULT_AI_MODEL = os.getenv("DEFAULT_AI_MODEL", "gpt-5.6-luna")
 DEFAULT_EMBEDDING_MODEL = os.getenv(
     "DEFAULT_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
 )
 
-# for persistent images via filehosting
+# for persistent images via filehosting: images are saved to ./images and
+# referenced as {HOST_URL}/images/{id}.jpg, so HOST_URL must serve that folder
 HOST_IMAGES = os.getenv("HOST_IMAGES", "false").lower() == "true"
-HOST_URL = os.getenv("HOST_URL", "https://thepipe-api.up.railway.app")
+HOST_URL = os.getenv("HOST_URL", "").rstrip("/")
+JPEG_QUALITY = int(os.getenv("JPEG_QUALITY", "75"))
+
+# max simultaneous LLM requests per process
+LLM_MAX_CONCURRENCY = int(os.getenv("LLM_MAX_CONCURRENCY", "16"))
+
+
+class _NoLimit:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+llm_slots = (
+    threading.BoundedSemaphore(LLM_MAX_CONCURRENCY)
+    if LLM_MAX_CONCURRENCY > 0
+    else _NoLimit()
+)
+
+
+def llm_parse(
+    openai_client: OpenAI,
+    model: str,
+    messages: Iterable[ChatCompletionMessageParam],
+    response_format: Type[T],
+    reasoning_effort: Optional[ReasoningEffort] = None,
+) -> Tuple[T, str]:
+    """Structured-output call, gated by ``llm_slots``. Returns ``(parsed, raw_content)``."""
+    with llm_slots:
+        if reasoning_effort:
+            completion = openai_client.chat.completions.parse(
+                model=model,
+                messages=messages,
+                response_format=response_format,
+                reasoning_effort=reasoning_effort,
+            )
+        else:
+            completion = openai_client.chat.completions.parse(
+                model=model,
+                messages=messages,
+                response_format=response_format,
+            )
+    message = completion.choices[0].message
+    if message.parsed is None:
+        raise RuntimeError(f"LLM did not return a parsable response: {message.refusal}")
+    return message.parsed, message.content or ""
 
 
 def prepare_image(image: Image.Image) -> Image.Image:
@@ -84,6 +142,27 @@ def has_llama_index() -> bool:
 
 
 class Chunk:
+    """
+    A unit of scraped content.
+
+    ``metadata`` records provenance. Scrapers set only the keys they know:
+
+    - ``page``        1-based PDF page
+    - ``slide``       1-based PPTX slide
+    - ``cell``        0-based notebook cell, with ``cell_type``
+    - ``row``         0-based spreadsheet row
+    - ``block``       0-based DOCX body block, with ``block_type`` (paragraph/table)
+    - ``start``/``end``  seconds into an audio/video file
+    - ``archive_member``  path of the file inside a scraped ``.zip`` (``path`` is the zip)
+    - ``model``       VLM used to produce the text, when one was
+    - ``figures``     ``[{"description": str, "bbox": [x0, y0, x1, y1]}]`` in page
+                      fractions (0-1, top-left origin), aligned with ``images``
+    - ``section``     section title, set by section-aware chunkers
+
+    When chunkers merge chunks, equal values collapse, differing scalars become a
+    list (e.g. ``page: [3, 4]``) and lists concatenate.
+    """
+
     def __init__(
         self,
         path: Optional[str] = None,
@@ -91,12 +170,14 @@ class Chunk:
         images: Optional[Iterable[Image.Image]] = None,
         audios: Optional[Iterable] = None,
         videos: Optional[Iterable] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ):
         self.path = path
         self.text = text or ""
         self.images = [prepare_image(image) for image in images] if images else []
         self.audios = list(audios) if audios else []
         self.videos = list(videos) if videos else []
+        self.metadata: Dict[str, Any] = dict(metadata) if metadata else {}
 
     def __repr__(self) -> str:
         parts = []
@@ -114,6 +195,8 @@ class Chunk:
             parts.append(f"audios_count={len(self.audios)}")
         if self.videos:
             parts.append(f"videos_count={len(self.videos)}")
+        if self.metadata:
+            parts.append(f"metadata={self.metadata!r}")
         content = ", ".join(parts) or "empty"
         return f"Chunk({content})"
 
@@ -123,7 +206,7 @@ class Chunk:
     def to_llamaindex(self) -> Union[List["Document"], List["ImageDocument"]]:
         DocumentCls, ImageDocumentCls = _ensure_llama_index()
         document_text = self.text if self.text else ""
-        metadata = {"filepath": self.path} if self.path else {}
+        metadata = {**({"filepath": self.path} if self.path else {}), **self.metadata}
 
         # If we have PIL Image objects in self.images, convert them to base64 strings
         if self.images:
@@ -157,9 +240,9 @@ class Chunk:
         host_images: bool = False,
         max_resolution: Optional[int] = None,
         include_paths: Optional[bool] = False,
-    ) -> Dict:
+    ) -> ChatCompletionUserMessageParam:
         message_text = ""
-        message = {"role": "user", "content": []}
+        content: List[ChatCompletionContentPartParam] = []
         image_urls = (
             [
                 make_image_url(image, host_images, max_resolution)
@@ -190,13 +273,13 @@ class Chunk:
         # Wrap the text in a path html block if it exists
         if include_paths and self.path:
             message_text = f'<Document path="{self.path}">\n{message_text}\n</Document>'
-        message["content"].append({"type": "text", "text": message_text})
+        content.append({"type": "text", "text": message_text})
 
         # Add remaining images that weren't referenced in the text
         for image_url in image_urls:
-            message["content"].append({"type": "image_url", "image_url": image_url})
+            content.append({"type": "image_url", "image_url": {"url": image_url}})
 
-        return message
+        return {"role": "user", "content": content}
 
     def to_json(self, host_images: bool = False, text_only: bool = False) -> Dict:
         data = {
@@ -213,6 +296,7 @@ class Chunk:
             ),
             "audios": self.audios,
             "videos": self.videos,
+            "metadata": self.metadata,
         }
         return data
 
@@ -235,9 +319,26 @@ class Chunk:
             path=data["path"],
             text=text,
             images=images,
+            metadata=data.get("metadata"),
             # audios=data['audios'],
             # videos=data['videos'],
         )
+
+
+def merge_metadata(chunks: Iterable[Chunk]) -> Dict[str, Any]:
+    """Combine provenance of several chunks: equal values collapse, differing scalars become a list, lists concatenate."""
+    merged: Dict[str, Any] = {}
+    for chunk in chunks:
+        for key, value in chunk.metadata.items():
+            if key not in merged:
+                merged[key] = list(value) if isinstance(value, list) else value
+            elif isinstance(value, list):
+                merged[key] = merged[key] + value
+            elif merged[key] != value:
+                existing = merged[key] if isinstance(merged[key], list) else [merged[key]]
+                if value not in existing:
+                    merged[key] = existing + [value]
+    return merged
 
 
 def make_image_url(
@@ -249,21 +350,19 @@ def make_image_url(
             scale = max_resolution / max(width, height)
             new_width = int(width * scale)
             new_height = int(height * scale)
-            image = image.resize((new_width, new_height))
+            image = image.resize((new_width, new_height), Image.LANCZOS)
+    if image.mode != "RGB":
+        image = image.convert("RGB")
     if host_images:
-        if not os.path.exists("images"):
-            os.makedirs("images")
+        if not HOST_URL:
+            raise ValueError("HOST_URL must be set to host images (HOST_IMAGES=true).")
+        os.makedirs("images", exist_ok=True)
         image_id = f"{time.time_ns()}.jpg"
-        image_path = os.path.join("images", image_id)
-        if image.mode in ("P", "RGBA"):
-            image = image.convert("RGB")
-        image.save(image_path)
+        image.save(os.path.join("images", image_id), format="JPEG", quality=JPEG_QUALITY)
         return f"{HOST_URL}/images/{image_id}"
     else:
         buffered = BytesIO()
-        if image.mode != "RGB":
-            image = image.convert("RGB")
-        image.save(buffered, format="JPEG")
+        image.save(buffered, format="JPEG", quality=JPEG_QUALITY)
         img_str = base64.b64encode(buffered.getvalue()).decode()
         return f"data:image/jpeg;base64,{img_str}"
 
@@ -304,7 +403,7 @@ def chunks_to_messages(
     host_images: bool = False,
     max_resolution: Optional[int] = None,
     include_paths: Optional[bool] = False,
-) -> List[Dict]:
+) -> List[ChatCompletionUserMessageParam]:
     return [
         chunk.to_message(
             text_only=text_only,
@@ -341,28 +440,3 @@ def save_outputs(
         file.write(text)
     if verbose:
         print(f"[thepipe] {calculate_tokens(chunks)} tokens saved to {output_folder}")
-
-
-def parse_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Compress project files into a context prompt."
-    )
-    parser.add_argument(
-        "source", type=str, help="The source file or directory to compress."
-    )
-    parser.add_argument(
-        "--inclusion_pattern",
-        type=str,
-        default=None,
-        help="Regex pattern to match in a directory.",
-    )
-    parser.add_argument(
-        "--ai_extraction",
-        action="store_true",
-        help="Use ai_extraction to extract text from images.",
-    )
-    parser.add_argument("--text_only", action="store_true", help="Only store text.")
-    parser.add_argument("--verbose", action="store_true", help="Print status messages.")
-    parser.add_argument("--local", action="store_true", help="Print status messages.")
-    args = parser.parse_args()
-    return args
