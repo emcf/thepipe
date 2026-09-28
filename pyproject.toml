@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "thepipe_api"
+version = "2.0.0"
+description = "Get clean data from tricky documents, powered by VLMs."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Emmett McFarlane", email = "emmett@thepi.pe" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "magika>=0.6",
+    "markdownify>=1.2",
+    "numpy>=2.0",
+    "openai>=2.0",
+    "openpyxl>=3.1",
+    "pandas>=2.2",
+    "pillow>=11.0",
+    "pydantic>=2.11",
+    "pymupdf4llm>=1.28.2",
+    "PyMuPDF>=1.28.2",
+    "python-docx>=1.2",
+    "python-dotenv>=1.1",
+    "python-pptx>=1.0",
+    "requests>=2.32",
+]
+
+[project.optional-dependencies]
+audio = ["openai-whisper>=20250625"]
+semantic = ["sentence-transformers>=5.1"]
+llama-index = ["llama-index-core>=0.14"]
+gpu = ["torch>=2.8", "thepipe_api[audio,semantic]"]
+all = ["thepipe_api[gpu,llama-index]"]
+
+[project.urls]
+Homepage = "https://github.com/emcf/thepipe"
+
+[project.scripts]
+thepipe = "thepipe:main"
+
+[tool.setuptools.packages.find]
+include = ["thepipe*"]

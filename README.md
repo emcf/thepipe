@@ -224,9 +224,10 @@ results, tokens_used = extract(
 
 ## Running the test suite 🧪
 
-Install the base requirements plus any extras you rely on, then execute:
+Install the package in editable mode with the extras you rely on, then execute:
 
 ```bash
+pip install -e ".[all]"
 python -m unittest discover
 ```
 
